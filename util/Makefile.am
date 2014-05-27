@@ -1,3 +1,7 @@
+## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+##
+## Copyright (c) 2014 BBC
+##
 ## Copyright 2013 Mo McRoberts.
 ##
 ##  Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,6 +19,6 @@
 
 bin_PROGRAMS = crawl-fetch crawl-locate crawl-mirror crawl-config
 
-crawl_fetch_LDADD = ../libcrawl.la
-crawl_locate_LDADD = ../libcrawl.la
-crawl_mirror_LDADD = ../libcrawl.la $(LIBXML2_LOCAL_LIBS) $(LIBXML2_LIBS)
+crawl_fetch_LDADD = ../libcrawl.la $(LIBJSONDATA_LOCAL_LIBS) $(LIBJSONDATA_LIBS)
+crawl_locate_LDADD = ../libcrawl.la $(LIBJSONDATA_LOCAL_LIBS) $(LIBJSONDATA_LIBS)
+crawl_mirror_LDADD = ../libcrawl.la $(LIBXML2_LOCAL_LIBS) $(LIBXML2_LIBS) $(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS)
