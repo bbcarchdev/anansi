@@ -25,10 +25,15 @@ BT_PROG_XCODE
 AC_PROG_CC([clang c99 gcc cc])
 AC_PROG_CC_C99
 BT_PROG_CC_WARN
+BT_ENABLE_POSIX
+BT_ENABLE_XSI
 LT_INIT
 BT_DEFINE_PREFIX
 
 dnl save and restore LIBS -- each set will be used explicitly where needed
+
+BT_REQUIRE_PTHREAD
+
 save_LIBS="$LIBS"
 BT_REQUIRE_OPENSSL
 BT_REQUIRE_LIBCURL

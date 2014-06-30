@@ -1,0 +1,5 @@
+usr/lib/libcrawl.a
+usr/lib/libcrawl.la
+usr/include/crawl.h
+usr/bin/crawl-config
+

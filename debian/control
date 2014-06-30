@@ -1,0 +1,22 @@
+Source: anansi
+Section: utils
+Priority: extra
+Maintainer: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+Homepage: http://bbcarchdev.github.io/res/
+Build-Depends: debhelper (>= 8.0.0), libsql-dev, liburi-dev, libjsondata-dev, libmysqlclient-dev, libcurl4-gnutls-dev, libxml2-dev, librdf0-dev, pkg-config
+
+Package: libcrawl
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}, libsql, liburi, libjsondata, libssl, libmysqlclient, libcurl3, libxml2, librdf0
+Description: RES Anansi Linked Open Data crawler (libraries)
+
+Package: anansi
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}, libcrawl
+Description: RES Anansi Linked Open Data crawler
+
+Package: libcrawl-dev
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}, libcrawl
+Description: RES Anansi Linked Open Data crawler (development files)
+

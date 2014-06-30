@@ -13,7 +13,7 @@
 ##  limitations under the License.
 ##
 
-DIST_SUBDIRS = m4 util daemon liburi libsql libsupport jsondata
+DIST_SUBDIRS = m4 util daemon libsupport
 
 SUBDIRS = @subdirs@ . libsupport daemon util
 
