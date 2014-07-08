@@ -3,7 +3,7 @@ Section: utils
 Priority: extra
 Maintainer: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 Homepage: http://bbcarchdev.github.io/res/
-Build-Depends: debhelper (>= 8.0.0), libsql-dev, liburi-dev, libjsondata-dev, libmysqlclient-dev, libcurl4-gnutls-dev, libxml2-dev, librdf0-dev, pkg-config
+Build-Depends: debhelper (>= 8.0.0), libsql-dev, liburi-dev, libjsondata-dev, libmysqlclient-dev, libcurl4-gnutls-dev, libxml2-dev, librdf0-dev, pkg-config, autoconf, automake, libtool
 
 Package: libcrawl
 Architecture: any
