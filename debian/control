@@ -7,7 +7,7 @@ Build-Depends: debhelper (>= 8.0.0), libsql-dev, liburi-dev, libjsondata-dev, li
 
 Package: libcrawl
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}, libsql, liburi, libjsondata, libssl, libmysqlclient, libcurl3, libxml2, librdf0
+Depends: ${misc:Depends}, ${shlibs:Depends}, libsql, liburi, libjsondata, libssl1.0.0, libmysqlclient18, libcurl3, libxml2, librdf0
 Description: RES Anansi Linked Open Data crawler (libraries)
 
 Package: anansi
