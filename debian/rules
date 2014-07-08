@@ -5,5 +5,5 @@
 	dh $@
 
 override_dh_auto_configure:
-	dh_auto_configure -- --without-included-libsql --without-included-jsondata --without-includd-liburi
+	dh_auto_configure -- --without-included-libsql --without-included-jsondata --without-included-liburi
 
