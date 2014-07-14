@@ -50,6 +50,7 @@ BT_DEFINE_PATH([LIBCRAWL_EXTRA_LIBS],[extra_libs],[Define to the additional libr
 AC_CONFIG_FILES([
 Makefile
 libsupport/Makefile
+libs3client/Makefile
 util/Makefile
 daemon/Makefile
 m4/Makefile
