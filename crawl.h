@@ -31,6 +31,44 @@
  */
 typedef struct crawl_struct CRAWL;
 
+/* A cache implementation.
+ *
+ * The populated structure can be passed to crawl_set_cache() to specify the
+ * cache implementation that will be used by the context.
+ */
+
+# define CACHE_KEY_LEN                 32
+
+typedef char CACHEKEY[CACHE_KEY_LEN+1];
+
+typedef struct crawl_cache_struct CRAWLCACHE;
+typedef struct crawl_cache_impl_struct CRAWLCACHEIMPL;
+
+struct crawl_cache_impl_struct
+{
+	void *reserved;
+	unsigned long (*init)(CRAWLCACHE *cache);
+	unsigned long (*done)(CRAWLCACHE *cache);
+	FILE *(*payload_open_write)(CRAWLCACHE *cache, const CACHEKEY key);
+	int (*payload_close_rollback)(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
+	int (*payload_close_commit)(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
+	int (*info_read)(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict);
+	int (*info_write)(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict);	
+};
+
+struct crawl_cache_struct
+{
+	/* The cache implementation */
+	const CRAWLCACHEIMPL *impl;
+	/* The crawl context */
+	CRAWL *crawl;
+	/* This pointer is owned by (and private to) the cache implementation to
+	 * use for any purpose it wishes.
+	 */
+	void *data;
+};
+	
+
 /* A crawled object, returned by a cache look-up (crawl_locate) or fetch
  * (crawl_fetch). The same thread restrictions apply to crawled objects
  * as to the context.
@@ -73,11 +111,16 @@ typedef int (*crawl_next_cb)(CRAWL *crawl, URI **next, void *userdata);
  */
 typedef int (*crawl_checkpoint_cb)(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata);
 
+/* libcrawl-provided cache implementations */
+
+extern const CRAWLCACHEIMPL *diskcache;
 
 /* Create a crawl context */
 CRAWL *crawl_create(void);
 /* Destroy a context created with crawl_create() */
 void crawl_destroy(CRAWL *p);
+/* Set the cache implementation that will be used by this context */
+int crawl_set_cache(CRAWL *crawl, CRAWLCACHEIMPL *cache);
 /* Set the Accept header sent in subsequent requests */
 int crawl_set_accept(CRAWL *crawl, const char *accept);
 /* Set the User-Agent header sent in subsequent requests */
@@ -87,7 +130,7 @@ int crawl_set_userdata(CRAWL *crawl, void *userdata);
 /* Set the verbose flag */
 int crawl_set_verbose(CRAWL *crawl, int verbose);
 /* Set the cache path */
-int crawl_set_cache(CRAWL *crawl, const char *path);
+int crawl_set_cachepath(CRAWL *crawl, const char *path);
 /* Retrieve the private user-data pointer previously set with crawl_set_userdata() */
 void *crawl_userdata(CRAWL *crawl);
 /* Set the callback function used to apply a URI policy */

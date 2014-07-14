@@ -64,47 +64,10 @@ crawl_obj_create_(CRAWL *crawl, URI *uri)
 int
 crawl_obj_locate_(CRAWLOBJ *obj)
 {
-	FILE *f;
-	char *buf, *p;
-	size_t bufsize;
-	ssize_t count;
-	
-	f = cache_open_info_read_(obj->crawl, obj->key);
-	if(!f)
+	if(obj->crawl->cache.impl->info_read(&(obj->crawl->cache), obj->key, &(obj->info)))
 	{
 		return -1;
 	}
-	/* Read JSON */
-	buf = 0;
-	bufsize = 0;
-	for(;;)
-	{
-		p = realloc(buf, bufsize + OBJ_READ_BLOCK + 1);
-		if(!p)
-		{
-			fclose(f);
-			return -1;
-		}
-		buf = p;
-		p = &(buf[bufsize]);
-		count = fread(p, 1, OBJ_READ_BLOCK, f);
-		if(count < 0)
-		{
-			fclose(f);
-			free(buf);
-			return -1;
-		}
-		p[count] = 0;
-		bufsize += count;
-		if(count == 0)
-		{
-			break;
-		}
-	}	
-	fclose(f);
-	jd_release(&(obj->info));
-	jd_from_jsons(&(obj->info), buf);
-	free(buf);
 	crawl_obj_update_(obj);
 	return 0;
 }
@@ -210,6 +173,7 @@ crawl_obj_type(CRAWLOBJ *obj)
 	{
 		return NULL;
 	}
+	str = NULL;
 	JD_SCOPE
 	{
 		key = jd_get_ks(&(obj->info), "type", 1);
@@ -232,6 +196,7 @@ crawl_obj_redirect(CRAWLOBJ *obj)
 	{
 		return NULL;
 	}
+	str = NULL;
 	JD_SCOPE
 	{
 		key = jd_get_ks(&(obj->info), "redirect", 1);

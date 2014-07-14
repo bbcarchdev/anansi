@@ -64,17 +64,15 @@
 
 # define HEADER_ALLOC_BLOCK            128
 # define OBJ_READ_BLOCK                1024
-# define CACHE_KEY_LEN                 32
 # define CACHE_INFO_SUFFIX             "json"
 # define CACHE_PAYLOAD_SUFFIX          "payload"
 # define CACHE_TMP_SUFFIX              ".tmp"
 
-typedef char CACHEKEY[CACHE_KEY_LEN+1];
-
 struct crawl_struct
 {
 	void *userdata;
-	char *cache;
+	CRAWLCACHE cache;
+	char *cachepath;
 	char *cachefile;
 	char *cachetmp;
 	size_t cachefile_len;
@@ -131,12 +129,11 @@ int crawl_obj_replace_(CRAWLOBJ *obj, jd_var *dict);
 
 int crawl_cache_key_(CRAWL *crawl, CACHEKEY dest, const char *uri);
 size_t cache_filename_(CRAWL *crawl, const CACHEKEY key, const char *type, char *buf, size_t bufsize, int temporary);
-FILE *cache_open_info_read_(CRAWL *crawl, const CACHEKEY key);
-FILE *cache_open_info_write_(CRAWL *crawl, const CACHEKEY key);
 FILE *cache_open_payload_write_(CRAWL *crawl, const CACHEKEY key);
-int cache_close_info_rollback_(CRAWL *crawl, const CACHEKEY key, FILE *f);
 int cache_close_payload_rollback_(CRAWL *crawl, const CACHEKEY key, FILE *f);
-int cache_close_info_commit_(CRAWL *crawl, const CACHEKEY key, FILE *f);
 int cache_close_payload_commit_(CRAWL *crawl, const CACHEKEY key, FILE *f);
+
+int cache_info_read_(CRAWL *crawl, const CACHEKEY key, jd_var *dict);
+int cache_info_write_(CRAWL *crawl, const CACHEKEY key, jd_var *dict);
 
 #endif /*!P_LIBCRAWL_H_*/

@@ -27,10 +27,13 @@ crawl_create(void)
 
 	/* XXX thread-safe curl_global_init() */
 	p = (CRAWL *) calloc(1, sizeof(CRAWL));
-	p->cache = strdup("cache");
+	/* Use 'diskcache' as the default */
+	p->cache.impl = diskcache;
+	p->cache.crawl = p;
+	p->cachepath = strdup("cache");
 	p->ua = strdup("User-Agent: Mozilla/5.0 (compatible; libcrawl; +https://github.com/nevali/crawl)");
 	p->accept = strdup("Accept: */*");
-	if(!p->cache || !p->ua || !p->accept)
+	if(!p->cachepath || !p->ua || !p->accept)
 	{
 		crawl_destroy(p);
 		return NULL;
@@ -43,7 +46,7 @@ crawl_destroy(CRAWL *p)
 {
 	if(p)
 	{
-		free(p->cache);
+		free(p->cachepath);
 		free(p->cachefile);
 		free(p->cachetmp);
 		free(p->accept);
@@ -90,7 +93,7 @@ crawl_set_ua(CRAWL *crawl, const char *ua)
 
 /* Set the cache path */
 int
-crawl_set_cache(CRAWL *crawl, const char *path)
+crawl_set_cachepath(CRAWL *crawl, const char *path)
 {
 	char *p;
 	
@@ -99,8 +102,8 @@ crawl_set_cache(CRAWL *crawl, const char *path)
 	{
 		return -1;
 	}
-	free(crawl->cache);
-	crawl->cache = p;
+	free(crawl->cachepath);
+	crawl->cachepath = p;
 	return 0;
 }
 

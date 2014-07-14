@@ -51,9 +51,7 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri)
 	struct tm tp;
 	char modified[64];
 	int error;
-	jd_var dict = JD_INIT, json = JD_INIT;
-	size_t len;
-	const char *p;
+	jd_var dict = JD_INIT;
 	
 	memset(&data, 0, sizeof(data));
 	headers = NULL;
@@ -122,13 +120,6 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri)
 	curl_easy_setopt(data.ch, CURLOPT_CONNECTTIMEOUT, 30);
 	curl_easy_setopt(data.ch, CURLOPT_TIMEOUT, 120);
 	error = 0;
-	data.info = cache_open_info_write_(data.crawl, data.obj->key);
-	if(!data.info)
-	{
-		jd_release(&dict);
-		crawl_obj_destroy(data.obj);
-		return NULL;
-	}
 	data.payload = cache_open_payload_write_(crawl, data.obj->key);
 	if(!data.payload)
 	{
@@ -176,17 +167,17 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri)
 			{
 				data.rollback = 1;
 				error = -1;
-				jd_to_json(&json, &(data.obj->info));
-				p = jd_bytes(&json, &len);
-				len--;				
-				if(!p || (fwrite(p, len, 1, data.info) != 1))
+			}
+			else
+			{
+				if(cache_info_write_(crawl, data.obj->key, &(data.obj->info)))
 				{
 					data.rollback = 1;
 					error = -1;
 				}
 				else
 				{
-					data.obj->fresh = 1;			
+					data.obj->fresh = 1;
 				}
 			}
 			if(data.rollback)
@@ -199,13 +190,11 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri)
 	jd_release(&dict);
 	if(data.rollback)
 	{
-		cache_close_info_rollback_(crawl, data.obj->key, data.info);
 		cache_close_payload_rollback_(crawl, data.obj->key, data.payload);
 		/* restore info */
 	}
 	else
 	{
-		cache_close_info_commit_(crawl, data.obj->key, data.info);
 		cache_close_payload_commit_(crawl, data.obj->key, data.payload);	
 	}	
 	curl_slist_free_all(headers);

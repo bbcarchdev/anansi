@@ -24,7 +24,8 @@ lib_LTLIBRARIES = libcrawl.la
 include_HEADERS = crawl.h
 
 libcrawl_la_SOURCES = p_libcrawl.h \
-	context.c cache.c fetch.c obj.c crawler.c
+	context.c cache.c fetch.c obj.c crawler.c \
+	diskcache.c
 
 libcrawl_la_LDFLAGS = -avoid-version
 
