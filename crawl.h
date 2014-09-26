@@ -119,8 +119,10 @@ extern const CRAWLCACHEIMPL *diskcache;
 CRAWL *crawl_create(void);
 /* Destroy a context created with crawl_create() */
 void crawl_destroy(CRAWL *p);
+/* Obtain a known cache implementation for a URI scheme */
+const CRAWLCACHEIMPL *crawl_cache_scheme(CRAWL *crawl, const char *scheme);
 /* Set the cache implementation that will be used by this context */
-int crawl_set_cache(CRAWL *crawl, CRAWLCACHEIMPL *cache);
+int crawl_set_cache(CRAWL *crawl, const CRAWLCACHEIMPL *cache);
 /* Set the Accept header sent in subsequent requests */
 int crawl_set_accept(CRAWL *crawl, const char *accept);
 /* Set the User-Agent header sent in subsequent requests */
@@ -129,8 +131,10 @@ int crawl_set_ua(CRAWL *crawl, const char *ua);
 int crawl_set_userdata(CRAWL *crawl, void *userdata);
 /* Set the verbose flag */
 int crawl_set_verbose(CRAWL *crawl, int verbose);
-/* Set the cache path */
-int crawl_set_cachepath(CRAWL *crawl, const char *path);
+/* Set the cache path or URI string */
+int crawl_set_cache_path(CRAWL *crawl, const char *path);
+/* Set the cache URI */
+int crawl_set_cache_uri(CRAWL *crawl, URI *uri);
 /* Retrieve the private user-data pointer previously set with crawl_set_userdata() */
 void *crawl_userdata(CRAWL *crawl);
 /* Set the callback function used to apply a URI policy */

@@ -55,6 +55,22 @@ crawl_destroy(CRAWL *p)
 	}
 }
 
+int
+crawl_set_cache(CRAWL *crawl, const CRAWLCACHEIMPL *cache)
+{
+	if(crawl->cache.impl)
+	{
+		crawl->cache.impl->done(&(crawl->cache));
+	}
+	crawl->cache.data = NULL;
+	if(cache)
+	{
+		crawl->cache.impl = cache;
+		crawl->cache.impl->init(&(crawl->cache));
+	}
+	return 0;
+}
+
 /* Set the Accept header used in requests */
 int
 crawl_set_accept(CRAWL *crawl, const char *accept)
@@ -91,20 +107,76 @@ crawl_set_ua(CRAWL *crawl, const char *ua)
 	return 0;
 }
 
-/* Set the cache path */
+/* Set the cache path (or uri string)*/
 int
-crawl_set_cachepath(CRAWL *crawl, const char *path)
+crawl_set_cache_path(CRAWL *crawl, const char *path)
 {
-	char *p;
-	
-	p = (char *) strdup(path);
+	URI *uri, *cwd;
+	int r;
+
+	cwd = uri_create_cwd();
+	if(!cwd)
+	{
+		return -1;
+	}
+	uri = uri_create_str(path, cwd);
+	if(!uri)
+	{
+		uri_destroy(cwd);
+		return -1;
+	}
+	r = crawl_set_cache_uri(crawl, uri);
+	uri_destroy(uri);
+	uri_destroy(cwd);
+	return r;
+}
+
+int
+crawl_set_cache_uri(CRAWL *crawl, URI *uri)
+{
+	char *s;
+	URI *p;
+	URI_INFO *info;
+	const CRAWLCACHEIMPL *impl;
+
+	p = uri_create_uri(uri, NULL);
 	if(!p)
 	{
 		return -1;
 	}
-	free(crawl->cachepath);
-	crawl->cachepath = p;
-	return 0;
+	info = uri_info(uri);
+	if(!info)
+	{
+		uri_destroy(p);
+		return -1;
+	}
+	impl = crawl_cache_scheme(crawl, info->scheme);
+	if(!impl)
+	{
+		uri_info_destroy(info);
+		uri_destroy(p);
+		return -1;
+	}
+	s = strdup(info->path ? info->path : "");
+	if(!s)
+	{
+		uri_info_destroy(info);
+		uri_destroy(p);
+		return -1;
+	}
+	uri_info_destroy(info);
+	crawl_set_cache(crawl, NULL);
+	if(crawl->cacheuri)
+	{
+		uri_destroy(crawl->cacheuri);
+	}
+	if(crawl->cachepath)
+	{
+		crawl->cachepath = NULL;
+	}
+	crawl->cacheuri = p;
+	crawl->cachepath = s;
+	return crawl_set_cache(crawl, impl);
 }
 
 

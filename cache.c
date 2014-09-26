@@ -172,3 +172,18 @@ cache_info_write_(CRAWL *crawl, const CACHEKEY key, jd_var *dict)
 	return crawl->cache.impl->info_write(&(crawl->cache), key, dict);
 }
 
+const CRAWLCACHEIMPL *
+crawl_cache_scheme(CRAWL *crawl, const char *scheme)
+{
+	if(!scheme)
+	{
+		errno = EINVAL;
+		return NULL;
+	}
+	if(!strcasecmp(scheme, "file"))
+	{
+		return diskcache;
+	}
+	errno = EINVAL;
+	return NULL;
+}

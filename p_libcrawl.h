@@ -72,6 +72,7 @@ struct crawl_struct
 {
 	void *userdata;
 	CRAWLCACHE cache;
+	URI *cacheuri;
 	char *cachepath;
 	char *cachefile;
 	char *cachetmp;
