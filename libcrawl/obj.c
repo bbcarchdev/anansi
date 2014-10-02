@@ -49,10 +49,8 @@ crawl_obj_create_(CRAWL *crawl, URI *uri)
 		crawl_obj_destroy(p);
 		return NULL;
 	}
-	needed = cache_filename_(crawl, p->key, CACHE_PAYLOAD_SUFFIX, NULL, 0, 0);
-	if(!needed ||
-		(p->payload = (char *) malloc(needed)) == NULL ||
-		cache_filename_(crawl, p->key, CACHE_PAYLOAD_SUFFIX, p->payload, needed, 0) != needed)
+	p->payload = cache_uri_(crawl, p->key);
+	if(!p->payload)
 	{
 		crawl_obj_destroy(p);
 		return NULL;

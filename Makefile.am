@@ -13,23 +13,10 @@
 ##  limitations under the License.
 ##
 
-DIST_SUBDIRS = m4 util daemon libsupport
+DIST_SUBDIRS = m4 util caches libcrawl queues daemon libsupport libs3client
 
-SUBDIRS = @subdirs@ . libsupport daemon util
+SUBDIRS = @subdirs@ libs3client caches libcrawl \
+	libsupport queues daemon util
 
 ACLOCAL_AMFLAGS = -I m4
 
-lib_LTLIBRARIES = libcrawl.la
-
-include_HEADERS = crawl.h
-
-libcrawl_la_SOURCES = p_libcrawl.h \
-	context.c cache.c fetch.c obj.c crawler.c \
-	diskcache.c
-
-libcrawl_la_LDFLAGS = -avoid-version
-
-libcrawl_la_LIBADD = $(LIBJSONDATA_LOCAL_LIBS) $(LIBJSONDATA_LIBS) \
-	$(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS) \
-	$(LIBCURL_LOCAL_LIBS) $(LIBCURL_LIBS) \
-	$(OPENSSL_LOCAL_LIBS) $(OPENSSL_LIBS)

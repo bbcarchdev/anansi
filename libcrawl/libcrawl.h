@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -14,8 +19,8 @@
  *  limitations under the License.
  */
 
-#ifndef CRAWL_H_
-# define CRAWL_H_                      1
+#ifndef LIBCRAWL_H_
+# define LIBCRAWL_H_                    1
 
 # include <stdint.h>
 # include <time.h>
@@ -53,7 +58,11 @@ struct crawl_cache_impl_struct
 	int (*payload_close_rollback)(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
 	int (*payload_close_commit)(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
 	int (*info_read)(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict);
-	int (*info_write)(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict);	
+	int (*info_write)(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict);
+	char *(*uri)(CRAWLCACHE *cache, const CACHEKEY key);
+	int (*set_username)(CRAWLCACHE *cache, const char *username);
+	int (*set_password)(CRAWLCACHE *cache, const char *password);
+	int (*set_endpoint)(CRAWLCACHE *cache, const char *endpoint);
 };
 
 struct crawl_cache_struct
@@ -114,6 +123,7 @@ typedef int (*crawl_checkpoint_cb)(CRAWL *crawl, CRAWLOBJ *obj, int *status, voi
 /* libcrawl-provided cache implementations */
 
 extern const CRAWLCACHEIMPL *diskcache;
+extern const CRAWLCACHEIMPL *s3cache;
 
 /* Create a crawl context */
 CRAWL *crawl_create(void);
@@ -137,6 +147,12 @@ int crawl_set_cache_path(CRAWL *crawl, const char *path);
 int crawl_set_cache_uri(CRAWL *crawl, URI *uri);
 /* Retrieve the private user-data pointer previously set with crawl_set_userdata() */
 void *crawl_userdata(CRAWL *crawl);
+/* Set the username (or access key) used by the cache */
+int crawl_set_username(CRAWL *crawl, const char *username);
+/* Set the password (or secret) used by the cache */
+int crawl_set_password(CRAWL *crawl, const char *password);
+/* Set the endpoint used by the cache */
+int crawl_set_endpoint(CRAWL *crawl, const char *endpoint);
 /* Set the callback function used to apply a URI policy */
 int crawl_set_uri_policy(CRAWL *crawl, crawl_uri_policy_cb cb);
 /* Set the callback function invoked when an object is updated */
@@ -195,4 +211,4 @@ CRAWLOBJ *crawl_locate_uri(CRAWL *crawl, URI *uri);
 /* Perform a crawling cycle */
 int crawl_perform(CRAWL *crawl);
 
-#endif /*!CRAWL_H_*/
+#endif /*!LIBCRAWL_H_*/

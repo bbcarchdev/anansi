@@ -114,32 +114,10 @@ crawl_cache_key_(CRAWL *crawl, CACHEKEY dest, const char *uri)
 	return 0;
 }
 
-size_t
-cache_filename_(CRAWL *crawl, const CACHEKEY key, const char *type, char *buf, size_t bufsize, int temporary)
+char *
+cache_uri_(CRAWL *crawl, const CACHEKEY key)
 {
-	size_t needed;
-	const char *suffix;
-
-	if(buf)
-	{
-		*buf = 0;
-	}
-	/* base path + "/" + key[0..1] + "/" + key[2..3] + "/" + key[0..n] + "." + type + ".tmp" */
-	needed = strlen(crawl->cachepath) + 1 + 2 + 1 + 2 + 1 + strlen(key) + 1 + strlen(type) + 4 + 1;
-	if(!buf || needed > bufsize)
-	{
-		return needed;
-	}
-	if(temporary)
-	{
-		suffix = CACHE_TMP_SUFFIX;
-	}
-	else
-	{
-		suffix = "";
-	}
-	sprintf(buf, "%s/%c%c/%c%c/%s.%s%s", crawl->cachepath, key[0], key[1], key[2], key[3], key, type, suffix);
-	return needed;
+	return crawl->cache.impl->uri(&(crawl->cache), key);
 }
 
 FILE *
@@ -175,6 +153,8 @@ cache_info_write_(CRAWL *crawl, const CACHEKEY key, jd_var *dict)
 const CRAWLCACHEIMPL *
 crawl_cache_scheme(CRAWL *crawl, const char *scheme)
 {
+	(void) crawl;
+
 	if(!scheme)
 	{
 		errno = EINVAL;
@@ -183,6 +163,10 @@ crawl_cache_scheme(CRAWL *crawl, const char *scheme)
 	if(!strcasecmp(scheme, "file"))
 	{
 		return diskcache;
+	}
+	if(!strcasecmp(scheme, "s3"))
+	{
+		return s3cache;
 	}
 	errno = EINVAL;
 	return NULL;

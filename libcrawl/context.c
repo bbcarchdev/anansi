@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -25,13 +30,10 @@ crawl_create(void)
 {
 	CRAWL *p;
 
-	/* XXX thread-safe curl_global_init() */
 	p = (CRAWL *) calloc(1, sizeof(CRAWL));
 	/* Use 'diskcache' as the default */
-	p->cache.impl = diskcache;
-	p->cache.crawl = p;
-	p->cachepath = strdup("cache");
-	p->ua = strdup("User-Agent: Mozilla/5.0 (compatible; libcrawl; +https://github.com/nevali/crawl)");
+	crawl_set_cache_path(p, "cache");
+	p->ua = strdup("User-Agent: Mozilla/5.0 (compatible; Anansi; libcrawl; +https://bbcarchdev.github.io/res/)");
 	p->accept = strdup("Accept: */*");
 	if(!p->cachepath || !p->ua || !p->accept)
 	{
@@ -58,6 +60,7 @@ crawl_destroy(CRAWL *p)
 int
 crawl_set_cache(CRAWL *crawl, const CRAWLCACHEIMPL *cache)
 {
+	crawl->cache.crawl = crawl;
 	if(crawl->cache.impl)
 	{
 		crawl->cache.impl->done(&(crawl->cache));
@@ -67,6 +70,39 @@ crawl_set_cache(CRAWL *crawl, const CRAWLCACHEIMPL *cache)
 	{
 		crawl->cache.impl = cache;
 		crawl->cache.impl->init(&(crawl->cache));
+	}
+	return 0;
+}
+
+/* Set the username (or access key) used by the cache */
+int
+crawl_set_username(CRAWL *crawl, const char *username)
+{
+	if(crawl->cache.impl)
+	{
+		return crawl->cache.impl->set_username(&(crawl->cache), username);
+	}
+	return 0;
+}
+
+/* Set the password (or secret) used by the cache */
+int
+crawl_set_password(CRAWL *crawl, const char *password)
+{
+	if(crawl->cache.impl)
+	{
+		return crawl->cache.impl->set_password(&(crawl->cache), password);
+	}
+	return 0;
+}
+
+/* Set the endpoint used by the cache */
+int
+crawl_set_endpoint(CRAWL *crawl, const char *endpoint)
+{
+	if(crawl->cache.impl)
+	{
+		return crawl->cache.impl->set_endpoint(&(crawl->cache), endpoint);
 	}
 	return 0;
 }
@@ -164,7 +200,6 @@ crawl_set_cache_uri(CRAWL *crawl, URI *uri)
 		uri_destroy(p);
 		return -1;
 	}
-	uri_info_destroy(info);
 	crawl_set_cache(crawl, NULL);
 	if(crawl->cacheuri)
 	{
@@ -176,6 +211,7 @@ crawl_set_cache_uri(CRAWL *crawl, URI *uri)
 	}
 	crawl->cacheuri = p;
 	crawl->cachepath = s;
+	crawl->uri = info;
 	return crawl_set_cache(crawl, impl);
 }
 

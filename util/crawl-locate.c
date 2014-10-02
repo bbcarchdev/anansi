@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -24,7 +29,7 @@
 #include <errno.h>
 #include <jsondata.h>
 
-#include "crawl.h"
+#include "libcrawl.h"
 
 /* Locate the cached data for the specified URI using libcrawl */
 int
@@ -51,7 +56,7 @@ main(int argc, char **argv)
 	printf("updated: %ld\n", (long) crawl_obj_updated(obj));
 	printf("key: %s\n", crawl_obj_key(obj));
 	printf("payload path: %s\n", crawl_obj_payload(obj));
-	printf("payload size: %llu\n", crawl_obj_size(obj));
+	printf("payload size: %llu\n", (unsigned long long) crawl_obj_size(obj));
 	if(!crawl_obj_headers(obj, &headers, 0))
 	{
 		jd_printf("headers: %lJ\n", &headers);

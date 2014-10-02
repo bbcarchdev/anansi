@@ -17,27 +17,18 @@
 ##  limitations under the License.
 ##
 
-EXTRA_DIST = crawl.conf.example
+lib_LTLIBRARIES = libcrawl.la
 
-AM_CPPFLAGS = @AM_CPPFLAGS@ @CPPFLAGS@ \
-	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl \
-	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport \
-	$(LIBRDF_CPPFLAGS)
+include_HEADERS = libcrawl.h
 
-noinst_LTLIBRARIES = libcrawld.la
+libcrawl_la_SOURCES = p_libcrawl.h \
+	context.c cache.c fetch.c obj.c crawler.c
 
-sbin_PROGRAMS = crawld
+libcrawl_la_LDFLAGS = -avoid-version
 
-crawld_SOURCES = p_crawld.h \
-	crawld.c 
-crawld_LDADD = libcrawld.la
-
-libcrawld_la_SOURCES = p_crawld.h \
-	context.c thread.c processor.c queue.c policy.c \
-	rdf.c
-
-libcrawld_la_LIBADD = \
-	$(top_builddir)/libcrawl/libcrawl.la \
-	$(top_builddir)/libsupport/libsupport.la \
-	$(LIBRDF_LIBS)
-
+libcrawl_la_LIBADD = \
+	$(top_builddir)/caches/libcaches.la \
+	$(LIBJSONDATA_LOCAL_LIBS) $(LIBJSONDATA_LIBS) \
+	$(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS) \
+	$(LIBCURL_LOCAL_LIBS) $(LIBCURL_LIBS) \
+	$(OPENSSL_LOCAL_LIBS) $(OPENSSL_LIBS)

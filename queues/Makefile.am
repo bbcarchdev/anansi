@@ -17,27 +17,17 @@
 ##  limitations under the License.
 ##
 
-EXTRA_DIST = crawl.conf.example
-
-AM_CPPFLAGS = @AM_CPPFLAGS@ @CPPFLAGS@ \
+AM_CPPFLAGS = @AM_CPPFLAGS@ \
+	-I$(top_builddir)/daemon -I$(top_srcdir)/daemon \
 	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl \
 	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport \
-	$(LIBRDF_CPPFLAGS)
+	$(LIBRDF_CPPFLAGS) \
+	$(LIBSQL_CPPFLAGS)
 
-noinst_LTLIBRARIES = libcrawld.la
+noinst_LTLIBRARIES = libqueues.la
 
-sbin_PROGRAMS = crawld
+libqueues_la_SOURCES = db.c
 
-crawld_SOURCES = p_crawld.h \
-	crawld.c 
-crawld_LDADD = libcrawld.la
+libqueues_la_LDFLAGS = -avoid-version
 
-libcrawld_la_SOURCES = p_crawld.h \
-	context.c thread.c processor.c queue.c policy.c \
-	rdf.c
-
-libcrawld_la_LIBADD = \
-	$(top_builddir)/libcrawl/libcrawl.la \
-	$(top_builddir)/libsupport/libsupport.la \
-	$(LIBRDF_LIBS)
-
+libqueues_la_LIBADD = $(LIBSQL_LOCAL_LIBS) $(LIBSQL_LIBS)

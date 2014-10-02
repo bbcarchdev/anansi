@@ -47,11 +47,11 @@ CRAWLOBJ *
 crawl_fetch_uri(CRAWL *crawl, URI *uri)
 {
 	struct crawl_fetch_data_struct data;
-	struct curl_slist *headers;
 	struct tm tp;
 	char modified[64];
 	int error;
 	jd_var dict = JD_INIT;
+	struct curl_slist *headers;
 	
 	memset(&data, 0, sizeof(data));
 	headers = NULL;
@@ -83,7 +83,7 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri)
 		jd_clone(&dict, &(data.obj->info), 1);
 		/* Send an If-Modified-Since header */
 		gmtime_r(&(data.cachetime), &tp);
-		strftime(modified, sizeof(modified), "If-Modified-Since: %a, %e %b %Y %H:%M:%S %z", &tp);
+		strftime(modified, sizeof(modified), "If-Modified-Since: %a, %d %b %Y %H:%M:%S GMT", &tp);
 		headers = curl_slist_append(headers, modified);		
 	}
 	if(crawl->uri_policy)

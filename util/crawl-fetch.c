@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -21,10 +26,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <errno.h>
 #include <jsondata.h>
 
-#include "crawl.h"
+#include "libcrawl.h"
+
+static const char *progname = "fetch";
+static const char *fetchuri = NULL;
+static const char *accept = "*/*";
+static const char *cache = NULL;
+static const char *username = NULL;
+static const char *password = NULL;
+static const char *endpoint = NULL;
+static int verbose = 0;
+
+static void usage(void);
+static int process_args(int argc, char **argv);
 
 /* Immediately fetch the specified URI using libcrawl */
 int
@@ -33,18 +51,40 @@ main(int argc, char **argv)
 	CRAWL *crawl;
 	CRAWLOBJ *obj;
 	jd_var headers = JD_INIT;
-	
-	if(argc != 2)
+	int r;
+
+	if(process_args(argc, argv))
 	{
-		fprintf(stderr, "Usage: %s URI\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
-	crawl = crawl_create();
-	crawl_set_accept(crawl, "text/turtle, application/rdf+xml, text/n3, */*");
-	obj = crawl_fetch(crawl, argv[1]);
+	crawl = crawl_create();	
+	crawl_set_verbose(crawl, verbose);
+	crawl_set_accept(crawl, accept);
+	if(cache)
+	{
+		r = crawl_set_cache_path(crawl, cache);
+		if(r)
+		{
+			fprintf(stderr, "%s: failed to set cache URI to <%s> (%d)\n", progname, cache, r);
+			return 1;
+		}
+	}
+	if(username)
+	{
+		crawl_set_username(crawl, username);
+	}
+	if(password)
+	{
+		crawl_set_password(crawl, password);
+	}
+	if(endpoint)
+	{
+		crawl_set_endpoint(crawl, endpoint);
+	}
+	obj = crawl_fetch(crawl, fetchuri);
 	if(!obj)
 	{
-		fprintf(stderr, "%s: failed to fetch resource: %s\n", argv[0], strerror(errno));
+		fprintf(stderr, "%s: failed to fetch resource: %s\n", progname, strerror(errno));
 		crawl_destroy(crawl);
 		return 1;
 	}
@@ -52,7 +92,7 @@ main(int argc, char **argv)
 	printf("updated: %ld\n", (long) crawl_obj_updated(obj));
 	printf("key: %s\n", crawl_obj_key(obj));
 	printf("payload path: %s\n", crawl_obj_payload(obj));
-	printf("payload size: %llu\n", crawl_obj_size(obj));
+	printf("payload size: %llu\n", (unsigned long long) crawl_obj_size(obj));
 	if(!crawl_obj_headers(obj, &headers, 0))
 	{
 		jd_printf("headers: %lJ\n", &headers);
@@ -61,3 +101,68 @@ main(int argc, char **argv)
 	crawl_destroy(crawl);
 	return 0;
 }
+
+static int
+process_args(int argc, char **argv)
+{
+	int c;
+
+	progname = argv[0];
+	while((c = getopt(argc, argv, "A:C:hvu:p:e:")) != -1)
+	{
+		switch(c)
+		{
+		case 'h':
+			usage();
+			exit(EXIT_SUCCESS);
+		case 'A':
+			accept = optarg;
+			break;
+		case 'C':
+			cache = optarg;
+			break;
+		case 'v':
+			verbose = 1;
+			break;
+		case 'u':
+			username = optarg;
+			break;
+		case 'p':
+			password = optarg;
+			break;
+		case 'e':
+			endpoint = optarg;
+			break;
+		default:
+			usage();
+			return -1;
+		}
+	}
+	argc -= optind;
+	argv += optind;
+	if(!argc || argc > 1)
+	{
+		usage();
+		return -1;
+	}
+	fetchuri = argv[0];
+	return 0;
+}
+
+static void
+usage(void)
+{
+	printf("Usage: %s [OPTIONS] URI\n"
+		   "\n"
+		   "OPTIONS is one or more of:\n"
+		   "  -h                        Print this notice and exit\n"
+		   "  -A TYPES...               Specify the HTTP 'Accept' header\n"
+		   "  -C URI                    Specify the cache location URI\n"
+		   "  -u USER                   Specify cache username/access key\n"
+		   "  -p PASS                   Specify cache password/secret\n"
+		   "  -e NAME                   Specify cache endpoint\n"
+		   "  -v                        Be verbose\n",
+		   progname);
+}
+
+		   

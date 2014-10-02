@@ -18,6 +18,8 @@
 #ifndef P_LIBS3CLIENT_H_
 # define P_LIBS3CLIENT_H_               1
 
+# define _BSD_SOURCE                    1
+
 # include <stdio.h>
 # include <stdlib.h>
 # include <string.h>

@@ -51,7 +51,10 @@ AC_CONFIG_FILES([
 Makefile
 libsupport/Makefile
 libs3client/Makefile
+caches/Makefile
+libcrawl/Makefile
 util/Makefile
+queues/Makefile
 daemon/Makefile
 m4/Makefile
 ])

@@ -29,7 +29,7 @@
 # include <syslog.h>
 # include <pthread.h>
 
-# include "crawl.h"
+# include "libcrawl.h"
 # include "libsupport.h"
 
 typedef struct context_struct CONTEXT;

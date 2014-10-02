@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -26,7 +31,7 @@
 #include <liburi.h>
 #include <libxml/HTMLparser.h>
 
-#include "crawl.h"
+#include "libcrawl.h"
 
 #define QUEUE_BLOCK_SIZE               16
 

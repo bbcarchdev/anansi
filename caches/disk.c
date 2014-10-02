@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -33,6 +38,10 @@ static int diskcache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *i
 static int diskcache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *info);
 static FILE *diskcache_open_info_write_(CRAWLCACHE *cache, const CACHEKEY key);
 static FILE *diskcache_open_info_read_(CRAWLCACHE *cache, const CACHEKEY key);
+static char *diskcache_uri_(CRAWLCACHE *cache, const CACHEKEY key);
+static int diskcache_set_username_(CRAWLCACHE *cache, const char *username);
+static int diskcache_set_password_(CRAWLCACHE *cache, const char *password);
+static int diskcache_set_endpoint_(CRAWLCACHE *cache, const char *endpoint);
 static int diskcache_close_info_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
 static int diskcache_close_info_rollback_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
 
@@ -44,7 +53,11 @@ static const CRAWLCACHEIMPL diskcache_impl = {
 	diskcache_close_rollback_,
 	diskcache_close_commit_,
 	diskcache_info_read_,
-	diskcache_info_write_
+	diskcache_info_write_,
+	diskcache_uri_,
+	diskcache_set_username_,
+	diskcache_set_password_,
+	diskcache_set_endpoint_
 };
 
 const CRAWLCACHEIMPL *diskcache = &diskcache_impl;
@@ -252,6 +265,53 @@ diskcache_close_info_rollback_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
 		}
 	}
 	return unlink(cache->crawl->cachefile);
+}
+
+static char *
+diskcache_uri_(CRAWLCACHE *cache, const CACHEKEY key)
+{
+	size_t needed;
+	char *p;
+
+	needed = diskcache_filename_(cache->crawl, key, CACHE_PAYLOAD_SUFFIX, NULL, 0, 0);
+	p = (char *) calloc(1, needed);
+	if(!p)
+	{
+		return NULL;
+	}
+	if(diskcache_filename_(cache->crawl, key, CACHE_PAYLOAD_SUFFIX, p, needed, 0) != needed)
+	{
+		free(p);
+		return NULL;
+	}
+	return p;
+}
+
+static int
+diskcache_set_username_(CRAWLCACHE *cache, const char *username)
+{
+	(void) cache;
+	(void) username;
+   
+	return 0;
+}
+
+static int
+diskcache_set_password_(CRAWLCACHE *cache, const char *password)
+{
+	(void) cache;
+	(void) password;
+
+	return 0;
+}
+
+static int
+diskcache_set_endpoint_(CRAWLCACHE *cache, const char *endpoint)
+{
+	(void) cache;
+	(void) endpoint;
+
+	return 0;
 }
 
 static size_t

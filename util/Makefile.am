@@ -1,7 +1,7 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright (c) 2014 BBC
-##
+## Copyright (c) 2014 BBC.
+
 ## Copyright 2013 Mo McRoberts.
 ##
 ##  Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,8 +17,16 @@
 ##  limitations under the License.
 ##
 
-bin_PROGRAMS = crawl-fetch crawl-locate crawl-mirror crawl-config
+LIBS = @LIBS@ \
+	$(top_builddir)/libcrawl/libcrawl.la $(top_srcdir)/libcrawl/libcrawl.la
 
-crawl_fetch_LDADD = ../libcrawl.la $(LIBJSONDATA_LOCAL_LIBS) $(LIBJSONDATA_LIBS)
-crawl_locate_LDADD = ../libcrawl.la $(LIBJSONDATA_LOCAL_LIBS) $(LIBJSONDATA_LIBS)
-crawl_mirror_LDADD = ../libcrawl.la $(LIBXML2_LOCAL_LIBS) $(LIBXML2_LIBS) $(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS)
+AM_CPPFLAGS = @AM_CPPFLAGS@ \
+	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl
+
+bin_PROGRAMS = crawl-fetch crawl-locate crawl-mirror libcrawl-config
+
+libcrawl_config_SOURCES = crawl-config.c
+
+crawl_fetch_LDADD = $(LIBJSONDATA_LOCAL_LIBS) $(LIBJSONDATA_LIBS)
+crawl_locate_LDADD = $(LIBJSONDATA_LOCAL_LIBS) $(LIBJSONDATA_LIBS)
+crawl_mirror_LDADD = $(LIBXML2_LOCAL_LIBS) $(LIBXML2_LIBS) $(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS)

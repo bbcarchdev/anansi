@@ -17,27 +17,15 @@
 ##  limitations under the License.
 ##
 
-EXTRA_DIST = crawl.conf.example
+AM_CPPFLAGS = @AM_CPPFLAGS@ \
+	-I $(top_builddir)/libs3client -I $(top_srcdir)/libs3client \
+	-I $(top_builddir)/libcrawl -I $(top_srcdir)/libcrawl
 
-AM_CPPFLAGS = @AM_CPPFLAGS@ @CPPFLAGS@ \
-	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl \
-	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport \
-	$(LIBRDF_CPPFLAGS)
+noinst_LTLIBRARIES = libcaches.la
 
-noinst_LTLIBRARIES = libcrawld.la
+libcaches_la_SOURCES = disk.c s3.c
 
-sbin_PROGRAMS = crawld
+libcaches_la_LDFLAGS = -avoid-version
 
-crawld_SOURCES = p_crawld.h \
-	crawld.c 
-crawld_LDADD = libcrawld.la
-
-libcrawld_la_SOURCES = p_crawld.h \
-	context.c thread.c processor.c queue.c policy.c \
-	rdf.c
-
-libcrawld_la_LIBADD = \
-	$(top_builddir)/libcrawl/libcrawl.la \
-	$(top_builddir)/libsupport/libsupport.la \
-	$(LIBRDF_LIBS)
-
+libcaches_la_LIBADD = \
+	$(top_builddir)/libs3client/libs3client.la

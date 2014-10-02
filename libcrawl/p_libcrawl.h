@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -15,7 +20,10 @@
  */
 
 #ifndef P_LIBCRAWL_H_
-# define P_LIBCRAWL_H_                 1
+# define P_LIBCRAWL_H_                  1
+
+# define _BSD_SOURCE                    1
+# define _FILE_OFFSET_BITS              64
 
 # include <stdio.h>
 # include <stdlib.h>
@@ -30,7 +38,7 @@
 # include <curl/curl.h>
 # include <openssl/sha.h>
 
-# include "crawl.h"
+# include "libcrawl.h"
 
 /* Cached object has two parts:
  *
@@ -73,6 +81,7 @@ struct crawl_struct
 	void *userdata;
 	CRAWLCACHE cache;
 	URI *cacheuri;
+	URI_INFO *uri;
 	char *cachepath;
 	char *cachefile;
 	char *cachetmp;
@@ -129,7 +138,7 @@ int crawl_obj_locate_(CRAWLOBJ *obj);
 int crawl_obj_replace_(CRAWLOBJ *obj, jd_var *dict);
 
 int crawl_cache_key_(CRAWL *crawl, CACHEKEY dest, const char *uri);
-size_t cache_filename_(CRAWL *crawl, const CACHEKEY key, const char *type, char *buf, size_t bufsize, int temporary);
+char *cache_uri_(CRAWL *crawl, const CACHEKEY key);
 FILE *cache_open_payload_write_(CRAWL *crawl, const CACHEKEY key);
 int cache_close_payload_rollback_(CRAWL *crawl, const CACHEKEY key, FILE *f);
 int cache_close_payload_commit_(CRAWL *crawl, const CACHEKEY key, FILE *f);
