@@ -22,5 +22,5 @@ Description: RES Anansi Linked Open Data crawler
 
 Package: libcrawl-dev
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}, libcrawl
+Depends: ${misc:Depends}, ${shlibs:Depends}, libcrawl, liburi-dev, libjsondata-dev
 Description: RES Anansi Linked Open Data crawler (development files)
