@@ -132,12 +132,12 @@ db_create(CONTEXT *ctx)
 		free(p);
 		return NULL;
 	}
-	if(config_get_int("db:debug-queries", 0))
+	if(config_get_bool("db:debug-queries", 0))
 	{
 		sql_set_querylog(p->db, db_log_query);
 		sql_set_errorlog(p->db, db_log_error);
 	}
-	else if(config_get_int("db:debug-errors", 0))
+	else if(config_get_bool("db:debug-errors", 0))
 	{
 		sql_set_errorlog(p->db, db_log_error);
 	}
