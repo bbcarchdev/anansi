@@ -98,6 +98,7 @@ queue_add_uristr(CRAWL *crawl, const char *uristr)
 	CONTEXT *data;
 	
 	data = crawl_userdata(crawl);	
+	log_printf(LOG_DEBUG, "Adding URI <%s> to crawler queue\n", uristr);
 	return data->queue->api->add_uristr(data->queue, uristr);
 }
 
