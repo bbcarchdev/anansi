@@ -1,3 +1,7 @@
+## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+##
+## Copyright 2014 BBC.
+
 ## Copyright 2013 Mo McRoberts.
 ##
 ##  Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +17,7 @@
 ##  limitations under the License.
 ##
 
-AC_INIT([crawl],[master])
+AC_INIT([anansi],[master])
 
 AC_CONFIG_MACRO_DIR([m4])
 
