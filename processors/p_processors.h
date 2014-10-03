@@ -24,6 +24,7 @@
 
 typedef int (*rdf_filter_cb)(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *model);
 
+extern librdf_world *rdf_world(PROCESSOR *me);
 extern int rdf_set_filter(PROCESSOR *me, rdf_filter_cb filter);
 
 #endif /*!P_PROCESSORS_H_*/

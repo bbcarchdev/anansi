@@ -311,3 +311,9 @@ rdf_set_filter(PROCESSOR *me, rdf_filter_cb filter)
 
 	return 0;
 }
+
+librdf_world *
+rdf_world(PROCESSOR *me)
+{
+	return me->world;
+}
