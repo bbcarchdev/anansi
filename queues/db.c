@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -104,17 +109,17 @@ db_create(CONTEXT *ctx)
 	p->crawl = ctx->api->crawler(ctx);
 	p->crawler_id = ctx->api->crawler_id(ctx);
 	p->cache_id = ctx->api->cache_id(ctx);
-	p->ncrawlers = config_get_int("db:crawlercount", 0);
+	p->ncrawlers = config_get_int("instance:crawlercount", 0);
 	if(!p->ncrawlers)
 	{
-		log_printf(LOG_CRIT, "DB: No crawlercount has been specified in [db] section of the configuration file\n");
+		log_printf(LOG_CRIT, "DB: No crawlercount has been specified in [instance] section of the configuration file\n");
 		free(p);
 		return NULL;
 	}	
-	p->ncaches = config_get_int("db:cachecount", 0);
+	p->ncaches = config_get_int("instance:cachecount", 0);
 	if(!p->ncaches)
 	{
-		log_printf(LOG_CRIT, "DB: No cachecount has been specified in [db] section of the configuration file\n");
+		log_printf(LOG_CRIT, "DB: No cachecount has been specified in [instance] section of the configuration file\n");
 		free(p);
 		return NULL;
 	}	
