@@ -165,6 +165,8 @@ int crawl_set_next(CRAWL *crawl, crawl_next_cb cb);
 int crawl_set_checkpoint(CRAWL *crawl, crawl_checkpoint_cb cb);
 /* Set the callback function invoked when an object is rolled back */
 int crawl_set_unchanged(CRAWL *crawl, crawl_unchanged_cb cb);
+/* Set the callback function invoked before an object is fetched */
+int crawl_set_prefetch(CRAWL *crawl, crawl_prefetch_cb cb);
 
 /* Open the payload file for a crawl object */
 FILE *crawl_obj_open(CRAWLOBJ *obj);
