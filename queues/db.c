@@ -179,7 +179,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 	if(newversion == 0)
 	{
 		/* Return target version */
-		return 2;
+		return 3;
 	}
 	log_printf(LOG_NOTICE, "DB: Migrating database to version %d\n", newversion);
 	if(newversion == 1)
@@ -238,6 +238,16 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 		}
 		return 0;
 	}
+	if(newversion == 3)
+	{
+		if(sql_execute(sql, "ALTER TABLE \"crawl_resource\" "
+					   "ADD COLUMN \"tinyhash\" TINYINT UNSIGNED NOT NULL AFTER \"shorthash\", "
+					   "ADD INDEX \"tinyhash\" (\"tinyhash\")"))
+		{
+			return -1;
+		}
+		return 0;
+	}
 	return -1;
 }
 
@@ -278,7 +288,7 @@ db_next(QUEUE *me, URI **next)
 		" FROM "
 		" \"crawl_resource\" \"res\", \"crawl_root\" \"root\" "
 		" WHERE "
-		" \"res\".\"crawl_bucket\" = %d AND "
+		" \"res\".\"tinyhash\" MOD %d = 0 AND "
 		" \"root\".\"hash\" = \"res\".\"root\" AND "
 		" \"root\".\"earliest_update\" < NOW() AND "
 		" \"res\".\"next_fetch\" < NOW() "
@@ -645,7 +655,7 @@ db_insert_resource_txn(SQL *db, void *userdata)
 	}
 	if(sql_stmt_eof(rs))
 	{
-		if(sql_executef(db, "INSERT INTO \"crawl_resource\" (\"hash\", \"shorthash\", \"crawl_bucket\", \"cache_bucket\", \"root\", \"uri\", \"added\", \"next_fetch\") VALUES (%Q, %lu, %d, %d, %Q, %Q, NOW(), NOW())", data->cachekey, data->shortkey, (data->shortkey % data->me->ncrawlers) + 1, (data->shortkey % data->me->ncaches) + 1, data->rootkey, data->uri))
+		if(sql_executef(db, "INSERT INTO \"crawl_resource\" (\"hash\", \"shorthash\", \"tinyhash\", \"crawl_bucket\", \"cache_bucket\", \"root\", \"uri\", \"added\", \"next_fetch\") VALUES (%Q, %lu, %d, %d, %d, %Q, %Q, NOW(), NOW())", data->cachekey, data->shortkey, (data->shortkey % 256), (data->shortkey % data->me->ncrawlers) + 1, (data->shortkey % data->me->ncaches) + 1, data->rootkey, data->uri))
 		{
 			if(sql_deadlocked(db))
 			{
