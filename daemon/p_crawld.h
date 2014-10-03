@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -16,6 +21,9 @@
 
 #ifndef P_CRAWLD_H_
 # define P_CRAWLD_H_                   1
+
+# define _BSD_SOURCE                   1
+# define _FILE_OFFSET_BITS             64
 
 # include <stdio.h>
 # include <stdlib.h>
