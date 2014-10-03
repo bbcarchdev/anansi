@@ -49,6 +49,10 @@ processor_init(void)
 	{
 		processor_constructor = rdf_create;
 	}
+	else if(!strcmp(name, "res"))
+	{
+		processor_constructor = res_create;
+	}
 	else
 	{
 		log_printf(LOG_CRIT, "processing engine '%s' is not registered\n", name);

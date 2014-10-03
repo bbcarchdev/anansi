@@ -27,9 +27,7 @@
 
 #define PROCESSOR_STRUCT_DEFINED       1
 
-#include "p_crawld.h"
-
-#include <librdf.h>
+#include "p_processors.h"
 
 static unsigned long rdf_addref(PROCESSOR *me);
 static unsigned long rdf_release(PROCESSOR *me);
@@ -59,6 +57,7 @@ struct processor_struct
 	char *content_type;
 	const char *parser_type;
 	FILE *fobj;
+	rdf_filter_cb filter;
 };
 
 PROCESSOR *
@@ -259,6 +258,14 @@ rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conte
 		return -1;		
 	}
 	librdf_free_parser(parser);
+	if(me->filter)
+	{
+		if(!me->filter(me, obj, uri, me->model))
+		{
+			log_printf(LOG_DEBUG, "RDF: filter declined further processing of this resource\n");
+			return 0;
+		}
+	}
 	stream = librdf_model_as_stream(me->model);
 	if(!stream)
 	{
@@ -295,4 +302,12 @@ rdf_process_node(PROCESSOR *me, CRAWLOBJ *obj, librdf_node *node)
 		return -1;
 	}
 	return queue_add_uristr(me->crawl, (const char *) librdf_uri_as_string(uri));
+}
+
+int
+rdf_set_filter(PROCESSOR *me, rdf_filter_cb filter)
+{
+	me->filter = filter;
+
+	return 0;
 }

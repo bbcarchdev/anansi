@@ -25,7 +25,8 @@ AM_CPPFLAGS = @AM_CPPFLAGS@ \
 
 noinst_LTLIBRARIES = libprocessors.la
 
-libprocessors_la_SOURCES = rdf.c
+libprocessors_la_SOURCES = p_processors.h \
+	rdf.c res.c
 
 libprocessors_la_LDFLAGS = -avoid-version
 

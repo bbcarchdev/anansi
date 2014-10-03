@@ -134,6 +134,7 @@ int policy_cleanup(void);
 int policy_init_crawler(CRAWL *crawler, CONTEXT *data);
 
 PROCESSOR *rdf_create(CRAWL *crawler);
+PROCESSOR *res_create(CRAWL *crawler);
 
 QUEUE *db_create(CONTEXT *ctx);
 
