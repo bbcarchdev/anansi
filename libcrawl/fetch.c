@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -369,14 +374,6 @@ crawl_generate_info_(struct crawl_fetch_data_struct *data, jd_var *dict)
 			jd_assign(key, value);
 		}
 		ptr = NULL;
-		curl_easy_getinfo(data->ch, CURLINFO_REDIRECT_URL, &ptr);
-		if(ptr)
-		{
-			key = jd_get_ks(dict, "redirect", 1);
-			value = jd_nsv(ptr);
-			jd_assign(key, value);
-		}
-		ptr = NULL;
 		curl_easy_getinfo(data->ch, CURLINFO_CONTENT_TYPE, &ptr);
 		if(ptr)
 		{
@@ -421,6 +418,14 @@ crawl_generate_info_(struct crawl_fetch_data_struct *data, jd_var *dict)
 			{
 				ptr++;
 			}
+			if(!strcasecmp(s, "location"))
+			{
+				jd_assign(jd_get_ks(dict, "redirect", 1), jd_nsv(ptr));
+			}
+			if(!strcasecmp(s, "content-location"))
+			{
+				jd_assign(jd_get_ks(dict, "content_location", 1), jd_nsv(ptr));
+			}			
 			key = jd_get_ks(headers, s, 1);
 			if(key->type == VOID)
 			{

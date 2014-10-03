@@ -176,15 +176,14 @@ crawl_obj_type(CRAWLOBJ *obj)
 	{
 		return NULL;
 	}
-	str = NULL;
 	JD_SCOPE
 	{
+		str = NULL;
 		key = jd_get_ks(&(obj->info), "type", 1);
-		if(key->type == VOID)
+		if(key->type == STRING)
 		{
-			return NULL;
+			str = jd_bytes(key, NULL);
 		}
-		str = jd_bytes(key, NULL);
 	}
 	return str;
 }
@@ -199,15 +198,14 @@ crawl_obj_redirect(CRAWLOBJ *obj)
 	{
 		return NULL;
 	}
-	str = NULL;
 	JD_SCOPE
 	{
+		str = NULL;
 		key = jd_get_ks(&(obj->info), "redirect", 1);
-		if(key->type == VOID)
+		if(key->type == STRING)
 		{
-			return NULL;
+			str = jd_bytes(key, NULL);
 		}
-		str = jd_bytes(key, NULL);
 	}
 	return str;
 }

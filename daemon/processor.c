@@ -112,12 +112,20 @@ processor_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 	uri = crawl_obj_uristr(obj);
 	location = crawl_obj_redirect(obj);
 	content_type = crawl_obj_type(obj);
-	log_printf(LOG_DEBUG, "processor_handler: URI is '%s', Content-Type is '%s'\n", uri, content_type);
 	status = crawl_obj_status(obj);
+	log_printf(LOG_DEBUG, "processor_handler: URI is '%s', Content-Type is '%s', status is %d\n", uri, content_type, status);
 	/* If there's a redirect, ensure the redirect target will be crawled */
-	if(status >= 300 && status < 400 && location && strcmp(location, uri))
+	if(status > 300 && status < 304)
 	{
-		queue_add_uristr(crawl, location);
+		if(!location)
+		{
+			log_printf(LOG_NOTICE, "received a %d redirect with no location specified\n");
+		}
+		else if(strcmp(location, uri))
+		{
+			log_printf(LOG_DEBUG, "processor_handler: following %d redirect to <%s>\n", status, location);
+			queue_add_uristr(crawl, location);
+		}
 	}
 	log_printf(LOG_DEBUG, "processor_handler: object has been updated\n");
 	r = pdata->api->process(pdata, obj, uri, content_type);

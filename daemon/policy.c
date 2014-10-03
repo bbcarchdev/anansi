@@ -208,6 +208,10 @@ policy_uri(CRAWL *crawl, URI *uri, const char *uristr, void *userdata)
 	return 1;
 }
 
+/* The checkpoint callback is invoked during the fetch in order to confirm
+ * that it should proceed before any (signifcant amounts of) data are
+ * downloaded.
+ */
 static int
 policy_checkpoint(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata)
 {
