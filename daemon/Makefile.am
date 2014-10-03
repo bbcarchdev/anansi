@@ -27,8 +27,13 @@ noinst_LTLIBRARIES = libcrawld.la
 
 sbin_PROGRAMS = crawld
 
+bin_PROGRAMS = crawler-add
+
 crawld_SOURCES = p_crawld.h crawld.c 
 crawld_LDADD = libcrawld.la
+
+crawler_add_SOURCES = p_crawld.h add.c
+crawler_add_LDADD = libcrawld.la
 
 libcrawld_la_SOURCES = p_crawld.h \
 	context.c thread.c processor.c queue.c policy.c

@@ -3,6 +3,7 @@ usr/sbin/crawld
 usr/bin/crawl-fetch
 usr/bin/crawl-locate
 usr/bin/crawl-mirror
+usr/bin/crawler-add
 usr/share/doc/anansi/crawl.conf
 
 
