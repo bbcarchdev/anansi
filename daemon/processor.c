@@ -29,9 +29,31 @@ static int processor_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void 
 static int processor_unchanged_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata);
 static int processor_failed_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata);
 
+static PROCESSOR *(*processor_constructor)(CRAWL *crawler);
+
 int
 processor_init(void)
 {
+	const char *name;
+
+	/* processor_init() is invoked before any other threads are created, so
+	 * it's safe to use config_getptr_unlocked().
+	 */
+	name = config_getptr_unlocked("crawl:processor", NULL);
+	if(!name)
+	{
+		log_printf(LOG_CRIT, "no 'processor' configuration option could be found in the [crawl] section\n");
+		return -1;
+	}
+	if(!strcmp(name, "rdf"))
+	{
+		processor_constructor = rdf_create;
+	}
+	else
+	{
+		log_printf(LOG_CRIT, "processing engine '%s' is not registered\n", name);
+		return -1;
+	}
 	return 0;
 }
 
@@ -44,15 +66,16 @@ processor_cleanup(void)
 int
 processor_init_crawler(CRAWL *crawl, CONTEXT *data)
 {
-	data->processor = rdf_create(crawl);
+	
+	data->processor = processor_constructor(crawl);
 	if(!data->processor)
 	{
+		log_printf(LOG_CRIT, "failed to initialise processing engine\n");
 		return -1;
 	}
 	crawl_set_updated(crawl, processor_handler);
 	crawl_set_unchanged(crawl, processor_unchanged_handler);
 	crawl_set_failed(crawl, processor_failed_handler);
-	return 0;
 	return 0;
 }
 
