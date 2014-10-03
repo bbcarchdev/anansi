@@ -260,4 +260,5 @@ recurse_links(CRAWL *crawl, CRAWLOBJ *obj)
 static int
 recurse_find_links(CRAWL *crawl, CRAWLOBJ *obj, xmlNodePtr node)
 {
+	return 0;
 }

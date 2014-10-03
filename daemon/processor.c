@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -100,7 +105,8 @@ processor_unchanged_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *
 	
 	(void) obj;
 	(void) prevtime;
-	
+	(void) userdata;
+
 	uri = crawl_obj_uristr(obj);
 	
 	log_printf(LOG_DEBUG, "processor_unchanged_handler: object has not been updated\n");
@@ -113,7 +119,8 @@ processor_failed_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *use
 	const char *uri;
 	
 	(void) prevtime;
-	
+	(void) userdata;
+
 	uri = crawl_obj_uristr(obj);
 	return queue_unchanged_uristr(crawl, uri, 1);
 }
