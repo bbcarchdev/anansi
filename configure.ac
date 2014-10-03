@@ -55,6 +55,7 @@ caches/Makefile
 libcrawl/Makefile
 util/Makefile
 queues/Makefile
+processors/Makefile
 daemon/Makefile
 m4/Makefile
 ])

@@ -13,10 +13,11 @@
 ##  limitations under the License.
 ##
 
-DIST_SUBDIRS = m4 util caches libcrawl queues daemon libsupport libs3client
+DIST_SUBDIRS = m4 util caches libcrawl queues daemon libsupport libs3client \
+	processors
 
 SUBDIRS = @subdirs@ libs3client caches libcrawl \
-	libsupport queues daemon util
+	libsupport queues processors daemon util
 
 ACLOCAL_AMFLAGS = -I m4
 
