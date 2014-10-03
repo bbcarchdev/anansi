@@ -70,6 +70,7 @@ queue_init_crawler(CRAWL *crawler, CONTEXT *ctx)
 	ctx->queue = queue_constructor(ctx);
 	if(!ctx->queue)
 	{
+		log_printf(LOG_CRIT, "failed to intialise queue\n");
 		return -1;
 	}
 	crawl_set_next(crawler, queue_handler);

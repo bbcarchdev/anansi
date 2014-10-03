@@ -97,7 +97,8 @@ QUEUE *
 db_create(CONTEXT *ctx)
 {
 	QUEUE *p;
-	
+	const char *dburi;
+
 	p = (QUEUE *) calloc(1, sizeof(QUEUE));
 	if(!p)
 	{
@@ -122,10 +123,12 @@ db_create(CONTEXT *ctx)
 		log_printf(LOG_CRIT, "DB: No cachecount has been specified in [instance] section of the configuration file\n");
 		free(p);
 		return NULL;
-	}	
-	p->db = sql_connect(ctx->api->config_get(ctx, "db:uri", "mysql://localhost/crawl"));
+	}
+	dburi = ctx->api->config_get(ctx, "db:uri", "mysql://localhost/crawl");
+	p->db = sql_connect(dburi);
 	if(!p->db)
 	{
+		log_printf(LOG_CRIT, "DB: Failed to connect to database <%s>\n", dburi);
 		free(p);
 		return NULL;
 	}

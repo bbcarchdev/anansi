@@ -25,6 +25,7 @@
 
 #include "p_crawld.h"
 
+static int thread_setup(CONTEXT *context, CRAWL *crawler);
 static int thread_prefetch(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
 
 static char *cache, *username, *password, *endpoint; 
@@ -105,26 +106,45 @@ thread_handler(void *arg)
 	crawler = context->crawl;
 	log_printf(LOG_DEBUG, "thread_handler: crawler=%d, cache=%d\n", context->crawler_id, context->cache_id);
 	crawl_set_verbose(crawler, config_get_int("crawl:verbose", 0));
-	processor_init_crawler(crawler, context);
-	queue_init_crawler(crawler, context);
-	policy_init_crawler(crawler, context);
-	crawl_set_prefetch(crawler, thread_prefetch);
-	
-	while(1)
-	{
-		if(crawl_perform(crawler))
+	if(!thread_setup(context, crawler))
+	{	
+		while(1)
 		{
-			log_printf(LOG_CRIT, "%s\n", strerror(errno));
-			break;
+			if(crawl_perform(crawler))
+			{
+				log_printf(LOG_CRIT, "crawl perform operation failed: %s\n", strerror(errno));
+				break;
+			}
+			sleep(1);
 		}
-		sleep(1);
 	}
-
 	queue_cleanup_crawler(crawler, context);
 	processor_cleanup_crawler(crawler, context);
 
 	context->api->release(context);
 	return NULL;
+}
+
+static int
+thread_setup(CONTEXT *context, CRAWL *crawler)
+{
+	if(processor_init_crawler(crawler, context))
+	{
+		return -1;
+	}
+	if(queue_init_crawler(crawler, context))
+	{
+		return -1;
+	}
+	if(policy_init_crawler(crawler, context))
+	{
+		return -1;
+	}
+	if(crawl_set_prefetch(crawler, thread_prefetch))
+	{
+		return -1;
+	}
+	return 0;
 }
 
 static int

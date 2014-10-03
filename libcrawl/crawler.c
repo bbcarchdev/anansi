@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -32,6 +37,7 @@ crawl_perform(CRAWL *crawl)
 		uri = NULL;
 		if(!crawl->next)
 		{
+			syslog(LOG_NOTICE, "libcrawl: crawl_perform(): no 'next resource' handler has been registered\n");
 			errno = EINVAL;
 			return -1;
 		}
