@@ -48,6 +48,7 @@ static int s3cache_copy_url_(CRAWLCACHE *cache, const CACHEKEY key, const char *
 static unsigned long s3cache_init_(CRAWLCACHE *cache);
 static unsigned long s3cache_done_(CRAWLCACHE *cache);
 static FILE *s3cache_open_write_(CRAWLCACHE *cache, const CACHEKEY key);
+static FILE *s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key);
 static int s3cache_close_rollback_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
 static int s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
 static int s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *info);
@@ -62,6 +63,7 @@ static const CRAWLCACHEIMPL s3cache_impl = {
 	s3cache_init_,
 	s3cache_done_,
 	s3cache_open_write_,
+	s3cache_open_read_,
 	s3cache_close_rollback_,
 	s3cache_close_commit_,
 	s3cache_info_read_,
@@ -154,6 +156,73 @@ s3cache_open_write_(CRAWLCACHE *cache, const CACHEKEY key)
 	(void) key;
 
 	return tmpfile();
+}
+
+static FILE *
+s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
+{
+	FILE *f;
+	struct s3cache_data_struct *data;
+	int e;
+	time_t now;
+	struct tm tm;
+	char datebuf[64];
+	CURL *ch;
+	long status;
+	struct curl_slist *headers;
+	
+	f = tmpfile();
+	if(!f)
+	{
+		return NULL;
+	}
+	e = 0;
+	data = (struct s3cache_data_struct *) cache->data;
+	status = 0;
+	s3cache_copy_url_(cache, key, CACHE_PAYLOAD_SUFFIX);
+	now = time(NULL);
+	gmtime_r(&now, &tm);
+	strcpy(datebuf, "Date: ");
+	strftime(&(datebuf[6]), 58, "%a, %d %b %Y %H:%M:%S GMT", &tm);
+	ch = curl_easy_init();			
+	curl_easy_setopt(ch, CURLOPT_URL, data->url);
+	curl_easy_setopt(ch, CURLOPT_HTTPGET, 1);
+	curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1);
+	curl_easy_setopt(ch, CURLOPT_WRITEDATA, f);
+	curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, NULL);
+	curl_easy_setopt(ch, CURLOPT_VERBOSE, cache->crawl->verbose);
+	headers = NULL;
+	headers = curl_slist_append(headers, datebuf);
+	if(data->access && data->secret)
+	{
+		headers = s3_sign("GET", data->resource, data->access, data->secret, headers);
+	}
+	if(headers)
+	{
+		curl_easy_setopt(ch, CURLOPT_HTTPHEADER, headers);
+	}
+	e = curl_easy_perform(ch);
+	if(e == CURLE_OK)
+	{
+		status = 0;
+		curl_easy_getinfo(ch, CURLINFO_RESPONSE_CODE, &status);
+		if(status != 200)
+		{
+			e = -1;
+		}			
+	}
+	else
+	{
+		e = -1;
+	}
+	curl_easy_cleanup(ch);
+	if(e)
+	{
+		fclose(f);
+		return NULL;
+	}
+	rewind(f);
+	return f;
 }
 
 static int

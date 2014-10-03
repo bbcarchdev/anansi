@@ -32,6 +32,7 @@ static int diskcache_copy_filename_(CRAWL *crawl, const CACHEKEY key, const char
 static unsigned long diskcache_init_(CRAWLCACHE *cache);
 static unsigned long diskcache_done_(CRAWLCACHE *cache);
 static FILE *diskcache_open_write_(CRAWLCACHE *cache, const CACHEKEY key);
+static FILE *diskcache_open_read_(CRAWLCACHE *cache, const CACHEKEY key);
 static int diskcache_close_rollback_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
 static int diskcache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
 static int diskcache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *info);
@@ -50,6 +51,7 @@ static const CRAWLCACHEIMPL diskcache_impl = {
 	diskcache_init_,
 	diskcache_done_,
 	diskcache_open_write_,
+	diskcache_open_read_,
 	diskcache_close_rollback_,
 	diskcache_close_commit_,
 	diskcache_info_read_,
@@ -89,7 +91,17 @@ diskcache_open_write_(CRAWLCACHE *cache, const CACHEKEY key)
 	{
 		return NULL;
 	}
-	return fopen(cache->crawl->cachefile, "w");
+	return fopen(cache->crawl->cachefile, "wb");
+}
+
+static FILE *
+diskcache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
+{
+	if(diskcache_copy_filename_(cache->crawl, key, CACHE_PAYLOAD_SUFFIX, 1))
+	{
+		return NULL;
+	}
+	return fopen(cache->crawl->cachefile, "rb");
 }
 
 static int

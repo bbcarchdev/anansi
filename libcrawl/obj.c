@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -253,4 +258,11 @@ crawl_obj_update_(CRAWLOBJ *obj)
 		}
 	}
 	return 0;
+}
+
+/* Open the payload file for a crawl object */
+FILE *
+crawl_obj_open(CRAWLOBJ *obj)
+{
+	return obj->crawl->cache.impl->payload_open_read(&(obj->crawl->cache), obj->key);
 }

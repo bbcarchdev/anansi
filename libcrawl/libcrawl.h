@@ -55,6 +55,7 @@ struct crawl_cache_impl_struct
 	unsigned long (*init)(CRAWLCACHE *cache);
 	unsigned long (*done)(CRAWLCACHE *cache);
 	FILE *(*payload_open_write)(CRAWLCACHE *cache, const CACHEKEY key);
+	FILE *(*payload_open_read)(CRAWLCACHE *cache, const CACHEKEY key);
 	int (*payload_close_rollback)(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
 	int (*payload_close_commit)(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
 	int (*info_read)(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict);
