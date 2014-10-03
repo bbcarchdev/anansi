@@ -17,7 +17,7 @@
 ##  limitations under the License.
 ##
 
-EXTRA_DIST = crawl.conf.example
+dist_doc_DATA = crawl.conf
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ @CPPFLAGS@ \
 	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl \
@@ -38,3 +38,7 @@ libcrawld_la_LIBADD = \
 	$(top_builddir)/processors/libprocessors.la \
 	$(top_builddir)/libcrawl/libcrawl.la \
 	$(top_builddir)/libsupport/libsupport.la
+
+install-data-hook:
+	$(INSTALL) -d $(DESTDIR)$(sysconfdir)
+	test -f $(DESTDIR)$(sysconfdir)/crawl.conf || $(INSTALL) -m 644 $(srcdir)/crawl.conf $(DESTDIR)$(sysconfdir)/crawl.conf

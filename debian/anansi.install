@@ -1,6 +1,8 @@
+etc/crawl.conf
 usr/sbin/crawld
 usr/bin/crawl-fetch
 usr/bin/crawl-locate
 usr/bin/crawl-mirror
+usr/share/doc/anansi/crawl.conf
 
 
