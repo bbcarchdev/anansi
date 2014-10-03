@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -22,10 +27,32 @@
 
 static int queue_handler(CRAWL *crawl, URI **next, void *userdata);
 
+static QUEUE *(*queue_constructor)(CONTEXT *ctx);
+
 /* Global initialisation */
 int
 queue_init(void)
 {
+	const char *name;
+
+	/* queue_init() is invoked before any other threads are created, so
+	 * it's safe to use config_getptr_unlocked().
+	 */
+	name = config_getptr_unlocked("crawl:queue", NULL);
+	if(!name)
+	{
+		log_printf(LOG_CRIT, "no 'queue' configuration option could be found in the [crawl] section\n");
+		return -1;
+	}
+	if(!strcmp(name, "db"))
+	{
+		queue_constructor = db_create;
+	}
+	else
+	{
+		log_printf(LOG_CRIT, "queue engine '%s' is not registered\n", name);
+		return -1;
+	}
 	return 0;
 }
 
@@ -40,7 +67,7 @@ queue_cleanup(void)
 int
 queue_init_crawler(CRAWL *crawler, CONTEXT *ctx)
 {
-	ctx->queue = db_create(ctx);
+	ctx->queue = queue_constructor(ctx);
 	if(!ctx->queue)
 	{
 		return -1;

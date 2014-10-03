@@ -56,15 +56,32 @@ main(int argc, char **argv)
 	}
 	log_set_use_config(1);
 	log_reset();
-	policy_init();
-	queue_init();
-	processor_init();
+	if(thread_init())
+	{
+		return 1;
+	}
+	if(policy_init())
+	{
+		return 1;
+	}
+	if(queue_init())
+	{
+		return 1;
+	}
+	if(processor_init())
+	{
+		return 1;
+	}
 
 	/* Perform a single thread's crawl actions */
-	thread_create(0);
+	if(thread_create(0))
+	{
+		return 1;
+	}
 	
 	processor_cleanup();
 	queue_cleanup();
+	thread_cleanup();
 	return 0;
 }
 

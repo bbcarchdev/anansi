@@ -108,6 +108,8 @@ struct processor_api_struct
 
 CONTEXT *context_create(int crawler_offset);
 
+int thread_init(void);
+int thread_cleanup(void);
 int thread_create(int crawler_offset);
 void *thread_handler(void *arg);
 

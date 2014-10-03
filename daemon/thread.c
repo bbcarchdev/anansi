@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -22,6 +27,29 @@
 
 static int thread_prefetch(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
 
+static char *cache, *username, *password, *endpoint; 
+
+int
+thread_init(void)
+{
+	/* Obtain global options which will be applied to each thread */
+	cache = config_geta("crawl:cache", NULL);
+	username = config_geta("cache:username", NULL);
+	password = config_geta("cache:password", NULL);
+	endpoint = config_geta("cache:endpoint", NULL);
+	return 0;
+}
+
+int
+thread_cleanup(void)
+{
+	free(cache);
+	free(username);
+	free(password);
+	free(endpoint);
+	return 0;
+}
+
 int
 thread_create(int crawler_offset)
 {
@@ -31,6 +59,34 @@ thread_create(int crawler_offset)
 	if(!context)
 	{
 		return -1;
+	}
+	if(cache)
+	{
+		if(crawl_set_cache_path(context->crawl, cache))
+		{
+			return -1;
+		}
+	}
+	if(username)
+	{
+		if(crawl_set_username(context->crawl, username))
+		{
+			return -1;
+		}
+	}
+	if(password)
+	{
+		if(crawl_set_password(context->crawl, password))
+		{
+			return -1;
+		}
+	}
+	if(endpoint)
+	{
+		if(crawl_set_endpoint(context->crawl, endpoint))
+		{
+			return -1;
+		}
 	}
 	thread_handler(context);
 	return 0;
