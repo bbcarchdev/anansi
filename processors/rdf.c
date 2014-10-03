@@ -237,21 +237,24 @@ rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conte
 	
 	(void) uri;
 	(void) content_type;
-	
+
+	log_printf(LOG_DEBUG, "RDF: processing <%s>\n", uri);
 	parser = librdf_new_parser(me->world, me->parser_type, NULL, NULL);
 	if(!parser)
 	{
 		return -1;
 	}
-	me->fobj = fopen(crawl_obj_payload(obj), "rb");
+	
+	me->fobj = crawl_obj_open(obj);
 	if(!me->fobj)
 	{
+		log_printf(LOG_ERR, "RDF: failed to open payload for processing\n");
 		librdf_free_parser(parser);
 		return -1;
 	}
 	if(librdf_parser_parse_file_handle_into_model(parser, me->fobj, 0, me->uri, me->model))
 	{
-		log_printf(LOG_NOTICE, "RDF: failed to parse '%s' (%s) as '%s'\n", uri, content_type, me->parser_type);
+		log_printf(LOG_ERR, "RDF: failed to parse '%s' (%s) as '%s'\n", uri, content_type, me->parser_type);
 		librdf_free_parser(parser);
 		return -1;		
 	}
