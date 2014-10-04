@@ -41,6 +41,9 @@ s3_sign(const char *method, const char *resource, const char *access_key, const 
 	char *sigbuf;
 	BIO *bmem, *b64;
 	BUF_MEM *bptr;
+	time_t now;
+	struct tm tm;
+	char datebuf[64];
 
 	type = md5 = date = adate = NULL;
 	len = strlen(method) + strlen(resource) + 2;
@@ -83,7 +86,12 @@ s3_sign(const char *method, const char *resource, const char *access_key, const 
 	}
 	if(!date)
 	{
-		date = "";
+		now = time(NULL);
+		gmtime_r(&now, &tm);
+		strcpy(datebuf, "Date: ");
+		strftime(&(datebuf[6]), 57, "%a, %d %b %Y %H:%M:%S GMT", &tm);		
+		headers = curl_slist_append(headers, datebuf);
+		date = &(datebuf[6]);
 	}
 	len += strlen(type) + strlen(md5) + strlen(date) + 2;
 	buf = (char *) calloc(1, len + 1);

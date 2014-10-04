@@ -14,10 +14,12 @@
 ##  See the License for the specific language governing permissions and
 ##  limitations under the License.
 
+AM_CPPFLAGS = @AM_CPPFLAGS@ $(LIBCURL_CPPFLAGS) $(OPENSSL_CPPFLAGS)
+
 noinst_LTLIBRARIES = libs3client.la
 
 libs3client_la_SOURCES = libs3client.h p_libs3client.h \
-	sign.c
+	sign.c bucket.c request.c
 
 libs3client_la_LIBADD = \
 	$(LIBCURL_LOCAL_LIBS) $(LIBCURL_LIBS) \

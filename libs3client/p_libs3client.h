@@ -24,6 +24,7 @@
 # include <stdlib.h>
 # include <string.h>
 # include <time.h>
+# include <errno.h>
 
 # include <curl/curl.h>
 # include <openssl/hmac.h>
@@ -32,5 +33,26 @@
 # include <openssl/buffer.h>
 
 # include "libs3client.h"
+
+# define S3_DEFAULT_ENDPOINT            "s3.amazonaws.com"
+
+struct s3_bucket_struct
+{
+	char *bucket;
+	char *access;
+	char *secret;
+	char *endpoint;
+	char *basepath;
+};
+
+struct s3_request_struct
+{
+	S3BUCKET *bucket;
+	char *resource;
+	char *method;
+	CURL *ch;
+	struct curl_slist *headers;
+	int finalised;
+};
 
 #endif /*!P_LIBS3CLIENT_H_*/

@@ -25,15 +25,10 @@
 
 struct s3cache_data_struct
 {
-	const char *bucket;
-	char *host;
-	char *access;
-	char *secret;
+	S3BUCKET *bucket;
 	/* Temporary state */
-	char *url;
-	size_t urlsize;
-	char *resource;
-	size_t resourcesize;
+	char *path;
+	size_t pathsize;
 	char *buf;
 	size_t size;
 	size_t pos;
@@ -43,7 +38,7 @@ static int urldecode(char *dest, const char *src, size_t len);
 
 static size_t s3cache_write_buf_(char *ptr, size_t size, size_t nmemb, void *userdata);
 static size_t s3cache_write_null_(char *ptr, size_t size, size_t nmemb, void *userdata);
-static int s3cache_copy_url_(CRAWLCACHE *cache, const CACHEKEY key, const char *suffix);
+static int s3cache_copy_path_(CRAWLCACHE *cache, const CACHEKEY key, const char *suffix);
 
 static unsigned long s3cache_init_(CRAWLCACHE *cache);
 static unsigned long s3cache_done_(CRAWLCACHE *cache);
@@ -81,51 +76,59 @@ s3cache_init_(CRAWLCACHE *cache)
 {
 	struct s3cache_data_struct *data;
 	const char *t;
+	char *p;
 
 	data = (struct s3cache_data_struct *) calloc(1, sizeof(struct s3cache_data_struct));
 	if(!data)
 	{
 		return 0;
 	}
-	data->host = strdup("s3.amazonaws.com");
-	if(!data->host)
-	{
-		free(data);
-		return 0;
-	}
 	if(!cache->crawl->uri->host)
 	{
 		return 0;
 	}
-	data->bucket = cache->crawl->uri->host;
+	data->bucket = s3_create(cache->crawl->uri->host);
+	if(!data->bucket)
+	{
+		free(data);
+		return 0;
+	}
 	if(cache->crawl->uri->auth)
 	{		
 		t = strchr(cache->crawl->uri->auth, ':');
 		if(t)
 		{
-			data->access = (char *) calloc(1, t - cache->crawl->uri->auth + 1);
-			if(!data->access)
+			p = (char *) calloc(1, t - cache->crawl->uri->auth + 1);
+			if(!p)
 			{
+				s3_destroy(data->bucket);
 				free(data);
 				return 0;
 			}
-			urldecode(data->access, cache->crawl->uri->auth, t - cache->crawl->uri->auth);
-			data->access[t - cache->crawl->uri->auth] = 0;
+			urldecode(p, cache->crawl->uri->auth, t - cache->crawl->uri->auth);
+			p[t - cache->crawl->uri->auth] = 0;
+			s3_set_access(data->bucket, p);
+			free(p);			
 			t++;
-			data->secret = (char *) calloc(1, strlen(t) + 1);
-			if(!data->secret)
+			p = (char *) calloc(1, strlen(t) + 1);
+			if(!p)
 			{
-				free(data->access);
+				s3_destroy(data->bucket);
 				free(data);
 				return 0;
 			}
-			urldecode(data->secret, t, strlen(t));
+			urldecode(p, t, strlen(t));
+			s3_set_secret(data->bucket, p);
+			free(p);
 		}
 		else
 		{
-			data->access = strdup(cache->crawl->uri->auth);
-			data->secret = NULL;
+			s3_set_access(data->bucket, cache->crawl->uri->auth);
 		}
+	}
+	if(cache->crawl->uri->path)
+	{
+		s3_set_basepath(data->bucket, cache->crawl->uri->path);
 	}
 	cache->data = data;
 	return 1;
@@ -139,9 +142,11 @@ s3cache_done_(CRAWLCACHE *cache)
 	data = (struct s3cache_data_struct *) cache->data;
 	if(data)
 	{
-		free(data->host);
-		free(data->access);
-		free(data->secret);
+		if(data->bucket)
+		{
+			s3_destroy(data->bucket);
+		}
+		free(data->path);
 		free(data->buf);
 		free(data);
 		cache->data = NULL;
@@ -161,15 +166,12 @@ s3cache_open_write_(CRAWLCACHE *cache, const CACHEKEY key)
 static FILE *
 s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
 {
+	S3REQUEST *req;
 	FILE *f;
 	struct s3cache_data_struct *data;
 	int e;
-	time_t now;
-	struct tm tm;
-	char datebuf[64];
 	CURL *ch;
 	long status;
-	struct curl_slist *headers;
 	
 	f = tmpfile();
 	if(!f)
@@ -179,30 +181,14 @@ s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
 	e = 0;
 	data = (struct s3cache_data_struct *) cache->data;
 	status = 0;
-	s3cache_copy_url_(cache, key, CACHE_PAYLOAD_SUFFIX);
-	now = time(NULL);
-	gmtime_r(&now, &tm);
-	strcpy(datebuf, "Date: ");
-	strftime(&(datebuf[6]), 58, "%a, %d %b %Y %H:%M:%S GMT", &tm);
-	ch = curl_easy_init();			
-	curl_easy_setopt(ch, CURLOPT_URL, data->url);
-	curl_easy_setopt(ch, CURLOPT_HTTPGET, 1);
+	s3cache_copy_path_(cache, key, CACHE_PAYLOAD_SUFFIX);
+	req = s3_request_create(data->bucket, data->path, "GET");
+	ch = s3_request_curl(req);
 	curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1);
 	curl_easy_setopt(ch, CURLOPT_WRITEDATA, f);
 	curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, NULL);
 	curl_easy_setopt(ch, CURLOPT_VERBOSE, cache->crawl->verbose);
-	headers = NULL;
-	headers = curl_slist_append(headers, datebuf);
-	if(data->access && data->secret)
-	{
-		headers = s3_sign("GET", data->resource, data->access, data->secret, headers);
-	}
-	if(headers)
-	{
-		curl_easy_setopt(ch, CURLOPT_HTTPHEADER, headers);
-	}
-	e = curl_easy_perform(ch);
-	if(e == CURLE_OK)
+	if(!s3_request_perform(req))
 	{
 		status = 0;
 		curl_easy_getinfo(ch, CURLINFO_RESPONSE_CODE, &status);
@@ -215,7 +201,7 @@ s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
 	{
 		e = -1;
 	}
-	curl_easy_cleanup(ch);
+	s3_request_destroy(req);
 	if(e)
 	{
 		fclose(f);
@@ -238,15 +224,13 @@ s3cache_close_rollback_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
 static int
 s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
 {
+	S3REQUEST *req;
 	struct s3cache_data_struct *data;
 	int e;
-	time_t now;
-	struct tm tm;
-	char datebuf[64];
 	CURL *ch;
 	long status;
-	struct curl_slist *headers;
 	off_t offset;
+	struct curl_slist *headers;
 
 	if(!f)
 	{
@@ -258,45 +242,31 @@ s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
 	e = 0;
 	data = (struct s3cache_data_struct *) cache->data;
 	status = 0;
-	s3cache_copy_url_(cache, key, CACHE_PAYLOAD_SUFFIX);
-	now = time(NULL);
-	gmtime_r(&now, &tm);
-	strcpy(datebuf, "Date: ");
-	strftime(&(datebuf[6]), 58, "%a, %d %b %Y %H:%M:%S GMT", &tm);
-	ch = curl_easy_init();			
-	curl_easy_setopt(ch, CURLOPT_URL, data->url);
+	s3cache_copy_path_(cache, key, CACHE_PAYLOAD_SUFFIX);
+	req = s3_request_create(data->bucket, data->path, "PUT");
+	ch = s3_request_curl(req);
 	curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1);
-	curl_easy_setopt(ch, CURLOPT_UPLOAD, 1);
 	curl_easy_setopt(ch, CURLOPT_READDATA, f);
 	curl_easy_setopt(ch, CURLOPT_INFILESIZE_LARGE, (curl_off_t) offset);
 	curl_easy_setopt(ch, CURLOPT_VERBOSE, cache->crawl->verbose);
-	headers = NULL;
-	headers = curl_slist_append(headers, datebuf);
-	headers = curl_slist_append(headers, "Expect: 100-continue");
-	if(data->access && data->secret)
-	{
-		headers = s3_sign("PUT", data->resource, data->access, data->secret, headers);
-	}
-	if(headers)
-	{
-		curl_easy_setopt(ch, CURLOPT_HTTPHEADER, headers);
-	}
 	curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, s3cache_write_null_);
-	e = curl_easy_perform(ch);
-	if(e == CURLE_OK)
+	curl_easy_setopt(ch, CURLOPT_UPLOAD, 1);
+    headers = curl_slist_append(s3_request_headers(req), "Expect: 100-continue");
+	s3_request_set_headers(req, headers);
+	if(!s3_request_perform(req))
 	{
 		status = 0;
 		curl_easy_getinfo(ch, CURLINFO_RESPONSE_CODE, &status);
 		if(status != 200)
 		{
 			e = -1;
-		}			
+		}
 	}
 	else
 	{
 		e = -1;
 	}
-	curl_easy_cleanup(ch);
+	s3_request_destroy(req);
 	fclose(f);
 	return e;
 }
@@ -304,43 +274,24 @@ s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
 static int
 s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 {
+	S3REQUEST *req;
 	struct s3cache_data_struct *data;
 	CURL *ch;
-	struct curl_slist *headers = NULL;
-	time_t now;
-	struct tm tm;
-	char datebuf[64];
-	int e;
 	long status;
 
 	data = (struct s3cache_data_struct *) cache->data;
 	status = 0;
-	s3cache_copy_url_(cache, key, CACHE_INFO_SUFFIX);
-	ch = curl_easy_init();
-	curl_easy_setopt(ch, CURLOPT_URL, data->url);
-	curl_easy_setopt(ch, CURLOPT_HTTPGET, 1);
-	now = time(NULL);
-	gmtime_r(&now, &tm);
-	strcpy(datebuf, "Date: ");
-	strftime(&(datebuf[6]), 58, "%a, %d %b %Y %H:%M:%S GMT", &tm);
-	headers = curl_slist_append(headers, datebuf);
-	if(data->access && data->secret)
-	{
-		headers = s3_sign("GET", data->resource, data->access, data->secret, headers);
-	}
-	if(headers)
-	{
-		curl_easy_setopt(ch, CURLOPT_HTTPHEADER, headers);
-	}
 	data->pos = 0;
+	s3cache_copy_path_(cache, key, CACHE_INFO_SUFFIX);
+	req = s3_request_create(data->bucket, data->path, "GET");
+	ch = s3_request_curl(req);
 	curl_easy_setopt(ch, CURLOPT_VERBOSE, cache->crawl->verbose);
 	curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1);
 	curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, s3cache_write_buf_);
 	curl_easy_setopt(ch, CURLOPT_WRITEDATA, (void *) data);
-	e = curl_easy_perform(ch);
-	if(e != CURLE_OK || !data->buf)
+	if(s3_request_perform(req) || !data->buf)
 	{
-		curl_easy_cleanup(ch);
+		s3_request_destroy(req);
 		return -1;
 	}
 	curl_easy_getinfo(ch, CURLINFO_RESPONSE_CODE, &status);
@@ -349,7 +300,7 @@ s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 		curl_easy_cleanup(ch);
 		return -1;
 	}
-	curl_easy_cleanup(ch);
+	s3_request_destroy(req);
 	JD_SCOPE
 	{
 		jd_release(dict);
@@ -361,21 +312,19 @@ s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 static int
 s3cache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 {
+	S3REQUEST *req;
 	jd_var json = JD_INIT;
 	const char *p;
 	size_t len;
 	volatile int e;
 	long status;
-	time_t now;
-	struct tm tm;
-	char datebuf[64];
 	CURL *ch;
 	struct curl_slist *headers;
 	struct s3cache_data_struct *data;
 
 	e = 0;
 	data = (struct s3cache_data_struct *) cache->data;
-	s3cache_copy_url_(cache, key, CACHE_INFO_SUFFIX);
+	s3cache_copy_path_(cache, key, CACHE_INFO_SUFFIX);
 	
 	JD_SCOPE
 	{
@@ -384,31 +333,17 @@ s3cache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 		len--;
 		if(p)
 		{
-			now = time(NULL);
-			gmtime_r(&now, &tm);
-			strcpy(datebuf, "Date: ");
-			strftime(&(datebuf[6]), 58, "%a, %d %b %Y %H:%M:%S GMT", &tm);
-			ch = curl_easy_init();			
-			curl_easy_setopt(ch, CURLOPT_URL, data->url);
+			req = s3_request_create(data->bucket, data->path, "PUT");
+			ch = s3_request_curl(req);
 			curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1);
 			curl_easy_setopt(ch, CURLOPT_POSTFIELDS, p);
 			curl_easy_setopt(ch, CURLOPT_POSTFIELDSIZE, len);
 			curl_easy_setopt(ch, CURLOPT_VERBOSE, cache->crawl->verbose);
-			headers = NULL;
-			headers = curl_slist_append(headers, datebuf);
-			headers = curl_slist_append(headers, "Content-Type: application/json");
-			if(data->access && data->secret)
-			{
-				headers = s3_sign("PUT", data->resource, data->access, data->secret, headers);
-			}
-			if(headers)
-			{
-				curl_easy_setopt(ch, CURLOPT_HTTPHEADER, headers);
-			}
 			curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, s3cache_write_null_);
-			curl_easy_setopt(ch, CURLOPT_CUSTOMREQUEST, "PUT");
-			e = curl_easy_perform(ch);
-			if(e == CURLE_OK)
+			headers = s3_request_headers(req);
+			headers = curl_slist_append(headers, "Content-Type: application/json");
+			s3_request_set_headers(req, headers);
+			if(!s3_request_perform(req))
 			{
 				status = 0;
 				curl_easy_getinfo(ch, CURLINFO_RESPONSE_CODE, &status);
@@ -421,7 +356,7 @@ s3cache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 			{
 				e = -1;
 			}
-			curl_easy_cleanup(ch);
+			s3_request_destroy(req);
 		}
 		else
 		{
@@ -433,20 +368,27 @@ s3cache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 
 static char *s3cache_uri_(CRAWLCACHE *cache, const CACHEKEY key)
 {
+	const char *bucket, *path;
 	char *uri, *p;
 	size_t needed;
 	struct s3cache_data_struct *data;
 
 	data = (struct s3cache_data_struct *) cache->data;
+	bucket = cache->crawl->uri->host;
+	path = cache->crawl->uri->path;
+	if(path)
+	{
+		while(*path == '/')
+		{
+			path++;
+		}
+		if(!*path)
+		{
+			path = NULL;
+		}
+	}
 	/* s3://bucket/path/key.payload */
-	if(cache->crawl->cachepath && cache->crawl->cachepath[0])
-	{
-		needed = 5 + strlen(data->bucket) + strlen(cache->crawl->cachepath) + 2 + strlen(key) + 8 + 1;
-	}
-	else
-	{
-		needed = 5 + strlen(data->bucket) + 1 + strlen(key) + 8 + 1;
-	}
+	needed = 5 + strlen(bucket) + (path ? strlen(path) : 0) + 2 + strlen(key) + 8 + 1;
 	uri = (char *) calloc(1, needed);
 	if(!uri)
 	{
@@ -455,27 +397,18 @@ static char *s3cache_uri_(CRAWLCACHE *cache, const CACHEKEY key)
 	p = uri;
 	strcpy(p, "s3://");
 	p += 5;
-	strcpy(p, data->bucket);
-	p += strlen(data->bucket);
-	if(cache->crawl->cachepath && cache->crawl->cachepath[0])
+	strcpy(p, bucket);
+	p += strlen(bucket);
+	*p = '/';
+	if(path)
 	{
-		if(cache->crawl->cachepath[0] != '/')
-		{
-			*p = '/';
-			p++;
-		}
-		strcpy(p, cache->crawl->cachepath);
-		p += strlen(cache->crawl->cachepath) - 1;
+		strcpy(p, path);
+		p += strlen(path) - 1;
 		if(*p != '/')
 		{
 			p++;
 			*p = '/';
 		}
-		p++;
-	}
-	else
-	{
-		*p = '/';
 		p++;
 	}
 	strcpy(p, key);
@@ -488,72 +421,42 @@ static int
 s3cache_set_username_(CRAWLCACHE *cache, const char *username)
 {
 	struct s3cache_data_struct *data;
-	char *p;
 
 	data = (struct s3cache_data_struct *) cache->data;
-	if(username)
+	if(!data->bucket)
 	{
-		p = strdup(username);
-		if(!p)
-		{
-			return -1;
-		}
+		errno = EPERM;
+		return -1;
 	}
-	else
-	{
-		p = NULL;
-	}
-	free(data->access);
-	data->access = p;
-	return 0;
+	return s3_set_access(data->bucket, username);
 }
 
 static int 
 s3cache_set_password_(CRAWLCACHE *cache, const char *password)
 {
 	struct s3cache_data_struct *data;
-	char *p;
-
+	
 	data = (struct s3cache_data_struct *) cache->data;
-	if(password)
+	if(!data->bucket)
 	{
-		p = strdup(password);
-		if(!p)
-		{
-			return -1;
-		}
+		errno = EPERM;
+		return -1;
 	}
-	else
-	{
-		p = NULL;
-	}
-	free(data->secret);
-	data->secret = p;
-	return 0;
+	return s3_set_secret(data->bucket, password);
 }
 
 static int 
 s3cache_set_endpoint_(CRAWLCACHE *cache, const char *endpoint)
 {
 	struct s3cache_data_struct *data;
-	char *p;
-
+	
 	data = (struct s3cache_data_struct *) cache->data;
-	if(endpoint)
+	if(!data->bucket)
 	{
-		p = strdup(endpoint);
-		if(!p)
-		{
-			return -1;
-		}
+		errno = EPERM;
+		return -1;
 	}
-	else
-	{
-		p = NULL;
-	}
-	free(data->host);
-	data->host = p;
-	return 0;
+	return s3_set_endpoint(data->bucket, endpoint);
 }
 
 /* Callback invoked by cURL when data is received */
@@ -583,7 +486,7 @@ s3cache_write_buf_(char *ptr, size_t size, size_t nmemb, void *userdata)
 
 /* Generate the URL and resource path for a given key and type */
 static int
-s3cache_copy_url_(CRAWLCACHE *cache, const CACHEKEY key, const char *type)
+s3cache_copy_path_(CRAWLCACHE *cache, const CACHEKEY key, const char *type)
 {
 	struct s3cache_data_struct *data;
 	size_t needed;
@@ -591,83 +494,29 @@ s3cache_copy_url_(CRAWLCACHE *cache, const CACHEKEY key, const char *type)
 
 	data = (struct s3cache_data_struct *) cache->data;
 	
-	/* [/path]/key.type */
-	if(cache->crawl->cachepath)
+	/* /key.type */
+	needed = 1 + strlen(key) + 1 + strlen(type) + 1;
+	if(data->pathsize < needed)
 	{
-		needed = strlen(data->bucket) + 2 + strlen(cache->crawl->cachepath) + strlen(key) + strlen(type) + 3;
-	}
-	else
-	{
-		needed = strlen(data->bucket) + 2 + strlen(key) + strlen(type) + 2;
-	}
-	if(data->resourcesize < needed)
-	{
-		p = (char *) realloc(data->resource, needed);
+		p = (char *) realloc(data->path, needed);
 		if(!p)
 		{
 			return -1;
 		}
-		data->resourcesize = needed;
-		data->resource = p;
+		data->pathsize = needed;
+		data->path = p;
 	}
 	else
 	{
-		p = data->resource;
+		p = data->path;
 	}
 	*p = '/';
 	p++;
-	strcpy(p, data->bucket);
-	p += strlen(data->bucket);
-	if(cache->crawl->cachepath && cache->crawl->cachepath[0])
-	{
-		if(cache->crawl->cachepath[0] != '/')
-		{
-			*p = '/';
-			p++;
-		}
-		strcpy(p, cache->crawl->cachepath);
-		p += strlen(cache->crawl->cachepath) - 1;
-		if(*p != '/')
-		{
-			p++;
-			*p = '/';
-		}
-		else
-		{
-			p++;
-		}
-	}
-	else
-	{
-		*p = '/';
-		p++;
-	}
 	strcpy(p, key);
 	p = strchr(p, 0);
 	*p = '.';
 	p++;
 	strcpy(p, type);
-	
-	needed += 7 + strlen(data->host);
-	if(data->urlsize < needed)
-	{
-		p = (char *) realloc(data->url, needed);
-		if(!p)
-		{
-			return -1;
-		}
-		data->url = p;
-		data->urlsize = needed;
-	}
-	else
-	{
-		p = data->url;
-	}
-	strcpy(p, "http://");
-	p += 7;
-	strcpy(p, data->host);
-	p += strlen(data->host);	
-	strcpy(p, data->resource);
 	return 0;
 }
 
@@ -709,75 +558,3 @@ urldecode(char *dest, const char *src, size_t len)
 	}
 	return 0;
 }
-
-/*
-static int
-s3cache_create_dirs_(CRAWL *crawl, const char *path)
-{
-	char *t;
-	struct stat sbuf;
-	
-	t = NULL;
-	for(;;)
-	{		
-		t = strchr((t ? t + 1 : path), '/');
-		if(!t)
-		{
-			break;
-		}
-		if(t == path)
-		{
-			continue;
-		}
-		strncpy(crawl->cachetmp, path, (t - path));
-		crawl->cachetmp[t - path] = 0;
-		if(stat(crawl->cachetmp, &sbuf))
-		{
-			if(errno != ENOENT)
-			{
-				return -1;
-			}
-		}
-		if(mkdir(crawl->cachetmp, 0777))
-		{
-			if(errno == EEXIST)
-			{
-				continue;
-			}
-		}
-	}
-	return 0;
-}
-*/
-
-/*
-static int
-s3cache_copy_uri_(CRAWL *crawl, const CACHEKEY key, const char *type, int temporary)
-{
-	size_t needed;
-	char *p;
-
-	needed = s3cache_filename_(crawl, key, type, NULL, 0, 1);
-	if(needed > crawl->cachefile_len)
-	{
-		p = (char *) realloc(crawl->cachefile, needed);
-		if(!p)
-		{
-		    return -1;
-		}
-		crawl->cachefile = p;
-		p = (char *) realloc(crawl->cachetmp, needed);
-		if(!p)
-		{
-		    return -1;
-		}
-		crawl->cachetmp = p;
-		crawl->cachefile_len = needed;
-	}
-	if(s3cache_filename_(crawl, key, type, crawl->cachefile, needed, temporary) > needed)
-	{
-		return -1;
-	}
-	return 0;
-}
-*/
