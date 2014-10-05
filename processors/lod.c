@@ -23,13 +23,13 @@
 
 #include "p_processors.h"
 
-static int res_rdf_filter(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *model);
-static int res_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject);
-static char *res_get_content_location(CRAWLOBJ *obj, const char *base);
-static int res_same_origin(URI_INFO *a, URI_INFO *b);
+static int lod_rdf_filter(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *model);
+static int lod_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject);
+static char *lod_get_content_location(CRAWLOBJ *obj, const char *base);
+static int lod_same_origin(URI_INFO *a, URI_INFO *b);
 
 PROCESSOR *
-res_create(CRAWL *crawler)
+lod_create(CRAWL *crawler)
 {
 	PROCESSOR *p;
 
@@ -38,28 +38,28 @@ res_create(CRAWL *crawler)
 	{
 		return NULL;
 	}
-	rdf_set_filter(p, res_rdf_filter);
+	rdf_set_filter(p, lod_rdf_filter);
 	return p;
 }
 
 static int
-res_rdf_filter(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *model)
+lod_rdf_filter(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *model)
 {
 	int found;
 	char *cl;
 
-	log_printf(LOG_DEBUG, "RES: processing <%s>\n", uri);
+	log_printf(LOG_DEBUG, "LOD: processing <%s>\n", uri);
 	found = 0;
-	if(!found && res_check_licenses(me, model, uri))
+	if(!found && lod_check_licenses(me, model, uri))
 	{
 		found = 1;
 	}
 	if(!found)
 	{
-		cl = res_get_content_location(obj, uri);
+		cl = lod_get_content_location(obj, uri);
 		if(cl)
 		{
-			if(res_check_licenses(me, model, cl))
+			if(lod_check_licenses(me, model, cl))
 			{
 				found = 1;
 			}
@@ -68,21 +68,21 @@ res_rdf_filter(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *mode
 	}
 	if(!found)
 	{			
-		log_printf(LOG_DEBUG, "RES: failed to locate a suitable licensing triple\n");
+		log_printf(LOG_DEBUG, "LOD: failed to locate a suitable licensing triple\n");
 		return 0;
 	}
-	log_printf(LOG_DEBUG, "RES: suitable licensing triple located\n");
+	log_printf(LOG_DEBUG, "LOD: suitable licensing triple located\n");
 	return 1;
 }
 
 static int
-res_same_origin(URI_INFO *a, URI_INFO *b)
+lod_same_origin(URI_INFO *a, URI_INFO *b)
 {
 	if((a->scheme && !b->scheme) ||
 	   (!a->scheme && b->scheme) ||
 	   (a->scheme && b->scheme && strcasecmp(a->scheme, b->scheme)))
 	{
-		log_printf(LOG_DEBUG, "RES: same-origin: scheme differs\n");
+		log_printf(LOG_DEBUG, "LOD: same-origin: scheme differs\n");
 		return 0;
 	}
 	if(!a->port && a->scheme)
@@ -109,21 +109,21 @@ res_same_origin(URI_INFO *a, URI_INFO *b)
 	}
 	if(a->port != b->port)
 	{
-		log_printf(LOG_DEBUG, "RES: same-origin: port differs\n");
+		log_printf(LOG_DEBUG, "LOD: same-origin: port differs\n");
 		return 0;
 	}		
 	if((a->host && !b->host) ||
 	   (!a->host && b->host) ||
 	   (a->host && b->host && strcasecmp(a->host, b->host)))
 	{
-		log_printf(LOG_DEBUG, "RES: same-origin: host differs\n");
+		log_printf(LOG_DEBUG, "LOD: same-origin: host differs\n");
 		return 0;
 	}
 	return 1;
 }
 
 static char *
-res_get_content_location(CRAWLOBJ *obj, const char *base)
+lod_get_content_location(CRAWLOBJ *obj, const char *base)
 {
 	char *location;
 	const char *cl;
@@ -172,10 +172,10 @@ res_get_content_location(CRAWLOBJ *obj, const char *base)
 							continue;
 						}
 						clinfo = uri_info(cluri);
-						if(res_same_origin(baseinfo, clinfo))
+						if(lod_same_origin(baseinfo, clinfo))
 						{	
 							location = uri_stralloc(cluri);
-							log_printf(LOG_DEBUG, "RES: Content-Location: <%s>\n", location);
+							log_printf(LOG_DEBUG, "LOD: Content-Location: <%s>\n", location);
 						}
 						uri_info_destroy(clinfo);
 						uri_destroy(cluri);
@@ -200,7 +200,7 @@ res_get_content_location(CRAWLOBJ *obj, const char *base)
 }
 
 static int
-res_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject)
+lod_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject)
 {
 	static const char *predicates[] = {
 		"http://purl.org/dc/terms/rights",
@@ -221,6 +221,10 @@ res_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject)
 		"http://creativecommons.org/licenses/by/2.5/",
 		"http://creativecommons.org/licenses/by/3.0/",
 		"http://creativecommons.org/licenses/by/3.0/us/",
+		"https://www.nationalarchives.gov.uk/doc/open-government-licence/version/2/",
+		"https://www.nationalarchives.gov.uk/doc/open-government-licence/version/2/",
+		"http://www.nationalarchives.gov.uk/doc/open-government-licence/version/1/",
+		"http://www.nationalarchives.gov.uk/doc/open-government-licence/version/1/",
 		NULL
 	};
 
@@ -232,7 +236,7 @@ res_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject)
 	librdf_uri *puri, *ouri;
 	const char *predicate, *object;
 
-	log_printf(LOG_DEBUG, "RES: examining <%s> for licensing triples\n", subject);
+	log_printf(LOG_DEBUG, "LOD: examining <%s> for licensing triples\n", subject);
 	world = rdf_world(me);
 	query = librdf_new_statement(world);
 	pnode = librdf_new_node_from_uri_string(world, (const unsigned char *) subject);
@@ -251,7 +255,7 @@ res_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject)
 			{
 				if(!strcmp(predicates[c], predicate))
 				{
-					log_printf(LOG_DEBUG, "RES: found predicate <%s>\n", predicate);
+					log_printf(LOG_DEBUG, "LOD: found predicate <%s>\n", predicate);
 					onode = librdf_statement_get_object(st);
 					if(librdf_node_is_resource(onode) &&
 					   (ouri = librdf_node_get_uri(onode)) &&
@@ -261,7 +265,7 @@ res_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject)
 						{
 							if(!strcmp(licenses[d], object))
 							{
-								log_printf(LOG_DEBUG, "RES: found license <%s>\n", object);
+								log_printf(LOG_DEBUG, "LOD: found license <%s>\n", object);
 								librdf_free_stream(stream);
 								librdf_free_statement(query);
 								return 1;

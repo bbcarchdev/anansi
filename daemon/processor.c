@@ -49,9 +49,9 @@ processor_init(void)
 	{
 		processor_constructor = rdf_create;
 	}
-	else if(!strcmp(name, "res"))
+	else if(!strcmp(name, "lod"))
 	{
-		processor_constructor = res_create;
+		processor_constructor = lod_create;
 	}
 	else
 	{

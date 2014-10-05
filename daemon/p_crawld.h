@@ -155,7 +155,7 @@ int policy_init_crawler(CRAWL *crawler, CONTEXT *data);
 int policy_uri(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
 
 PROCESSOR *rdf_create(CRAWL *crawler);
-PROCESSOR *res_create(CRAWL *crawler);
+PROCESSOR *lod_create(CRAWL *crawler);
 
 QUEUE *db_create(CONTEXT *ctx);
 
