@@ -11,8 +11,7 @@
 ### END INIT INFO
 
 # Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
-set -e
-set -u
+
 ${DEBIAN_SCRIPT_DEBUG:+ set -v -x}
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
