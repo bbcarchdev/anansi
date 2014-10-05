@@ -206,6 +206,10 @@ rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conten
 	{
 		me->parser_type = "ntriples";
 	}
+	else if(!strcmp(me->content_type, "text/x-nquads") || !strcmp(me->content_type, "application/n-quads"))
+	{
+		me->parser_type = "nquads";
+	}
 	log_printf(LOG_DEBUG, "rdf_preprocess: content_type='%s', parser_type='%s'\n", me->content_type, me->parser_type);
 	if(!me->parser_type)
 	{
