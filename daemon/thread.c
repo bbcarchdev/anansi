@@ -54,11 +54,11 @@ thread_cleanup(void)
 }
 
 int
-thread_create(int crawler_offset)
+thread_create(int offset)
 {
 	CONTEXT *context;
 	
-	context = context_create(crawler_offset);
+	context = context_create(offset);
 	if(!context)
 	{
 		return -1;
@@ -100,16 +100,20 @@ thread_handler(void *arg)
 {
 	CONTEXT *context;
 	CRAWL *crawler;
-	
+	int threadcount, crawlercount, cachecount;
+
 	/* no addref() of the context because this thread is given ownership of the
 	 * object.
 	 */
 	context = (CONTEXT *) arg;
 	crawler = context->crawl;
-	log_printf(LOG_DEBUG, "thread_handler: crawler=%d, cache=%d\n", context->crawler_id, context->cache_id);
+	threadcount = config_get_int("instance:threadcount", 1);
+	crawlercount = config_get_int("instance:crawlercount", 1);
+	cachecount = config_get_int("instance:cachecount", 1);
 	crawl_set_verbose(crawler, config_get_bool(CRAWLER_APP_NAME ":verbose", 0));
 	if(!thread_setup(context, crawler))
 	{	
+		log_printf(LOG_NOTICE, "crawler %d/%d (thread %d/%d), cache %d/%d ready", context->crawler_id, crawlercount, context->thread_id, threadcount, context->cache_id, cachecount);
 		while(!crawld_terminate)
 		{
 			if(crawl_perform(crawler))
@@ -126,7 +130,7 @@ thread_handler(void *arg)
 	}
 	queue_cleanup_crawler(crawler, context);
 	processor_cleanup_crawler(crawler, context);
-
+	log_printf(LOG_NOTICE, "crawler %d/%d (thread %d/%d), cache %d/%d terminating", context->crawler_id, crawlercount, context->thread_id, threadcount, context->cache_id, cachecount);
 	context->api->release(context);
 	return NULL;
 }

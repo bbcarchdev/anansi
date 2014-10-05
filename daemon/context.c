@@ -56,6 +56,7 @@ context_create(int crawler_offset)
 		e = 1;
 	}
 	p->crawler_id += crawler_offset;
+	p->thread_id = crawler_offset + 1;
 	p->cache_id = config_get_int("instance:cache", 0);
 	if(!p->cache_id)
 	{

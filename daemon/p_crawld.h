@@ -70,6 +70,7 @@ struct context_struct
 	unsigned long refcount;
 	CRAWL *crawl;
 	int crawler_id;
+	int thread_id;
 	int cache_id;
 	PROCESSOR *processor;
 	QUEUE *queue;
