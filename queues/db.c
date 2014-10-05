@@ -653,7 +653,13 @@ db_insert_root(QUEUE *me, const char *rootkey, const char *uri)
 	return 0;
 }
 
-/* A transaction callback returns 0 for commit, -1 for rollback and retry, 1 for rollback successfully */
+/* A transaction callback returns:
+ *
+ *  1 => commit
+ *  0 => rollback successfully
+ * -1 => rollback and retry
+ * -2 => rollback and fail
+ */
 static int
 db_insert_resource_txn(SQL *db, void *userdata)
 {
@@ -665,33 +671,28 @@ db_insert_resource_txn(SQL *db, void *userdata)
 	rs = sql_queryf(db, "SELECT * FROM \"crawl_resource\" WHERE \"hash\" = %Q", data->cachekey);
 	if(!rs)
 	{
+		/* rollback with error */
 		return -2;
 	}
-	if(sql_stmt_eof(rs))
+	if(!sql_stmt_eof(rs))
 	{
-		if(sql_executef(db, "INSERT INTO \"crawl_resource\" (\"hash\", \"shorthash\", \"tinyhash\", \"crawl_bucket\", \"cache_bucket\", \"root\", \"uri\", \"added\", \"next_fetch\", \"state\") VALUES (%Q, %lu, %d, %d, %d, %Q, %Q, NOW(), NOW(), %Q)", data->cachekey, data->shortkey, (data->shortkey % 256), (data->shortkey % data->me->ncrawlers) + 1, (data->shortkey % data->me->ncaches) + 1, data->rootkey, data->uri, "NEW"))
-		{
-			if(sql_deadlocked(db))
-			{
-				return -1;
-			}
-			return -2;
-		}
+		/* rollback with success */
+		return 0;
 	}
-	else
+	/* resource isn't present in the table */
+	if(sql_executef(db, "INSERT INTO \"crawl_resource\" (\"hash\", \"shorthash\", \"tinyhash\", \"crawl_bucket\", \"cache_bucket\", \"root\", \"uri\", \"added\", \"next_fetch\", \"state\") VALUES (%Q, %lu, %d, %d, %d, %Q, %Q, NOW(), NOW(), %Q)", data->cachekey, data->shortkey, (data->shortkey % 256), (data->shortkey % data->me->ncrawlers) + 1, (data->shortkey % data->me->ncaches) + 1, data->rootkey, data->uri, "NEW"))
 	{
-		/*
-		if(sql_executef(db, "UPDATE \"crawl_resource\" SET \"crawl_bucket\" = %d, \"cache_bucket\" = %d WHERE \"hash\" = %Q", (data->shortkey % data->me->ncrawlers) + 1, (data->shortkey % data->me->ncaches) + 1, data->cachekey))
+		/* INSERT failed */
+		if(sql_deadlocked(db))
 		{
-			if(sql_deadlocked(db))
-			{
-				return -1;
-			}
-			return -2;
-			} */
-
+			/* rollback and retry */
+			return -1;
+		}
+		/* non-deadlock error */
+		return -2;
 	}
 	sql_stmt_destroy(rs);
+	/* commit */
 	return 1;
 }
 
