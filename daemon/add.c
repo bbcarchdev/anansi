@@ -85,6 +85,14 @@ config_defaults(void)
 	config_set_default("log:stderr", "1");
 	config_set_default("log:syslog", "0");
 	config_set_default("global:configFile", SYSCONFDIR "/crawl.conf");
+	config_set_default("instance:crawler", "1");
+	config_set_default("instance:crawlercount", "1");
+	config_set_default("instance:cache", "1");
+	config_set_default("instance:cachecount", "1");
+	config_set_default("instance:threadcount", "1");	
+	config_set_default(CRAWLER_APP_NAME ":queue", "db");
+	config_set_default(CRAWLER_APP_NAME ":processor", "rdf");
+	config_set_default(CRAWLER_APP_NAME ":cache", "cache");	
 	return 0;
 }
 
