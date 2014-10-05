@@ -108,11 +108,15 @@ thread_handler(void *arg)
 	crawl_set_verbose(crawler, config_get_int("crawl:verbose", 0));
 	if(!thread_setup(context, crawler))
 	{	
-		while(1)
+		while(!crawld_terminate)
 		{
 			if(crawl_perform(crawler))
 			{
 				log_printf(LOG_CRIT, "crawl perform operation failed: %s\n", strerror(errno));
+				break;
+			}
+			if(crawld_terminate)
+			{
 				break;
 			}
 			sleep(1);

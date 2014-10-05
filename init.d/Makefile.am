@@ -1,8 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2014 BBC.
-
-## Copyright 2013 Mo McRoberts.
+## Copyright (c) 2014 BBC
 ##
 ##  Licensed under the Apache License, Version 2.0 (the "License");
 ##  you may not use this file except in compliance with the License.
@@ -15,13 +13,15 @@
 ##  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 ##  See the License for the specific language governing permissions and
 ##  limitations under the License.
-##
 
-DIST_SUBDIRS = m4 util caches libcrawl queues daemon libsupport libs3client \
-	processors init.d
+initdir = @sysconfdir@/init.d
 
-SUBDIRS = @subdirs@ libs3client caches libcrawl \
-	libsupport queues processors daemon util init.d
+EXTRA_DIST = crawler.sh.in
 
-ACLOCAL_AMFLAGS = -I m4
+init_SCRIPTS = crawler
+
+install-data-local:
+	${MKDIR_P} ${DESTDIR}${localstatedir}/run
+	${MKDIR_P} ${DESTDIR}${sysconfdir}/default
+	${INSTALL} -m 644 defaults ${DESTDIR}${sysconfdir}/default/crawler
 

@@ -1,0 +1,8 @@
+# Defaults for crawld, sourced by /etc/init.d/crawld
+
+# Start at boot?
+# START=yes
+
+# Additional command-line arguments
+DAEMON_ARGS=""
+

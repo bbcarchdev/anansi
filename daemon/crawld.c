@@ -28,12 +28,19 @@
 static int process_args(int argc, char **argv);
 static int config_defaults(void);
 static void usage(void);
+static pid_t start_daemon(const char *configkey, const char *pidfile);
+static void signal_handler(int signo);
 
 static const char *short_program_name = "crawler";
+
+volatile int crawld_terminate = 0;
 
 int
 main(int argc, char **argv)
 {
+	int detach;
+	pid_t child;
+
 	log_set_stderr(1);
 	log_set_facility(LOG_DAEMON);
 	log_set_level(LOG_NOTICE);
@@ -64,6 +71,37 @@ main(int argc, char **argv)
 	if(processor_init())
 	{
 		return 1;
+	}
+	detach = config_get_bool("crawl:detach", 1);
+	signal(SIGHUP, SIG_IGN);
+	if(detach)
+	{
+		signal(SIGINT, SIG_IGN);
+	}
+	else
+	{
+		signal(SIGINT, signal_handler);
+	}
+	signal(SIGALRM, SIG_IGN);
+	signal(SIGTSTP, SIG_IGN);
+	signal(SIGPIPE, SIG_IGN);
+	signal(SIGUSR1, SIG_IGN);
+	signal(SIGUSR2, SIG_IGN);
+	signal(SIGTTIN, SIG_IGN);
+	signal(SIGTTOU, SIG_IGN);
+	signal(SIGCHLD, SIG_IGN);
+	signal(SIGTERM, signal_handler);
+	if(detach)
+	{
+		child = start_daemon("crawl:pidfile", LOCALSTATEDIR "/run/crawld.pid");
+		if(child < 0)
+		{
+			return 1;
+		}
+		if(child > 0)
+		{
+			return 0;
+		}
 	}
 
 	/* Perform a single thread's crawl actions */
@@ -160,3 +198,103 @@ usage(void)
 		   "  -c FILE              Specify path to configuration file\n",
 		   short_program_name);
 }
+
+pid_t
+start_daemon(const char *configkey, const char *pidfile)
+{
+	pid_t child;    
+	char *file;
+	FILE *f;
+	int fd;
+
+	if(configkey)
+	{
+		file = config_geta(configkey, pidfile);
+	}
+	else if(pidfile)
+	{
+		file = strdup(pidfile);
+		if(!file)
+		{
+			log_printf(LOG_CRIT, "failed to allocate memory: %s\n", strerror(errno));
+			return -1;
+		}
+	}
+	else
+	{
+		file = NULL;
+	}
+	child = fork();
+	if(child == -1)
+	{
+		log_printf(LOG_CRIT, "failed to fork child process: %s\n", strerror(errno));
+		free(file);
+		return -1;
+	}
+	if(child > 0)
+	{
+		/* Parent process */
+		if(file)
+		{
+			f = fopen(file, "w");
+			if(!f)
+			{
+				log_printf(LOG_CRIT, "failed to open PID file %s: %s\n", file, strerror(errno));
+				return child;
+			}
+			fprintf(f, "%ld\n", (long int) child);
+			fclose(f);
+		}
+		return child;
+	}
+	/* Child process */
+	free(file);
+	umask(0);
+	log_reset();
+	if(setsid() < 0)
+	{
+		log_printf(LOG_CRIT, "failed to create new process group: %s\n", strerror(errno));
+		return -1;
+	}
+	if(chdir("/"))
+	{
+		log_printf(LOG_CRIT, "failed to change working directory: %s\n", strerror(errno));
+		return -1;
+	}
+    close(STDIN_FILENO);
+	close(STDOUT_FILENO);
+	close(STDERR_FILENO);
+	do
+	{
+		fd = open("/dev/null", O_RDWR);
+	}
+	while(fd == -1 && errno == EINTR);
+	if(fd == -1)
+	{
+		log_printf(LOG_CRIT, "failed to open /dev/null: %s\n", strerror(errno));
+		return -1;
+	}
+	if(fd != 0)
+	{
+		dup2(fd, 0);
+	}
+	if(fd != 1)
+	{
+		dup2(fd, 1);
+	}
+	if(fd != 2)
+	{
+		dup2(fd, 2);
+	}
+	return 0;
+}
+
+static void
+signal_handler(int signo)
+{
+	(void) signo;
+
+	log_printf(LOG_NOTICE, "received request to terminate\n");
+	crawld_terminate = 1;
+}
+

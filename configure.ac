@@ -62,6 +62,9 @@ queues/Makefile
 processors/Makefile
 daemon/Makefile
 m4/Makefile
+init.d/Makefile
 ])
+
+AC_CONFIG_FILES([init.d/crawler:init.d/crawler.sh.in],[chmod +x init.d/crawler])
 
 AC_OUTPUT

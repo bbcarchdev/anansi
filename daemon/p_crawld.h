@@ -35,6 +35,7 @@
 # include <fcntl.h>
 # include <unistd.h>
 # include <syslog.h>
+# include <signal.h>
 # include <pthread.h>
 
 # include "libcrawl.h"
@@ -105,6 +106,8 @@ struct processor_api_struct
 	unsigned long (*release)(PROCESSOR *me);
 	int (*process)(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
 };
+
+extern volatile int crawld_terminate;
 
 CONTEXT *context_create(int crawler_offset);
 
