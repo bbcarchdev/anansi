@@ -38,7 +38,7 @@ queue_init(void)
 	/* queue_init() is invoked before any other threads are created, so
 	 * it's safe to use config_getptr_unlocked().
 	 */
-	name = config_getptr_unlocked("crawl:queue", NULL);
+	name = config_getptr_unlocked(CRAWLER_APP_NAME ":queue", NULL);
 	if(!name)
 	{
 		log_printf(LOG_CRIT, "no 'queue' configuration option could be found in the [crawl] section\n");

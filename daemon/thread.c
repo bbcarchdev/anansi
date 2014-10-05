@@ -34,7 +34,7 @@ int
 thread_init(void)
 {
 	/* Obtain global options which will be applied to each thread */
-	cache = config_geta("crawl:cache", NULL);
+	cache = config_geta(CRAWLER_APP_NAME ":cache", NULL);
 	username = config_geta("cache:username", NULL);
 	password = config_geta("cache:password", NULL);
 	endpoint = config_geta("cache:endpoint", NULL);
@@ -105,7 +105,7 @@ thread_handler(void *arg)
 	context = (CONTEXT *) arg;
 	crawler = context->crawl;
 	log_printf(LOG_DEBUG, "thread_handler: crawler=%d, cache=%d\n", context->crawler_id, context->cache_id);
-	crawl_set_verbose(crawler, config_get_int("crawl:verbose", 0));
+	crawl_set_verbose(crawler, config_get_bool(CRAWLER_APP_NAME ":verbose", 0));
 	if(!thread_setup(context, crawler))
 	{	
 		while(!crawld_terminate)

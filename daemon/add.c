@@ -60,7 +60,7 @@ main(int argc, char **argv)
 	{
 		return 1;
 	}
-	crawl_set_verbose(context->crawl, config_get_int("crawl:verbose", 0));
+	crawl_set_verbose(context->crawl, config_get_int(CRAWLER_APP_NAME ":verbose", 0));
 	if(queue_init_crawler(context->crawl, context))
 	{
 		return 1;

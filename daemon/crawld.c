@@ -72,7 +72,7 @@ main(int argc, char **argv)
 	{
 		return 1;
 	}
-	detach = config_get_bool("crawl:detach", 1);
+	detach = config_get_bool(CRAWLER_APP_NAME ":detach", 1);
 	signal(SIGHUP, SIG_IGN);
 	if(detach)
 	{
@@ -93,7 +93,7 @@ main(int argc, char **argv)
 	signal(SIGTERM, signal_handler);
 	if(detach)
 	{
-		child = start_daemon("crawl:pidfile", LOCALSTATEDIR "/run/crawld.pid");
+		child = start_daemon(CRAWLER_APP_NAME ":pidfile", LOCALSTATEDIR "/run/crawld.pid");
 		if(child < 0)
 		{
 			return 1;
@@ -130,10 +130,10 @@ config_defaults(void)
 	config_set_default("instance:cache", "1");
 	config_set_default("instance:cachecount", "1");
 	config_set_default("instance:threadcount", "1");	
-	config_set_default("crawl:pidfile", LOCALSTATEDIR "/run/crawld.pid");
-	config_set_default("crawl:queue", "db");
-	config_set_default("crawl:processor", "rdf");
-	config_set_default("crawl:cache", "cache");
+	config_set_default(CRAWLER_APP_NAME ":pidfile", LOCALSTATEDIR "/run/crawld.pid");
+	config_set_default(CRAWLER_APP_NAME ":queue", "db");
+	config_set_default(CRAWLER_APP_NAME ":processor", "rdf");
+	config_set_default(CRAWLER_APP_NAME ":cache", "cache");
 	return 0;
 }
 
@@ -159,14 +159,14 @@ process_args(int argc, char **argv)
 			usage();
 			exit(EXIT_SUCCESS);
 		case 'f':
-			config_set("crawl:detach", "0");
+			config_set(CRAWLER_APP_NAME ":detach", "0");
 			break;
 		case 'd':
 			config_set("log:level", "debug");
 			config_set("log:stderr", "1");
 			config_set("db:debug-queries", "1");
 			config_set("db:debug-errors", "1");
-			config_set("crawl:detach", "0");
+			config_set(CRAWLER_APP_NAME ":detach", "0");
 			break;
 		case 'c':
 			config_set("global:configFile", optarg);

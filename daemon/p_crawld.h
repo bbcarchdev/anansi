@@ -41,6 +41,8 @@
 # include "libcrawl.h"
 # include "libsupport.h"
 
+# define CRAWLER_APP_NAME               "crawler"
+
 typedef struct context_struct CONTEXT;
 typedef struct processor_struct PROCESSOR;
 typedef struct queue_struct QUEUE;
