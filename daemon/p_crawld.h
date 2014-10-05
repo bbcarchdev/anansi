@@ -47,6 +47,21 @@ typedef struct context_struct CONTEXT;
 typedef struct processor_struct PROCESSOR;
 typedef struct queue_struct QUEUE;
 
+/* Crawl object states */
+typedef enum
+{
+	/* Has not yet been crawled */
+	COS_NEW,
+	/* Crawling failed */
+	COS_FAILED,
+	/* The processor or policy rejected the resource */
+	COS_REJECTED,
+	/* The resource was processed */
+	COS_ACCEPTED,
+	/* Never set by crawld itself: external processing has completed */
+	COS_COMPLETE
+} CRAWLSTATE;
+
 struct context_struct
 {
 	struct context_api_struct *api;
@@ -88,8 +103,8 @@ struct queue_api_struct
 	int (*next)(QUEUE *me, URI **next);
 	int (*add_uri)(QUEUE *me, URI *uri);
 	int (*add_uristr)(QUEUE *me, const char *uristr);
-	int (*updated_uri)(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl);
-	int (*updated_uristr)(QUEUE *me, const char *uri, time_t updated, time_t last_modified, int status, time_t ttl);
+	int (*updated_uri)(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
+	int (*updated_uristr)(QUEUE *me, const char *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
 	int (*unchanged_uri)(QUEUE *me, URI *uri, int error);
 	int (*unchanged_uristr)(QUEUE *me, const char *uri, int error);
 };
@@ -129,8 +144,8 @@ int queue_init_crawler(CRAWL *crawler, CONTEXT *data);
 int queue_cleanup_crawler(CRAWL *crawler, CONTEXT *data);
 int queue_add_uristr(CRAWL *crawler, const char *str);
 int queue_add_uri(CRAWL *crawler, URI *uri);
-int queue_updated_uri(CRAWL *crawl, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl);
-int queue_updated_uristr(CRAWL *crawl, const char *uristr, time_t updated, time_t last_modified, int status, time_t ttl);
+int queue_updated_uri(CRAWL *crawl, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
+int queue_updated_uristr(CRAWL *crawl, const char *uristr, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
 int queue_unchanged_uri(CRAWL *crawl, URI *uri, int error);
 int queue_unchanged_uristr(CRAWL *crawl, const char *uristr, int error);
 

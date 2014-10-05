@@ -30,6 +30,8 @@ static int thread_prefetch(CRAWL *crawl, URI *uri, const char *uristr, void *use
 
 static char *cache, *username, *password, *endpoint; 
 
+volatile int crawld_terminate = 0;
+
 int
 thread_init(void)
 {
@@ -158,6 +160,10 @@ thread_prefetch(CRAWL *crawl, URI *uri, const char *uristr, void *userdata)
 	(void) uri;
 	(void) userdata;
 	
+	if(crawld_terminate)
+	{
+		return -1;
+	}
 	log_printf(LOG_INFO, "Fetching %s\n", uristr);
 	return 0;
 }

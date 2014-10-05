@@ -33,8 +33,6 @@ static void signal_handler(int signo);
 
 static const char *short_program_name = "crawler";
 
-volatile int crawld_terminate = 0;
-
 int
 main(int argc, char **argv)
 {

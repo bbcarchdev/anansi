@@ -103,10 +103,12 @@ processor_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 	CONTEXT *data;
 	PROCESSOR *pdata;
 	const char *content_type, *uri, *location;
-	int r, status;
-	
+	int r, status, ttl;
+	CRAWLSTATE state;
+
 	(void) prevtime;
-	
+
+	state = COS_FAILED;
 	data = (CONTEXT *) userdata;
 	pdata = data->processor;
 	uri = crawl_obj_uristr(obj);
@@ -129,7 +131,22 @@ processor_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 	}
 	log_printf(LOG_DEBUG, "processor_handler: object has been updated\n");
 	r = pdata->api->process(pdata, obj, uri, content_type);
-	queue_updated_uristr(crawl, uri, crawl_obj_updated(obj), crawl_obj_updated(obj), crawl_obj_status(obj), 3600);
+	if(r < 0)
+	{
+		state = COS_FAILED;
+		ttl = 86400;
+	}
+	else if(r > 0)
+	{
+		state = COS_ACCEPTED;
+		ttl = 86400;
+	}
+	else
+	{
+		state = COS_REJECTED;
+		ttl = 604800;
+	}
+	queue_updated_uristr(crawl, uri, crawl_obj_updated(obj), crawl_obj_updated(obj), crawl_obj_status(obj), ttl, state);
 	return r;
 }
 
@@ -157,5 +174,5 @@ processor_failed_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *use
 	(void) userdata;
 
 	uri = crawl_obj_uristr(obj);
-	return queue_unchanged_uristr(crawl, uri, 1);
+	return queue_updated_uristr(crawl, uri, crawl_obj_updated(obj), crawl_obj_updated(obj), crawl_obj_status(obj), 86400, COS_FAILED);
 }

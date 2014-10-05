@@ -38,8 +38,8 @@ static unsigned long db_release(QUEUE *me);
 static int db_next(QUEUE *me, URI **next);
 static int db_add_uri(QUEUE *me, URI *uristr);
 static int db_add_uristr(QUEUE *me, const char *uristr);
-static int db_updated_uri(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl);
-static int db_updated_uristr(QUEUE *me, const char *uri, time_t updated, time_t last_modified, int status, time_t ttl);
+static int db_updated_uri(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
+static int db_updated_uristr(QUEUE *me, const char *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
 static int db_unchanged_uri(QUEUE *me, URI *uri, int error);
 static int db_unchanged_uristr(QUEUE *me, const char *uristr, int error);
 static int db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey, const char *uri, const char *rootkey);
@@ -179,7 +179,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 	if(newversion == 0)
 	{
 		/* Return target version */
-		return 3;
+		return 4;
 	}
 	log_printf(LOG_NOTICE, "DB: Migrating database to version %d\n", newversion);
 	if(newversion == 1)
@@ -248,6 +248,16 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 		}
 		return 0;
 	}
+	if(newversion == 4)
+	{
+		if(sql_execute(sql, "ALTER TABLE \"crawl_resource\" "
+					   "ADD COLUMN \"state\" ENUM('NEW', 'FAILED', 'REJECTED', 'ACCEPTED', 'COMPLETE') NOT NULL DEFAULT 'NEW', "
+					   "ADD INDEX \"state\" (\"state\")"))
+		{
+			return -1;
+		}
+		return 0;
+	}
 	return -1;
 }
 
@@ -296,7 +306,7 @@ db_next(QUEUE *me, URI **next)
 	if(!rs)
 	{
 		log_printf(LOG_CRIT, "DB: %s\n", sql_error(me->db));
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	if(sql_stmt_eof(rs))
 	{
@@ -435,7 +445,7 @@ db_add_uristr(QUEUE *me, const char *uristr)
 }
 
 static int
-db_updated_uri(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl)
+db_updated_uri(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state)
 {
 	char *uristr;
 	int r;
@@ -445,19 +455,20 @@ db_updated_uri(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int st
 	{
 		return -1;
 	}
-	r = db_updated_uristr(me, uristr, updated, last_modified, status, ttl);
+	r = db_updated_uristr(me, uristr, updated, last_modified, status, ttl, state);
 	free(uristr);
 	return r;
 }
 
 static int
-db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_modified, int status, time_t ttl)
+db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state)
 {
 	char *canonical, *root;
 	char cachekey[48], rootkey[48], updatedstr[32], lastmodstr[32], nextfetchstr[32];
 	uint32_t shortkey;
 	struct tm tm;
 	time_t now;
+	const char *statestr;
 	
 	if(db_uristr_key_root(me, uristr, &canonical, cachekey, &shortkey, &root, rootkey))
 	{
@@ -484,8 +495,26 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 	ttl += time(NULL);
 	gmtime_r(&ttl, &tm);
 	strftime(nextfetchstr, 32, "%Y-%m-%d %H:%M:%S", &tm);
-	if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"updated\" = %Q, \"last_modified\" = %Q, \"status\" = %d, \"next_fetch\" = %Q, \"crawl_instance\" = NULL WHERE \"hash\" = %Q",
-		updatedstr, lastmodstr, status, nextfetchstr, cachekey))
+	switch(state)
+	{
+	case COS_NEW:
+		statestr = "NEW";
+		break;
+	case COS_FAILED:
+		statestr = "FAILED";
+		break;
+	case COS_REJECTED:
+		statestr = "REJECTED";
+		break;
+	case COS_ACCEPTED:
+		statestr = "ACCEPTED";
+		break;
+	case COS_COMPLETE:
+		statestr = "COMPLETE";
+		break;
+	}
+	if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"updated\" = %Q, \"last_modified\" = %Q, \"status\" = %d, \"next_fetch\" = %Q, \"crawl_instance\" = NULL, \"state\" = %Q WHERE \"hash\" = %Q",
+					updatedstr, lastmodstr, status, nextfetchstr, statestr, cachekey))
 	{
 		log_printf(LOG_CRIT, "%s\n", sql_error(me->db));
 		exit(1);
@@ -578,7 +607,7 @@ db_unchanged_uristr(QUEUE *me, const char *uristr, int error)
 		{
 			log_printf(LOG_CRIT, "%s\n", sql_error(me->db));
 			exit(1);
-		}		
+		}
 	}
 	else
 	{
@@ -655,7 +684,7 @@ db_insert_resource_txn(SQL *db, void *userdata)
 	}
 	if(sql_stmt_eof(rs))
 	{
-		if(sql_executef(db, "INSERT INTO \"crawl_resource\" (\"hash\", \"shorthash\", \"tinyhash\", \"crawl_bucket\", \"cache_bucket\", \"root\", \"uri\", \"added\", \"next_fetch\") VALUES (%Q, %lu, %d, %d, %d, %Q, %Q, NOW(), NOW())", data->cachekey, data->shortkey, (data->shortkey % 256), (data->shortkey % data->me->ncrawlers) + 1, (data->shortkey % data->me->ncaches) + 1, data->rootkey, data->uri))
+		if(sql_executef(db, "INSERT INTO \"crawl_resource\" (\"hash\", \"shorthash\", \"tinyhash\", \"crawl_bucket\", \"cache_bucket\", \"root\", \"uri\", \"added\", \"next_fetch\", \"state\") VALUES (%Q, %lu, %d, %d, %d, %Q, %Q, NOW(), NOW(), %Q)", data->cachekey, data->shortkey, (data->shortkey % 256), (data->shortkey % data->me->ncrawlers) + 1, (data->shortkey % data->me->ncaches) + 1, data->rootkey, data->uri, "NEW"))
 		{
 			if(sql_deadlocked(db))
 			{
@@ -666,7 +695,7 @@ db_insert_resource_txn(SQL *db, void *userdata)
 	}
 	else
 	{
-		/* XXX only update if values differ */
+		/*
 		if(sql_executef(db, "UPDATE \"crawl_resource\" SET \"crawl_bucket\" = %d, \"cache_bucket\" = %d WHERE \"hash\" = %Q", (data->shortkey % data->me->ncrawlers) + 1, (data->shortkey % data->me->ncaches) + 1, data->cachekey))
 		{
 			if(sql_deadlocked(db))
@@ -674,7 +703,8 @@ db_insert_resource_txn(SQL *db, void *userdata)
 				return -1;
 			}
 			return -2;
-		}
+			} */
+
 	}
 	sql_stmt_destroy(rs);
 	return 1;

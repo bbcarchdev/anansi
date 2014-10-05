@@ -20,6 +20,7 @@
 
 # include "p_crawld.h"
 
+# include <curl/curl.h>
 # include <librdf.h>
 
 typedef int (*rdf_filter_cb)(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *model);

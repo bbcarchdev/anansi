@@ -35,8 +35,8 @@ static int rdf_process(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char
 
 static int rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
 static int rdf_postprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
-static int rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
-static int rdf_process_node(PROCESSOR *me, CRAWLOBJ *obj, librdf_node *node);
+static int rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type, struct curl_slist **subjects);
+static int rdf_process_node(PROCESSOR *me, CRAWLOBJ *obj, librdf_node *node, struct curl_slist **subjects);
 
 static struct processor_api_struct rdf_api = {
 	NULL,
@@ -113,14 +113,21 @@ static int
 rdf_process(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type)
 {
 	int r;
+	struct curl_slist *subjects, *p;
 	
-	if(rdf_preprocess(me, obj, uri, content_type) == 0)	
+	subjects = NULL;
+	r = rdf_preprocess(me, obj, uri, content_type);
+	if(r > 0)
 	{
-		r = rdf_process_obj(me, obj, uri, content_type);
-	}
-	else
-	{
-		r = -1;
+		r = rdf_process_obj(me, obj, uri, content_type, &subjects);
+		if(r > 0)
+		{
+			for(p = subjects; p; p = p->next)
+			{
+				queue_add_uristr(me->crawl, p->data);
+			}
+		}
+		curl_slist_free_all(subjects);
 	}
 	rdf_postprocess(me, obj, uri, content_type);
 	return r;
@@ -135,6 +142,11 @@ rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conten
 	(void) obj;
 	
 	status = crawl_obj_status(obj);
+	if(status > 300 && status < 304)
+	{
+		/* Don't process the payload of redirects */
+		return 0;
+	}
 	if(status < 200 || status > 299)
 	{
 		/* Don't bother processing failed responses */
@@ -194,10 +206,9 @@ rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conten
 	if(!me->parser_type)
 	{
 		log_printf(LOG_WARNING, "RDF: No suitable parser type found for '%s'\n", me->content_type);
-		errno = EINVAL;
-		return -1;
+		return 0;
 	}
-	return 0;
+	return 1;
 }
 
 static int
@@ -228,7 +239,7 @@ rdf_postprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conte
 }
 
 static int
-rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type)
+rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type, struct curl_slist **subjects)
 {
 	librdf_parser *parser;
 	librdf_stream *stream;
@@ -275,21 +286,24 @@ rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conte
 	{
 		st = librdf_stream_get_object(stream);
 		
-		rdf_process_node(me, obj, librdf_statement_get_subject(st));
-		rdf_process_node(me, obj, librdf_statement_get_predicate(st));
-		rdf_process_node(me, obj, librdf_statement_get_object(st));
+		rdf_process_node(me, obj, librdf_statement_get_subject(st), subjects);
+		rdf_process_node(me, obj, librdf_statement_get_predicate(st), subjects);
+		rdf_process_node(me, obj, librdf_statement_get_object(st), subjects);
 		
 		librdf_stream_next(stream);
 	}
 	librdf_free_stream(stream);
-	return 0;
+	return 1;
 }
 
 static int
-rdf_process_node(PROCESSOR *me, CRAWLOBJ *obj, librdf_node *node)
+rdf_process_node(PROCESSOR *me, CRAWLOBJ *obj, librdf_node *node, struct curl_slist **subjects)
 {
 	librdf_uri *uri;
-	
+	struct curl_slist *p;
+	const char *s;
+
+	(void) me;
 	(void) obj;
 	
 	if(!librdf_node_is_resource(node))
@@ -301,7 +315,21 @@ rdf_process_node(PROCESSOR *me, CRAWLOBJ *obj, librdf_node *node)
 	{
 		return -1;
 	}
-	return queue_add_uristr(me->crawl, (const char *) librdf_uri_as_string(uri));
+	s = (const char *) librdf_uri_as_string(uri);
+	if(!s)
+	{
+		return -1;
+	}
+	for(p = *subjects; p; p = p->next)
+	{
+		if(!strcmp(s, p->data))
+		{
+			return 0;
+		}
+	}
+	log_printf(LOG_DEBUG, "RDF: adding <%s>\n", s);
+	*subjects = curl_slist_append(*subjects, s);
+	return 0;
 }
 
 int
