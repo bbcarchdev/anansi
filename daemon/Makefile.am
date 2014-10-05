@@ -33,7 +33,7 @@ crawld_SOURCES = p_crawld.h crawld.c
 crawld_LDADD = libcrawld.la
 
 crawler_add_SOURCES = p_crawld.h add.c
-crawler_add_LDADD = libcrawld.la
+crawler_add_LDADD = libcrawld.la $(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS)
 
 libcrawld_la_SOURCES = p_crawld.h \
 	context.c thread.c processor.c queue.c policy.c

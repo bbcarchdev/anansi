@@ -34,6 +34,7 @@ int
 main(int argc, char **argv)
 {
 	CONTEXT *context;
+	URI *uri;
 
 	if(process_args(argc, argv))
 	{
@@ -65,11 +66,19 @@ main(int argc, char **argv)
 	{
 		return 1;
 	}
-	if(context->queue->api->add_uristr(context->queue, argv[1]))
+	uri = uri_create_str(uristr, NULL);
+	if(!uri)
 	{
-		log_printf(LOG_CRIT, "failed to add <%s> to the crawler queue\n", uristr);
+		log_printf(LOG_CRIT, "failed to parse URI <%s>\n", uristr);
 		return 1;
 	}
+	if(context->queue->api->add(context->queue, uri, uristr))
+	{
+		log_printf(LOG_CRIT, "failed to add <%s> to the crawler queue\n", uristr);
+		uri_destroy(uri);
+		return 1;
+	}
+	uri_destroy(uri);
 	log_printf(LOG_NOTICE, "added <%s> to the crawler queue\n", uristr);
 	context->api->release(context);
 	queue_cleanup();

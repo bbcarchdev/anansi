@@ -40,6 +40,7 @@
 
 # include "libcrawl.h"
 # include "libsupport.h"
+# include "liburi.h"
 
 # define CRAWLER_APP_NAME               "crawler"
 
@@ -101,8 +102,7 @@ struct queue_api_struct
 	unsigned long (*addref)(QUEUE *me);
 	unsigned long (*release)(QUEUE *me);
 	int (*next)(QUEUE *me, URI **next);
-	int (*add_uri)(QUEUE *me, URI *uri);
-	int (*add_uristr)(QUEUE *me, const char *uristr);
+	int (*add)(QUEUE *me, URI *uri, const char *uristr);
 	int (*updated_uri)(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
 	int (*updated_uristr)(QUEUE *me, const char *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
 	int (*unchanged_uri)(QUEUE *me, URI *uri, int error);
@@ -152,6 +152,7 @@ int queue_unchanged_uristr(CRAWL *crawl, const char *uristr, int error);
 int policy_init(void);
 int policy_cleanup(void);
 int policy_init_crawler(CRAWL *crawler, CONTEXT *data);
+int policy_uri(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
 
 PROCESSOR *rdf_create(CRAWL *crawler);
 PROCESSOR *res_create(CRAWL *crawler);

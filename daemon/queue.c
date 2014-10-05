@@ -96,19 +96,48 @@ int
 queue_add_uristr(CRAWL *crawl, const char *uristr)
 {
 	CONTEXT *data;
-	
-	data = crawl_userdata(crawl);	
-	log_printf(LOG_DEBUG, "Adding URI <%s> to crawler queue\n", uristr);
-	return data->queue->api->add_uristr(data->queue, uristr);
+	URI *uri;
+	int r;
+
+	data = crawl_userdata(crawl);
+	uri = uri_create_str(uristr, NULL);
+	if(!uri)
+	{
+		log_printf(LOG_ERR, "Failed to parse URI <%s>\n", uristr);
+		return -1;
+	}
+	r = policy_uri(crawl, uri, uristr, (void *) data);
+	if(r == 1)
+	{
+		log_printf(LOG_DEBUG, "Adding URI <%s> to crawler queue\n", uristr);
+		r = data->queue->api->add(data->queue, uri, uristr);
+	}
+	uri_destroy(uri);
+	return r;
 }
 
 int
 queue_add_uri(CRAWL *crawl, URI *uri)
 {
 	CONTEXT *data;
-	
-	data = crawl_userdata(crawl);	
-	return data->queue->api->add_uri(data->queue, uri);
+	char *uristr;
+	int r;
+		
+	data = crawl_userdata(crawl);
+	uristr = uri_stralloc(uri);
+	if(!uristr)
+	{
+		log_printf(LOG_CRIT, "failed to unparse URI\n");
+		return -1;
+	}
+	r = policy_uri(crawl, uri, uristr, (void *) data);
+	if(r == 1)
+	{
+		log_printf(LOG_DEBUG, "Adding URI <%s> to crawler queue\n", uristr);
+		r = data->queue->api->add(data->queue, uri, uristr);
+	}
+	free(uristr);
+	return r;	
 }
 
 int

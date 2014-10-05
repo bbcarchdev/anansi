@@ -36,8 +36,7 @@ static int db_migrate(SQL *restrict, const char *identifier, int newversion, voi
 static unsigned long db_addref(QUEUE *me);
 static unsigned long db_release(QUEUE *me);
 static int db_next(QUEUE *me, URI **next);
-static int db_add_uri(QUEUE *me, URI *uristr);
-static int db_add_uristr(QUEUE *me, const char *uristr);
+static int db_add(QUEUE *me, URI *uri, const char *uristr);
 static int db_updated_uri(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
 static int db_updated_uristr(QUEUE *me, const char *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
 static int db_unchanged_uri(QUEUE *me, URI *uri, int error);
@@ -54,8 +53,7 @@ static struct queue_api_struct db_api = {
 	db_addref,
 	db_release,
 	db_next,
-	db_add_uri,
-	db_add_uristr,
+	db_add,
 	db_updated_uri,
 	db_updated_uristr,
 	db_unchanged_uri,
@@ -408,28 +406,14 @@ db_uristr_key_root(QUEUE *me, const char *uristr, char **uri, char *urikey, uint
 }
 
 static int
-db_add_uri(QUEUE *me, URI *uri)
-{
-	char *uristr;
-	int r;
-	
-	uristr = uri_stralloc(uri);
-	if(!uristr)
-	{
-		return -1;
-	}
-	r = db_add_uristr(me, uristr);
-	free(uristr);
-	return r;
-}
-
-static int
-db_add_uristr(QUEUE *me, const char *uristr)
+db_add(QUEUE *me, URI *uri, const char *uristr)
 {
 	char *canonical, *root;
 	char cachekey[48], rootkey[48];
 	uint32_t shortkey;
 	
+	(void) uri;
+
 	if(db_uristr_key_root(me, uristr, &canonical, cachekey, &shortkey, &root, rootkey))
 	{
 		return -1;

@@ -28,7 +28,6 @@
 static int policy_checkpoint(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata);
 static char **policy_create_list(const char *name, const char *defval);
 static int policy_destroy_list(char **list);
-static int policy_uri(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
 
 static char **types_whitelist;
 static char **types_blacklist;
@@ -166,7 +165,7 @@ policy_destroy_list(char **list)
 	return 0;
 }
 
-static int
+int
 policy_uri(CRAWL *crawl, URI *uri, const char *uristr, void *userdata)
 {
 	char scheme[64];
