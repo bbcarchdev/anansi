@@ -108,7 +108,7 @@ db_create(CONTEXT *ctx)
 	p->crawl = ctx->api->crawler(ctx);
 	p->crawler_id = ctx->api->crawler_id(ctx);
 	p->cache_id = ctx->api->cache_id(ctx);
-	p->ncrawlers = config_get_int("instance:crawlercount", 0);
+	p->ncrawlers = config_get_int("instance:crawlercount", p->crawler_id);
 	if(!p->ncrawlers)
 	{
 		log_printf(LOG_CRIT, "DB: No crawlercount has been specified in [instance] section of the configuration file\n");
@@ -292,15 +292,16 @@ db_next(QUEUE *me, URI **next)
 	
 	*next = NULL;
 	rs = sql_queryf(me->db,
-		"SELECT \"res\".\"uri\" "
-		" FROM "
-		" \"crawl_resource\" \"res\", \"crawl_root\" \"root\" "
-		" WHERE "
-		" \"res\".\"tinyhash\" MOD %d = 0 AND "
-		" \"root\".\"hash\" = \"res\".\"root\" AND "
-		" \"root\".\"earliest_update\" < NOW() AND "
-		" \"res\".\"next_fetch\" < NOW() "
-		" ORDER BY \"root\".\"earliest_update\" ASC, \"res\".\"next_fetch\" ASC", me->crawler_id);
+					"SELECT \"res\".\"uri\" "
+					" FROM "
+					" \"crawl_resource\" \"res\", \"crawl_root\" \"root\" "
+					" WHERE "
+					" \"res\".\"tinyhash\" MOD %d = %d AND "
+					" \"root\".\"hash\" = \"res\".\"root\" AND "
+					" \"root\".\"earliest_update\" < NOW() AND "
+					" \"res\".\"next_fetch\" < NOW() "
+					" ORDER BY \"root\".\"earliest_update\" ASC, \"res\".\"next_fetch\" ASC",
+					me->ncrawlers, me->crawler_id - 1);
 	if(!rs)
 	{
 		log_printf(LOG_CRIT, "DB: %s\n", sql_error(me->db));
