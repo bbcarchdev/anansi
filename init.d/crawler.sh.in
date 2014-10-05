@@ -11,9 +11,12 @@
 ### END INIT INFO
 
 # Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+set -e
+set -u
+${DEBIAN_SCRIPT_DEBUG:+ set -v -x}
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
-DESC="Web crawler"
+DESC="Anansi web crawler"
 ME=crawler
 NAME=crawld
 DAEMON="@SBINDIR@/$NAME"
@@ -71,7 +74,7 @@ case "$1" in
 		esac
 		;;
 	stop|force-stop)
-		log_daemon_msg "Stopping $DESC" "$NAME"
+		[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
 		do_stop
 		case "$?" in
 			0|1)
@@ -111,7 +114,7 @@ case "$1" in
 		esac
 		;;
 	status)
-		status_of_proc "$DAEMON" $NAME && exit 0 || exit $?
+		status_of_proc -p "$PIDFILE" "$DAEMON" $NAME && exit 0 || exit $?
 		;;
 	*)
 		echo "Usage: $0 {start|stop|force-stop|restart|force-reload|status}" >&2
