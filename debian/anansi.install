@@ -1,4 +1,6 @@
 etc/crawl.conf
+etc/init.d/crawler
+etc/default/crawler
 usr/sbin/crawld
 usr/bin/crawl-fetch
 usr/bin/crawl-locate
