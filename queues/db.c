@@ -621,7 +621,7 @@ db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey, const cha
 	data.uri = uri;
 	data.rootkey = rootkey;
 	
-	if(sql_perform(me->db, db_insert_resource_txn, &data, TXN_MAX_RETRIES))
+	if(sql_perform(me->db, db_insert_resource_txn, &data, TXN_MAX_RETRIES, SQL_TXN_CONSISTENT))
 	{
 		log_printf(LOG_CRIT, "DB: %s\n", sql_error(me->db));
 		exit(1);
@@ -644,7 +644,7 @@ db_insert_root(QUEUE *me, const char *rootkey, const char *uri)
 	data.rootkey = rootkey;
 	data.uri = uri;
 		
-	if(sql_perform(me->db, db_insert_root_txn, &data, TXN_MAX_RETRIES))
+	if(sql_perform(me->db, db_insert_root_txn, &data, TXN_MAX_RETRIES, SQL_TXN_CONSISTENT))
 	{
 		log_printf(LOG_CRIT, "DB: %s\n", sql_error(me->db));
 		exit(1);
