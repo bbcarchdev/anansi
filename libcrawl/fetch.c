@@ -343,6 +343,83 @@ crawl_update_info_(struct crawl_fetch_data_struct *data)
 }
 
 static int
+is_same_origin(URI_INFO *a, URI_INFO *b)
+{
+	if((a->scheme && !b->scheme) ||
+	   (!a->scheme && b->scheme) ||
+	   (a->scheme && b->scheme && strcasecmp(a->scheme, b->scheme)))
+	{
+		return 0;
+	}
+	if(!a->port && a->scheme)
+	{
+		if(!strcasecmp(a->scheme, "http"))
+		{
+			a->port = 80;
+		}
+		else if(!strcasecmp(a->scheme, "https"))
+		{
+			a->port = 443;
+		}
+	}
+	if(!b->port && b->scheme)
+	{
+		if(!strcasecmp(b->scheme, "http"))
+		{
+			b->port = 80;
+		}
+		else if(!strcasecmp(b->scheme, "https"))
+		{
+			b->port = 443;
+		}
+	}
+	if(a->port != b->port)
+	{
+		return 0;
+	}		
+	if((a->host && !b->host) ||
+	   (!a->host && b->host) ||
+	   (a->host && b->host && strcasecmp(a->host, b->host)))
+	{
+		return 0;
+	}
+	return 1;
+}
+
+static int
+set_dict_url(CRAWLOBJ *obj, jd_var *dict, const char *key, const char *location, int same_origin)
+{
+	URI *uri;
+	URI_INFO *a, *b;
+	char *p;
+	int r;
+
+	uri = uri_create_str(location, obj->uri);
+	if(!uri)
+	{
+		return -1;
+	}
+	if(same_origin)
+	{
+		a = uri_info(obj->uri);
+		b = uri_info(uri);
+		r = is_same_origin(a, b);
+		uri_info_destroy(a);
+		uri_info_destroy(b);
+		if(!r)
+		{
+			uri_destroy(uri);
+			return -1;
+		}
+	}
+	p = uri_stralloc(uri);
+	jd_assign(jd_get_ks(dict, key, 1), jd_nsv(p));
+	free(p);
+	uri_destroy(uri);
+	return 0;
+}
+
+static int
 crawl_generate_info_(struct crawl_fetch_data_struct *data, jd_var *dict)
 {
 	jd_var *key, *value, *headers;
@@ -369,6 +446,9 @@ crawl_generate_info_(struct crawl_fetch_data_struct *data, jd_var *dict)
 		if(ptr)
 		{
 			key = jd_get_ks(dict, "location", 1);
+			value = jd_nsv(ptr);
+			jd_assign(key, value);
+			key = jd_get_ks(dict, "content_location", 1);
 			value = jd_nsv(ptr);
 			jd_assign(key, value);
 		}
@@ -419,12 +499,12 @@ crawl_generate_info_(struct crawl_fetch_data_struct *data, jd_var *dict)
 			}
 			if(!strcasecmp(s, "location"))
 			{
-				jd_assign(jd_get_ks(dict, "redirect", 1), jd_nsv(ptr));
+				set_dict_url(data->obj, dict, "redirect", ptr, 0);
 			}
 			if(!strcasecmp(s, "content-location"))
 			{
-				jd_assign(jd_get_ks(dict, "content_location", 1), jd_nsv(ptr));
-			}			
+				set_dict_url(data->obj, dict, "content_location", ptr, 1);
+			}
 			key = jd_get_ks(headers, s, 1);
 			if(key->type == VOID)
 			{
