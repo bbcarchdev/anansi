@@ -398,8 +398,8 @@ static char *s3cache_uri_(CRAWLCACHE *cache, const CACHEKEY key)
 			path = NULL;
 		}
 	}
-	/* s3://bucket/path/key.payload */
-	needed = 5 + strlen(bucket) + (path ? strlen(path) : 0) + 2 + strlen(key) + 8 + 1;
+	/* s3://bucket/path/key */
+	needed = 5 + strlen(bucket) + (path ? strlen(path) : 0) + 2 + strlen(key) + 1;
 	uri = (char *) calloc(1, needed);
 	if(!uri)
 	{
@@ -424,7 +424,6 @@ static char *s3cache_uri_(CRAWLCACHE *cache, const CACHEKEY key)
 	}
 	strcpy(p, key);
 	p += strlen(key);
-	strcpy(p, ".payload");
 	return uri;
 }
 
@@ -524,10 +523,13 @@ s3cache_copy_path_(CRAWLCACHE *cache, const CACHEKEY key, const char *type)
 	*p = '/';
 	p++;
 	strcpy(p, key);
-	p = strchr(p, 0);
-	*p = '.';
-	p++;
-	strcpy(p, type);
+	if(type && *type)
+	{
+		p = strchr(p, 0);
+		*p = '.';
+		p++;
+		strcpy(p, type);
+	}
 	return 0;
 }
 

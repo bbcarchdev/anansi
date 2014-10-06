@@ -74,7 +74,7 @@
 # define HEADER_ALLOC_BLOCK            128
 # define OBJ_READ_BLOCK                1024
 # define CACHE_INFO_SUFFIX             "json"
-# define CACHE_PAYLOAD_SUFFIX          "payload"
+# define CACHE_PAYLOAD_SUFFIX          ""
 # define CACHE_TMP_SUFFIX              ".tmp"
 
 struct crawl_struct

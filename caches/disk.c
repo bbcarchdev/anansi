@@ -339,7 +339,7 @@ diskcache_filename_(CRAWL *crawl, const CACHEKEY key, const char *type, char *bu
 		*buf = 0;
 	}
 	/* base path + "/" + key[0..1] + "/" + key[2..3] + "/" + key[0..n] + "." + type + ".tmp" */
-	needed = strlen(crawl->cachepath) + 1 + 2 + 1 + 2 + 1 + strlen(key) + 1 + strlen(type) + 4 + 1;
+	needed = strlen(crawl->cachepath) + 1 + 2 + 1 + 2 + 1 + strlen(key) + 1 + (type ? strlen(type) : 0) + 4 + 1;
 	if(!buf || needed > bufsize)
 	{
 		return needed;
@@ -352,7 +352,7 @@ diskcache_filename_(CRAWL *crawl, const CACHEKEY key, const char *type, char *bu
 	{
 		suffix = "";
 	}
-	sprintf(buf, "%s/%c%c/%c%c/%s.%s%s", crawl->cachepath, key[0], key[1], key[2], key[3], key, type, suffix);
+	sprintf(buf, "%s/%c%c/%c%c/%s%s%s%s", crawl->cachepath, key[0], key[1], key[2], key[3], key, (type && type[0] ? "." : ""), (type ? type : ""), suffix);
 	return needed;
 }
 
