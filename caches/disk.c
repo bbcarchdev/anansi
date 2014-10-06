@@ -34,7 +34,7 @@ static unsigned long diskcache_done_(CRAWLCACHE *cache);
 static FILE *diskcache_open_write_(CRAWLCACHE *cache, const CACHEKEY key);
 static FILE *diskcache_open_read_(CRAWLCACHE *cache, const CACHEKEY key);
 static int diskcache_close_rollback_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
-static int diskcache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
+static int diskcache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *obj);
 static int diskcache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *info);
 static int diskcache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *info);
 static FILE *diskcache_open_info_write_(CRAWLCACHE *cache, const CACHEKEY key);
@@ -119,8 +119,10 @@ diskcache_close_rollback_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
 }
 
 static int
-diskcache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
+diskcache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *obj)
 {
+	(void) obj;
+
 	if(!f)
 	{
 		errno = EINVAL;

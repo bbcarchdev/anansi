@@ -142,7 +142,7 @@ int crawl_cache_key_(CRAWL *crawl, CACHEKEY dest, const char *uri);
 char *cache_uri_(CRAWL *crawl, const CACHEKEY key);
 FILE *cache_open_payload_write_(CRAWL *crawl, const CACHEKEY key);
 int cache_close_payload_rollback_(CRAWL *crawl, const CACHEKEY key, FILE *f);
-int cache_close_payload_commit_(CRAWL *crawl, const CACHEKEY key, FILE *f);
+int cache_close_payload_commit_(CRAWL *crawl, const CACHEKEY key, FILE *f, CRAWLOBJ *obj);
 
 int cache_info_read_(CRAWL *crawl, const CACHEKEY key, jd_var *dict);
 int cache_info_write_(CRAWL *crawl, const CACHEKEY key, jd_var *dict);

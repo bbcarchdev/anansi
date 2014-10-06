@@ -1,3 +1,8 @@
+/* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
+ *
+ * Copyright 2014 BBC.
+ */
+
 /*
  * Copyright 2013 Mo McRoberts.
  *
@@ -133,9 +138,9 @@ cache_close_payload_rollback_(CRAWL *crawl, const CACHEKEY key, FILE *f)
 }
 
 int
-cache_close_payload_commit_(CRAWL *crawl, const CACHEKEY key, FILE *f)
+cache_close_payload_commit_(CRAWL *crawl, const CACHEKEY key, FILE *f, CRAWLOBJ *obj)
 {
-	return crawl->cache.impl->payload_close_commit(&(crawl->cache), key, f);
+	return crawl->cache.impl->payload_close_commit(&(crawl->cache), key, f, obj);
 }
 
 int

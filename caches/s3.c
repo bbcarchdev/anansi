@@ -45,7 +45,7 @@ static unsigned long s3cache_done_(CRAWLCACHE *cache);
 static FILE *s3cache_open_write_(CRAWLCACHE *cache, const CACHEKEY key);
 static FILE *s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key);
 static int s3cache_close_rollback_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
-static int s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
+static int s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *obj);
 static int s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *info);
 static int s3cache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *info);
 static char *s3cache_uri_(CRAWLCACHE *cache, const CACHEKEY key);
@@ -222,7 +222,7 @@ s3cache_close_rollback_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
 }
 
 static int
-s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
+s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *obj)
 {
 	S3REQUEST *req;
 	struct s3cache_data_struct *data;
@@ -231,6 +231,8 @@ s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
 	long status;
 	off_t offset;
 	struct curl_slist *headers;
+	const char *t;
+	char *buf;
 
 	if(!f)
 	{
@@ -252,6 +254,15 @@ s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
 	curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, s3cache_write_null_);
 	curl_easy_setopt(ch, CURLOPT_UPLOAD, 1);
     headers = curl_slist_append(s3_request_headers(req), "Expect: 100-continue");
+	t = crawl_obj_type(obj);
+	if(t)
+	{
+		buf = (char *) malloc(strlen(t) + 15);
+		strcpy(buf, "Content-Type: ");
+		strcpy(&(buf[14]), t);
+		headers = curl_slist_append(headers, buf);
+		free(buf);
+	}
 	s3_request_set_headers(req, headers);
 	if(!s3_request_perform(req))
 	{

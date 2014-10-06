@@ -46,6 +46,12 @@ typedef struct crawl_struct CRAWL;
 
 typedef char CACHEKEY[CACHE_KEY_LEN+1];
 
+/* A crawled object, returned by a cache look-up (crawl_locate) or fetch
+ * (crawl_fetch). The same thread restrictions apply to crawled objects
+ * as to the context.
+ */
+typedef struct crawl_object_struct CRAWLOBJ;
+
 typedef struct crawl_cache_struct CRAWLCACHE;
 typedef struct crawl_cache_impl_struct CRAWLCACHEIMPL;
 
@@ -57,7 +63,7 @@ struct crawl_cache_impl_struct
 	FILE *(*payload_open_write)(CRAWLCACHE *cache, const CACHEKEY key);
 	FILE *(*payload_open_read)(CRAWLCACHE *cache, const CACHEKEY key);
 	int (*payload_close_rollback)(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
-	int (*payload_close_commit)(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
+	int (*payload_close_commit)(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *obj);
 	int (*info_read)(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict);
 	int (*info_write)(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict);
 	char *(*uri)(CRAWLCACHE *cache, const CACHEKEY key);
@@ -77,13 +83,6 @@ struct crawl_cache_struct
 	 */
 	void *data;
 };
-	
-
-/* A crawled object, returned by a cache look-up (crawl_locate) or fetch
- * (crawl_fetch). The same thread restrictions apply to crawled objects
- * as to the context.
- */
-typedef struct crawl_object_struct CRAWLOBJ;
 
 /* URI policy callback: invoked before a URI is fetched; returns 1 to proceed,
  * 0 to skip, -1 on error.

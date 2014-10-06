@@ -196,11 +196,10 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri)
 	if(data.rollback)
 	{
 		cache_close_payload_rollback_(crawl, data.obj->key, data.payload);
-		/* restore info */
 	}
 	else
 	{
-		cache_close_payload_commit_(crawl, data.obj->key, data.payload);	
+		cache_close_payload_commit_(crawl, data.obj->key, data.payload, data.obj);
 	}	
 	curl_slist_free_all(headers);
 	curl_easy_cleanup(data.ch);
