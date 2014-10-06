@@ -263,6 +263,15 @@ s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *
 		headers = curl_slist_append(headers, buf);
 		free(buf);
 	}
+	t = crawl_obj_content_location(obj);
+	if(t)
+	{
+		buf = (char *) malloc(strlen(t) + 19);
+		strcpy(buf, "Content-Location: ");
+		strcpy(&(buf[18]), t);
+		headers = curl_slist_append(headers, buf);
+		free(buf);
+	}
 	s3_request_set_headers(req, headers);
 	if(!s3_request_perform(req))
 	{

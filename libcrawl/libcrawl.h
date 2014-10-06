@@ -192,6 +192,8 @@ const char *crawl_obj_uristr(CRAWLOBJ *obj);
 const char *crawl_obj_type(CRAWLOBJ *obj);
 /* Obtain the redirect target of the resource */
 const char *crawl_obj_redirect(CRAWLOBJ *obj);
+/* Obtain the content-location of the resource */
+const char *crawl_obj_content_location(CRAWLOBJ *obj);
 /* Has this object been freshly-fetched? */
 int crawl_obj_fresh(CRAWLOBJ *obj);
 

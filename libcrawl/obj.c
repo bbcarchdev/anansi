@@ -210,6 +210,28 @@ crawl_obj_redirect(CRAWLOBJ *obj)
 	return str;
 }
 
+const char *
+crawl_obj_content_location(CRAWLOBJ *obj)
+{
+	jd_var *key;
+	const char *str;
+	
+	if(obj->info.type == VOID)
+	{
+		return NULL;
+	}
+	JD_SCOPE
+	{
+		str = NULL;
+		key = jd_get_ks(&(obj->info), "content_location", 1);
+		if(key->type == STRING)
+		{
+			str = jd_bytes(key, NULL);
+		}
+	}
+	return str;
+}
+
 /* Has this object been freshly-fetched? */
 int
 crawl_obj_fresh(CRAWLOBJ *obj)
