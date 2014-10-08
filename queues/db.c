@@ -309,7 +309,7 @@ db_next(QUEUE *me, URI **next)
 	}
 	if(sql_stmt_eof(rs))
 	{
-		log_printf(LOG_DEBUG, "db_next: queue query returned no results\n");
+/*		log_printf(LOG_DEBUG, "db_next: queue query returned no results\n"); */
 		sql_stmt_destroy(rs);
 		return 0;
 	}
