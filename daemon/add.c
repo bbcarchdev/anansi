@@ -139,6 +139,7 @@ process_args(int argc, char **argv)
 	if(argc != 1)
 	{
 		usage();
+		return 1;
 	}
 	uristr = argv[0];
 	return 0;
