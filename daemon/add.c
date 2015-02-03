@@ -24,6 +24,7 @@
 static const char *short_program_name = "add";
 static const char *uristr;
 static int force;
+static int loop;
 
 static int config_defaults(void);
 static int process_args(int argc, char **argv);
@@ -36,7 +37,9 @@ main(int argc, char **argv)
 {
 	CONTEXT *context;
 	URI *uri;
-	int r;
+	int r, err, skip, added, line;
+	char *uribuf, *t;
+	size_t uribuflen;
 
 	if(process_args(argc, argv))
 	{
@@ -68,31 +71,99 @@ main(int argc, char **argv)
 	{
 		return 1;
 	}
-	uri = uri_create_str(uristr, NULL);
-	if(!uri)
+	err = 0;
+	skip = 0;
+	line = 0;
+	added = 0;
+	if(loop)
 	{
-		log_printf(LOG_CRIT, "failed to parse URI <%s>\n", uristr);
-		return 1;
-	}
-	if(force)
-	{
-		r = context->queue->api->force_add(context->queue, uri, uristr);
+		uribuflen = 1023;
+		uribuf = (char *) calloc(1, uribuflen + 1);
+		if(!uribuf)
+		{
+			log_printf(LOG_CRIT, "failed to allocate %u bytes for URI buffer\n", (unsigned) (uribuflen + 1));
+			return 1;
+		}
+		while((fgets(uribuf, uribuflen, stdin)))
+		{
+			if(skip)
+			{
+				if(strchr(uribuf, '\n'))
+				{
+					skip = 0;
+					line++;
+				}
+				continue;
+			}
+			t = strchr(uribuf, '\n');
+			if(!t)
+			{
+				log_printf(LOG_ERR, "stdin:%d: line too long, skipping\n", line + 1);
+				skip = 1;
+				err = 1;
+				continue;
+			}
+			line++;
+			*t = 0;
+			uri = uri_create_str(uribuf, NULL);
+			if(!uri)
+			{
+				log_printf(LOG_ERR, "stdin:%d: failed to parse URI <%s>\n", line, uribuf);
+				err = 1;
+				continue;
+			}
+			if(force)
+			{
+				r = context->queue->api->force_add(context->queue, uri, uribuf);
+			}
+			else
+			{
+				r = context->queue->api->add(context->queue, uri, uribuf);
+			}
+			if(r)
+			{
+				log_printf(LOG_CRIT, "stdin:%d: failed to add <%s> to the crawler queue\n", line, uribuf);
+				err = 1;
+			}
+			else
+			{
+				log_printf(LOG_DEBUG, "stdin:%d: added <%s> to the crawler queue\n", line, uribuf);
+				added++;
+			}
+			uri_destroy(uri);					
+		}
+		log_printf(LOG_NOTICE, "added %d URIs to the crawler queue\n", added);
 	}
 	else
 	{
-		r = context->queue->api->add(context->queue, uri, uristr);
-	}
-	if(r)
-	{
-		log_printf(LOG_CRIT, "failed to add <%s> to the crawler queue\n", uristr);
+		uri = uri_create_str(uristr, NULL);
+		if(!uri)
+		{
+			log_printf(LOG_CRIT, "failed to parse URI <%s>\n", uristr);
+			return 1;
+		}
+		if(force)
+		{
+			r = context->queue->api->force_add(context->queue, uri, uristr);
+		}
+		else
+		{
+			r = context->queue->api->add(context->queue, uri, uristr);
+		}
+		if(r)
+		{
+			log_printf(LOG_CRIT, "failed to add <%s> to the crawler queue\n", uristr);
+			err = 1;
+		}
+		else
+		{
+			log_printf(LOG_NOTICE, "added <%s> to the crawler queue\n", uristr);
+		}
 		uri_destroy(uri);
-		return 1;
 	}
-	uri_destroy(uri);
-	log_printf(LOG_NOTICE, "added <%s> to the crawler queue\n", uristr);
 	context->api->release(context);
 	queue_cleanup();
-	return 0;
+	return err;
 }
 
 static int
@@ -129,7 +200,7 @@ process_args(int argc, char **argv)
 	{
 		short_program_name = argv[0];
 	}
-	while((c = getopt(argc, argv, "hc:f")) != -1)
+	while((c = getopt(argc, argv, "hc:fl")) != -1)
 	{
 		switch(c)
 		{
@@ -142,6 +213,9 @@ process_args(int argc, char **argv)
 		case 'f':
 			force = 1;
 			break;
+		case 'l':
+			loop = 1;
+			break;
 		default:
 			usage();
 			return -1;
@@ -149,12 +223,15 @@ process_args(int argc, char **argv)
 	}
 	argc -= optind;
 	argv += optind;
-	if(argc != 1)
+	if((loop && argc != 0) || (!loop && argc != 1))
 	{
 		usage();
 		return 1;
 	}
-	uristr = argv[0];
+	if(!loop)
+	{
+		uristr = argv[0];
+	}
 	return 0;
 }
 
@@ -166,7 +243,8 @@ usage(void)
 		   "OPTIONS is one or more of:\n"
 		   "  -h                   Print this usage message and exit\n"
 		   "  -c PATH              Load PATH as the configuration file\n"
-		   "  -f                   Add the URI in 'FORCED' state (next fetch will ignore cache)\n",
+		   "  -f                   Add URI in 'FORCED' state (next fetch will ignore cache)\n"
+		   "  -l                   Read a list of URIs from standard input\n",
 		   short_program_name);
 }
 
