@@ -48,6 +48,14 @@ crawl_destroy(CRAWL *p)
 {
 	if(p)
 	{
+		if(p->cacheuri)
+		{
+			uri_destroy(p->cacheuri);
+		}
+		if(p->uri)
+		{
+			uri_info_destroy(p->uri);
+		}
 		free(p->cachepath);
 		free(p->cachefile);
 		free(p->cachetmp);

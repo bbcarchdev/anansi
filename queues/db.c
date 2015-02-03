@@ -282,17 +282,17 @@ static unsigned long
 db_release(QUEUE *me)
 {
 	me->refcount--;
-	if(!me->refcount)
+	if(me->refcount)
 	{
-		if(me->db)
-		{
-			sql_disconnect(me->db);
-		}
-		free(me->buf);
-		free(me);
-		return 0;
+		return me->refcount;
 	}
-	return me->refcount;
+	if(me->db)
+	{
+		sql_disconnect(me->db);
+	}
+	free(me->buf);
+	free(me);
+	return 0;
 }
 
 static int
@@ -795,6 +795,7 @@ db_insert_root_txn(SQL *db, void *userdata)
 	}
 	if(!sql_stmt_eof(rs))
 	{
+		sql_stmt_destroy(rs);
 		return 0;
 	}
 	sql_stmt_destroy(rs);

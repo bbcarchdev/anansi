@@ -132,6 +132,7 @@ main(int argc, char **argv)
 			}
 			uri_destroy(uri);					
 		}
+		free(uribuf);
 		log_printf(LOG_NOTICE, "added %d URIs to the crawler queue\n", added);
 	}
 	else
@@ -161,6 +162,7 @@ main(int argc, char **argv)
 		}
 		uri_destroy(uri);
 	}
+	queue_cleanup_crawler(context->crawl, context);
 	context->api->release(context);
 	queue_cleanup();
 	return err;
