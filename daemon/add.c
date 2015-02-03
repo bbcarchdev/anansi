@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 
 static const char *short_program_name = "add";
 static const char *uristr;
+static int force;
 
 static int config_defaults(void);
 static int process_args(int argc, char **argv);
@@ -35,6 +36,7 @@ main(int argc, char **argv)
 {
 	CONTEXT *context;
 	URI *uri;
+	int r;
 
 	if(process_args(argc, argv))
 	{
@@ -72,7 +74,15 @@ main(int argc, char **argv)
 		log_printf(LOG_CRIT, "failed to parse URI <%s>\n", uristr);
 		return 1;
 	}
-	if(context->queue->api->add(context->queue, uri, uristr))
+	if(force)
+	{
+		r = context->queue->api->force_add(context->queue, uri, uristr);
+	}
+	else
+	{
+		r = context->queue->api->add(context->queue, uri, uristr);
+	}
+	if(r)
 	{
 		log_printf(LOG_CRIT, "failed to add <%s> to the crawler queue\n", uristr);
 		uri_destroy(uri);
@@ -119,7 +129,7 @@ process_args(int argc, char **argv)
 	{
 		short_program_name = argv[0];
 	}
-	while((c = getopt(argc, argv, "hc:")) != -1)
+	while((c = getopt(argc, argv, "hc:f")) != -1)
 	{
 		switch(c)
 		{
@@ -128,6 +138,9 @@ process_args(int argc, char **argv)
 			exit(EXIT_SUCCESS);
 		case 'c':
 			config_set("global:configFile", optarg);
+			break;
+		case 'f':
+			force = 1;
 			break;
 		default:
 			usage();
@@ -152,7 +165,8 @@ usage(void)
 		   "\n"
 		   "OPTIONS is one or more of:\n"
 		   "  -h                   Print this usage message and exit\n"
-		   "  -c PATH              Load PATH as the configuration file\n",
+		   "  -c PATH              Load PATH as the configuration file\n"
+		   "  -f                   Add the URI in 'FORCED' state (next fetch will ignore cache)\n",
 		   short_program_name);
 }
 

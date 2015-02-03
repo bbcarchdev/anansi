@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC.
  */
 
 /*
@@ -93,6 +93,7 @@ struct queue_api_struct
 	int (*updated_uristr)(QUEUE *me, const char *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
 	int (*unchanged_uri)(QUEUE *me, URI *uri, int error);
 	int (*unchanged_uristr)(QUEUE *me, const char *uri, int error);
+	int (*force_add)(QUEUE *me, URI *uri, const char *uristr);
 };
 
 #ifndef PROCESSOR_STRUCT_DEFINED

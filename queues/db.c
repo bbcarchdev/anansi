@@ -37,11 +37,12 @@ static unsigned long db_addref(QUEUE *me);
 static unsigned long db_release(QUEUE *me);
 static int db_next(QUEUE *me, URI **next, CRAWLSTATE *state);
 static int db_add(QUEUE *me, URI *uri, const char *uristr);
+static int db_force_add(QUEUE *me, URI *uri, const char *uristr);
 static int db_updated_uri(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
 static int db_updated_uristr(QUEUE *me, const char *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
 static int db_unchanged_uri(QUEUE *me, URI *uri, int error);
 static int db_unchanged_uristr(QUEUE *me, const char *uristr, int error);
-static int db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey, const char *uri, const char *rootkey);
+static int db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey, const char *uri, const char *rootkey, int force);
 static int db_insert_root(QUEUE *me, const char *rootkey, const char *uri);
 static int db_insert_resource_txn(SQL *db, void *userdata);
 static int db_insert_root_txn(SQL *db, void *userdata);
@@ -57,7 +58,8 @@ static struct queue_api_struct db_api = {
 	db_updated_uri,
 	db_updated_uristr,
 	db_unchanged_uri,
-	db_unchanged_uristr
+	db_unchanged_uristr,
+	db_force_add,
 };
 
 struct queue_struct
@@ -82,6 +84,7 @@ struct resource_insert
 	uint32_t shortkey;
 	const char *uri;
 	const char *rootkey;
+	int force;
 };
 
 struct root_insert
@@ -457,14 +460,36 @@ db_add(QUEUE *me, URI *uri, const char *uristr)
 		return -1;
 	}
 	
-	db_insert_resource(me, cachekey, shortkey, canonical, rootkey);
+	db_insert_resource(me, cachekey, shortkey, canonical, rootkey, 0);
 	db_insert_root(me, rootkey, root);
 	
 	free(root);
 	free(canonical);
-	return 0;
-	
+	return 0;	
 }
+
+static int
+db_force_add(QUEUE *me, URI *uri, const char *uristr)
+{
+	char *canonical, *root;
+	char cachekey[48], rootkey[48];
+	uint32_t shortkey;
+	
+	(void) uri;
+
+	if(db_uristr_key_root(me, uristr, &canonical, cachekey, &shortkey, &root, rootkey))
+	{
+		return -1;
+	}
+	
+	db_insert_resource(me, cachekey, shortkey, canonical, rootkey, 1);
+	db_insert_root(me, rootkey, root);
+	
+	free(root);
+	free(canonical);
+	return 0;	
+}
+
 
 static int
 db_updated_uri(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state)
@@ -651,7 +676,7 @@ db_unchanged_uristr(QUEUE *me, const char *uristr, int error)
 
 
 static int
-db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey, const char *uri, const char *rootkey)
+db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey, const char *uri, const char *rootkey, int force)
 {
 	struct resource_insert data;
 	
@@ -660,7 +685,8 @@ db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey, const cha
 	data.shortkey = shortkey;
 	data.uri = uri;
 	data.rootkey = rootkey;
-	
+	data.force = force;
+
 	if(sql_perform(me->db, db_insert_resource_txn, &data, TXN_MAX_RETRIES, SQL_TXN_CONSISTENT))
 	{
 		log_printf(LOG_CRIT, "DB: %s\n", sql_error(me->db));
@@ -716,6 +742,23 @@ db_insert_resource_txn(SQL *db, void *userdata)
 	}
 	if(!sql_stmt_eof(rs))
 	{
+		sql_stmt_destroy(rs);
+		if(data->force)
+		{
+			if(sql_executef(db, "UPDATE \"crawl_resource\" SET \"next_fetch\" = NOW(), \"state\" = %Q WHERE \"hash\" = %Q", "FORCE", data->cachekey))
+			{
+				/* INSERT failed */
+				if(sql_deadlocked(db))
+				{
+					/* rollback and retry */
+					return -1;
+				}
+				/* non-deadlock error */
+				return -2;
+			}
+			/* commit */
+			return 1;
+		}
 		/* rollback with success */
 		return 0;
 	}
