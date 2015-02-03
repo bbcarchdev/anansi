@@ -171,7 +171,7 @@ main(int argc, char **argv)
 static int
 config_defaults(void)
 {
-	config_set_default("log:ident", "crawld-add");
+	config_set_default("log:ident", short_program_name);
 	config_set_default("log:facility", "daemon");
 	config_set_default("log:level", "notice");
 	config_set_default("log:stderr", "1");
