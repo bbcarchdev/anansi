@@ -48,21 +48,6 @@ typedef struct context_struct CONTEXT;
 typedef struct processor_struct PROCESSOR;
 typedef struct queue_struct QUEUE;
 
-/* Crawl object states */
-typedef enum
-{
-	/* Has not yet been crawled */
-	COS_NEW,
-	/* Crawling failed */
-	COS_FAILED,
-	/* The processor or policy rejected the resource */
-	COS_REJECTED,
-	/* The resource was processed */
-	COS_ACCEPTED,
-	/* Never set by crawld itself: external processing has completed */
-	COS_COMPLETE
-} CRAWLSTATE;
-
 struct context_struct
 {
 	struct context_api_struct *api;
@@ -102,7 +87,7 @@ struct queue_api_struct
 	void *reserved;
 	unsigned long (*addref)(QUEUE *me);
 	unsigned long (*release)(QUEUE *me);
-	int (*next)(QUEUE *me, URI **next);
+	int (*next)(QUEUE *me, URI **next, CRAWLSTATE *state);
 	int (*add)(QUEUE *me, URI *uri, const char *uristr);
 	int (*updated_uri)(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
 	int (*updated_uristr)(QUEUE *me, const char *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);

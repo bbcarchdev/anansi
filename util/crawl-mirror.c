@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC.
  */
 
 /*
@@ -45,7 +45,7 @@ size_t queue_size;
 
 static int push_str(CRAWL *crawl, const char *uristr);
 static int push_uri(CRAWL *crawl, URI *uri);
-static int next_callback(CRAWL *crawl, URI **next, void *userdata);
+static int next_callback(CRAWL *crawl, URI **next, CRAWLSTATE *state, void *userdata);
 static int policy_callback(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
 static int updated_callback(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata);
 static int recurse_links(CRAWL *crawl, CRAWLOBJ *obj);
@@ -77,7 +77,7 @@ main(int argc, char **argv)
 }
 
 static int
-next_callback(CRAWL *crawl, URI **next, void *userdata)
+next_callback(CRAWL *crawl, URI **next, CRAWLSTATE *state, void *userdata)
 {	
 	(void) crawl;
 	(void) userdata;
@@ -88,6 +88,7 @@ next_callback(CRAWL *crawl, URI **next, void *userdata)
 	}
 	/* URI will be freed by the crawler */
 	*next = queue[queue_count-1];
+	*state = COS_NEW;
 	queue[queue_count] = NULL;
 	queue_count--;
 	return 0;

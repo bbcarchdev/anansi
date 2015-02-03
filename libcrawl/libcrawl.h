@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC.
  */
 
 /*
@@ -26,6 +26,23 @@
 # include <time.h>
 # include <jsondata.h>
 # include <liburi.h>
+
+/* Crawl object states */
+typedef enum
+{
+	/* Has not yet been crawled */
+	COS_NEW,
+	/* Crawling failed */
+	COS_FAILED,
+	/* The processor or policy rejected the resource */
+	COS_REJECTED,
+	/* The resource was processed */
+	COS_ACCEPTED,
+	/* Never set by crawld itself: external processing has completed */
+	COS_COMPLETE,
+	/* The next fetch should ignore the cache */
+	COS_FORCE
+} CRAWLSTATE;
 
 /* A crawl context.
  *
@@ -112,7 +129,7 @@ typedef int (*crawl_unchanged_cb)(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, 
 /* Next callback: invoked to obtain the next URI to crawl; if *next is NULL on
  * return, crawling ends. The URI returned via *next will be freed by libcrawl.
  */
-typedef int (*crawl_next_cb)(CRAWL *crawl, URI **next, void *userdata);
+typedef int (*crawl_next_cb)(CRAWL *crawl, URI **next, CRAWLSTATE *state, void *userdata);
 
 /* Checkpoint callback: invoked after the response headers have been received
  * but before the payload has been. If the callback returns a nonzero result,
@@ -203,9 +220,9 @@ int crawl_cache_key(CRAWL *restrict crawl, const char *restrict uri, char *restr
 int crawl_cache_key_uri(CRAWL *restrict crawl, URI *restrict uri, char *restrict buf, size_t buflen);
 
 /* Fetch a resource specified as a string containing a URI */
-CRAWLOBJ *crawl_fetch(CRAWL *crawl, const char *uri);
+CRAWLOBJ *crawl_fetch(CRAWL *crawl, const char *uri, CRAWLSTATE state);
 /* Fetch a resource specified as a URI */
-CRAWLOBJ *crawl_fetch_uri(CRAWL *crawl, URI *uri);
+CRAWLOBJ *crawl_fetch_uri(CRAWL *crawl, URI *uri, CRAWLSTATE state);
 
 /* Locate a cached resource specified as a string */
 CRAWLOBJ *crawl_locate(CRAWL *crawl, const char *uristr);

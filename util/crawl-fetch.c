@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC.
  */
 
 /*
@@ -81,7 +81,7 @@ main(int argc, char **argv)
 	{
 		crawl_set_endpoint(crawl, endpoint);
 	}
-	obj = crawl_fetch(crawl, fetchuri);
+	obj = crawl_fetch(crawl, fetchuri, COS_NEW);
 	if(!obj)
 	{
 		fprintf(stderr, "%s: failed to fetch resource: %s\n", progname, strerror(errno));

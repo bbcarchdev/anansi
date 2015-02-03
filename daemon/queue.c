@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC.
  */
 
 /*
@@ -25,7 +25,7 @@
 
 #include "p_crawld.h"
 
-static int queue_handler(CRAWL *crawl, URI **next, void *userdata);
+static int queue_handler(CRAWL *crawl, URI **next, CRAWLSTATE *state, void *userdata);
 
 static QUEUE *(*queue_constructor)(CONTEXT *ctx);
 
@@ -177,7 +177,7 @@ queue_unchanged_uri(CRAWL *crawl, URI *uri, int error)
 }
 
 static int
-queue_handler(CRAWL *crawl, URI **next, void *userdata)
+queue_handler(CRAWL *crawl, URI **next, CRAWLSTATE *state, void *userdata)
 {
 	CONTEXT *data;
 	
@@ -189,5 +189,5 @@ queue_handler(CRAWL *crawl, URI **next, void *userdata)
 	{
 		return 0;
 	}
-	return data->queue->api->next(data->queue, next);
+	return data->queue->api->next(data->queue, next, state);
 }

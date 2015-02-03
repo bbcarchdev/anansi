@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC.
  */
 
 /*
@@ -35,7 +35,7 @@
 static int db_migrate(SQL *restrict, const char *identifier, int newversion, void *restrict userdata);
 static unsigned long db_addref(QUEUE *me);
 static unsigned long db_release(QUEUE *me);
-static int db_next(QUEUE *me, URI **next);
+static int db_next(QUEUE *me, URI **next, CRAWLSTATE *state);
 static int db_add(QUEUE *me, URI *uri, const char *uristr);
 static int db_updated_uri(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
 static int db_updated_uristr(QUEUE *me, const char *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
@@ -293,15 +293,17 @@ db_release(QUEUE *me)
 }
 
 static int
-db_next(QUEUE *me, URI **next)
+db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 {
 	SQL_STATEMENT *rs;
 	size_t needed;
 	char *p;
-	
+	char statebuf[32];
+
+	*state = COS_NEW;
 	*next = NULL;
 	rs = sql_queryf(me->db,
-					"SELECT \"res\".\"uri\" "
+					"SELECT \"res\".\"uri\", \"res\".\"state\" "
 					" FROM "
 					" \"crawl_resource\" \"res\", \"crawl_root\" \"root\" "
 					" WHERE "
@@ -321,6 +323,32 @@ db_next(QUEUE *me, URI **next)
 /*		log_printf(LOG_DEBUG, "db_next: queue query returned no results\n"); */
 		sql_stmt_destroy(rs);
 		return 0;
+	}
+	memset(statebuf, 0, sizeof(statebuf));
+	sql_stmt_value(rs, 1, statebuf, sizeof(statebuf));
+	if(!strcmp(statebuf, "NEW"))
+	{
+		*state = COS_NEW;
+	}
+	else if(!strcmp(statebuf, "FAILED"))
+	{
+		*state = COS_FAILED;
+	}
+	else if(!strcmp(statebuf, "REJECTED"))
+	{
+		*state = COS_REJECTED;
+	}
+	else if(!strcmp(statebuf, "ACCEPTED"))
+	{
+		*state = COS_ACCEPTED;
+	}
+	else if(!strcmp(statebuf, "COMPLETE"))
+	{
+		*state = COS_COMPLETE;
+	}
+	else if(!strcmp(statebuf, "FORCE"))
+	{
+		*state = COS_FORCE;
 	}
 	needed = sql_stmt_value(rs, 0, NULL, 0);
 	if(needed > me->buflen)
@@ -505,6 +533,9 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 		break;
 	case COS_COMPLETE:
 		statestr = "COMPLETE";
+		break;
+	case COS_FORCE:
+		statestr = "FORCE";
 		break;
 	}
 	if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"updated\" = %Q, \"last_modified\" = %Q, \"status\" = %d, \"next_fetch\" = %Q, \"crawl_instance\" = NULL, \"state\" = %Q WHERE \"hash\" = %Q",

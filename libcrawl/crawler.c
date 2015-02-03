@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC.
  */
 
 /*
@@ -29,6 +29,7 @@ int
 crawl_perform(CRAWL *crawl)
 {
 	CRAWLOBJ *obj;
+	CRAWLSTATE state;
 	URI *uri;
 	int r;
 	
@@ -41,7 +42,7 @@ crawl_perform(CRAWL *crawl)
 			errno = EINVAL;
 			return -1;
 		}
-		r = crawl->next(crawl, &uri, crawl->userdata);
+		r = crawl->next(crawl, &uri, &state, crawl->userdata);
 		if(r < 0)
 		{
 			return -1;
@@ -50,7 +51,7 @@ crawl_perform(CRAWL *crawl)
 		{
 			break;
 		}
-		obj = crawl_fetch_uri(crawl, uri);
+		obj = crawl_fetch_uri(crawl, uri, state);
 		if(!obj)
 		{
 			/* Check whether there was a failed callback that would have been

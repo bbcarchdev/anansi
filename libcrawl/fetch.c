@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC.
  */
 
 /*
@@ -33,7 +33,7 @@ static int crawl_update_info_(struct crawl_fetch_data_struct *data);
 static int crawl_generate_info_(struct crawl_fetch_data_struct *data, jd_var *dict);
 
 CRAWLOBJ *
-crawl_fetch(CRAWL *crawl, const char *uristr)
+crawl_fetch(CRAWL *crawl, const char *uristr, CRAWLSTATE state)
 {
 	URI *uri;
 	CRAWLOBJ *r;
@@ -43,13 +43,13 @@ crawl_fetch(CRAWL *crawl, const char *uristr)
 	{
 		return NULL;
 	}
-	r = crawl_fetch_uri(crawl, uri);
+	r = crawl_fetch_uri(crawl, uri, state);
 	uri_destroy(uri);
 	return r;
 }
 
 CRAWLOBJ *
-crawl_fetch_uri(CRAWL *crawl, URI *uri)
+crawl_fetch_uri(CRAWL *crawl, URI *uri, CRAWLSTATE state)
 {
 	struct crawl_fetch_data_struct data;
 	struct tm tp;
@@ -73,7 +73,7 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri)
 	{
 		/* Object was located in the cache */
 		data.cachetime = data.obj->updated;
-		if(data.now - data.cachetime < crawl->cache_min)
+		if(state != COS_FORCE && data.now - data.cachetime < crawl->cache_min)
 		{
 			/* The object hasn't reached its minimum time-to-live */
 			if(crawl->unchanged)
@@ -87,9 +87,12 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri)
 		 */
 		jd_clone(&dict, &(data.obj->info), 1);
 		/* Send an If-Modified-Since header */
-		gmtime_r(&(data.cachetime), &tp);
-		strftime(modified, sizeof(modified), "If-Modified-Since: %a, %d %b %Y %H:%M:%S GMT", &tp);
-		headers = curl_slist_append(headers, modified);		
+		if(state != COS_FORCE)
+		{
+			gmtime_r(&(data.cachetime), &tp);
+			strftime(modified, sizeof(modified), "If-Modified-Since: %a, %d %b %Y %H:%M:%S GMT", &tp);
+			headers = curl_slist_append(headers, modified);
+		}
 	}
 	if(crawl->uri_policy)
 	{
