@@ -177,7 +177,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 	if(newversion == 0)
 	{
 		/* Return target version */
-		return 4;
+		return 5;
 	}
 	log_printf(LOG_NOTICE, "DB: Migrating database to version %d\n", newversion);
 	if(newversion == 1)
@@ -251,6 +251,15 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 		if(sql_execute(sql, "ALTER TABLE \"crawl_resource\" "
 					   "ADD COLUMN \"state\" ENUM('NEW', 'FAILED', 'REJECTED', 'ACCEPTED', 'COMPLETE') NOT NULL DEFAULT 'NEW', "
 					   "ADD INDEX \"state\" (\"state\")"))
+		{
+			return -1;
+		}
+		return 0;
+	}
+	if(newversion == 5)
+	{
+		if(sql_execute(sql, "ALTER TABLE \"crawl_resource\" "
+					   "MODIFY COLUMN \"state\" ENUM('NEW', 'FAILED', 'REJECTED', 'ACCEPTED', 'COMPLETE', 'FORCE') NOT NULL DEFAULT 'NEW'"))
 		{
 			return -1;
 		}
