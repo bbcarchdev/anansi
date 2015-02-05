@@ -70,6 +70,7 @@ etcd_key_set_data_ttl(ETCD *etcd, ETCDDIR *dir, const char *name, const unsigned
 		if(isprint(c) && c != '&' && c != '=')
 		{
 			*p = (char) c;
+			p++;
 			continue;
 		}
 		*p = '%';
@@ -81,7 +82,7 @@ etcd_key_set_data_ttl(ETCD *etcd, ETCDDIR *dir, const char *name, const unsigned
 	}
 	if(ttl)
 	{
-		sprintf(p, "ttl=%d", ttl);
+		sprintf(p, "&ttl=%d", ttl);
 	}
 	else
 	{
