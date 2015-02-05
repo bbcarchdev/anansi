@@ -171,12 +171,24 @@ db_log_error(SQL *restrict db, const char *restrict sqlstate, const char *restri
 }
 	
 
+/* Until libsql gets a DDL API, this will be messy */
 static int
 db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *restrict userdata)
 {
+	SQL_LANG lang;
+	SQL_VARIANT variant;
+	const char *ddl;
+
 	(void) userdata;
 	(void) identifier;
-	
+
+	ddl = NULL;
+	lang = sql_lang(sql);
+	variant = sql_variant(sql);
+	if(lang != SQL_LANG_SQL)
+	{
+		return 0;
+	}	
 	if(newversion == 0)
 	{
 		/* Return target version */
@@ -189,19 +201,51 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 		{
 			return -1;
 		}
-		if(sql_execute(sql, "CREATE TABLE \"crawl_root\" ("
-			"\"hash\" VARCHAR(32) NOT NULL COMMENT 'Hash of canonical root URI',"
-			"\"uri\" VARCHAR(255) NOT NULL COMMENT 'Root URI',"
-			"\"added\" DATETIME NOT NULL COMMENT 'Timestamp that this root was added',"
-			"\"last_updated\" DATETIME DEFAULT NULL COMMENT 'Timestamp of most recent fetch from this root',"
-			"\"earliest_update\" DATETIME DEFAULT NULL COMMENT 'Earliest time this root can be fetched from again',"
-			"\"rate\" INT NOT NULL DEFAULT 1000 COMMENT 'Minimum wait time in milliseconds between fetches',"
-			"PRIMARY KEY (\"hash\"),"
-			"KEY \"crawl_root_last_updated\" (\"last_updated\"),"
-			"KEY \"crawl_root_earliest_update\" (\"earliest_update\")"
-			") ENGINE=InnoDB DEFAULT CHARSET=utf8 DEFAULT COLLATE=utf8_unicode_ci"))
+		switch(variant)
+		{
+		case SQL_VARIANT_MYSQL:
+			ddl = "CREATE TABLE \"crawl_root\" ("
+				"\"hash\" VARCHAR(32) NOT NULL COMMENT 'Hash of canonical root URI',"
+				"\"uri\" VARCHAR(255) NOT NULL COMMENT 'Root URI',"
+				"\"added\" DATETIME NOT NULL COMMENT 'Timestamp that this root was added',"
+				"\"last_updated\" DATETIME DEFAULT NULL COMMENT 'Timestamp of most recent fetch from this root',"
+				"\"earliest_update\" DATETIME DEFAULT NULL COMMENT 'Earliest time this root can be fetched from again',"
+				"\"rate\" INT NOT NULL DEFAULT 1000 COMMENT 'Minimum wait time in milliseconds between fetches',"
+				"PRIMARY KEY (\"hash\"),"
+				"KEY \"crawl_root_last_updated\" (\"last_updated\"),"
+				"KEY \"crawl_root_earliest_update\" (\"earliest_update\")"
+				") ENGINE=InnoDB DEFAULT CHARSET=utf8 DEFAULT COLLATE=utf8_unicode_ci";
+			break;
+		case SQL_VARIANT_POSTGRES:
+			ddl = "CREATE TABLE \"crawl_root\" ("
+				"\"hash\" VARCHAR(32) NOT NULL, "
+				"\"uri\" VARCHAR(255) NOT NULL, "
+				"\"added\" TIMESTAMP NOT NULL, "
+				"\"last_updated\" TIMESTAMP DEFAULT NULL, "
+				"\"earliest_update\" TIMESTAMP DEFAULT NULL, "
+				"\"rate\" INT NOT NULL DEFAULT 1000, "
+				"PRIMARY KEY (\"hash\")"
+				")";
+			break;
+		}
+		if(sql_execute(sql, ddl))
 		{
 			return -1;
+		}
+		if(variant == SQL_VARIANT_POSTGRES)
+		{
+			if(sql_execute(sql, "CREATE INDEX \"crawl_root_hash\" ON \"crawl_root\" ( \"hash\" )") )
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "CREATE INDEX \"crawl_root_last_updated\" ON \"crawl_root\" ( \"last_updated\" )") )
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "CREATE INDEX \"crawl_root_earliest_update\" ON \"crawl_root\" ( \"earliest_update\" )") )
+			{
+				return -1;
+			}
 		}
 		return 0;
 	}
@@ -211,58 +255,170 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 		{
 			return -1;
 		}
-		if(sql_execute(sql, "CREATE TABLE \"crawl_resource\" ("
-			"\"hash\" VARCHAR(32) NOT NULL COMMENT 'Hash of canonical URI',"
-			"\"shorthash\" BIGINT UNSIGNED NOT NULL COMMENT 'First 32 bits of hash',"
-			"\"crawl_bucket\" INT NOT NULL COMMENT 'Assigned crawler instance',"
-			"\"cache_bucket\" INT NOT NULL COMMENT 'Assigned cache instance',"
-			"\"crawl_instance\" INT DEFAULT NULL COMMENT 'Active crawler instance',"
-			"\"root\" VARCHAR(32) NOT NULL COMMENT 'Hash of canonical root URI',"
-			"\"updated\" DATETIME DEFAULT NULL COMMENT 'Timestamp that this resource was updated in the cache',"
-			"\"added\" DATETIME NOT NULL COMMENT 'Timestamp that this resource was added',"
-			"\"last_modified\" DATETIME DEFAULT NULL COMMENT 'Timestamp that this resource was modified',"
-			"\"status\" INT DEFAULT NULL COMMENT 'HTTP status code',"			
-			"\"uri\" VARCHAR(255) NOT NULL COMMENT 'Resource URI',"	
-			"\"next_fetch\" DATETIME NOT NULL COMMENT 'Earliest time for next fetch of this resource',"
-			"\"error_count\" INT NOT NULL DEFAULT 0 COMMENT 'Hard error count',"
-			"\"last_ttl\" INT NOT NULL DEFAULT 0 COMMENT 'Last TTL in hours',"
-			"\"soft_error_count\" INT NOT NULL DEFAULT 0 COMMENT 'Soft error count',"
-			"PRIMARY KEY (\"hash\"),"
-			"KEY \"crawl_resource_crawl_bucket\" (\"crawl_bucket\"),"
-			"KEY \"crawl_resource_cache_bucket\" (\"cache_bucket\"),"
-			"KEY \"crawl_resource_crawl_instance\" (\"crawl_instance\"),"
-			"KEY \"crawl_resource_root\" (\"root\"),"
-			"KEY \"crawl_resource_next_fetch\" (\"next_fetch\")"				
-			") ENGINE=InnoDB DEFAULT CHARSET=utf8 DEFAULT COLLATE=utf8_unicode_ci"))
+		switch(variant)
+		{
+		case SQL_VARIANT_MYSQL:
+			ddl = "CREATE TABLE \"crawl_resource\" ("
+				"\"hash\" VARCHAR(32) NOT NULL COMMENT 'Hash of canonical URI',"
+				"\"shorthash\" BIGINT UNSIGNED NOT NULL COMMENT 'First 32 bits of hash',"
+				"\"crawl_bucket\" INT NOT NULL COMMENT 'Assigned crawler instance',"
+				"\"cache_bucket\" INT NOT NULL COMMENT 'Assigned cache instance',"
+				"\"crawl_instance\" INT DEFAULT NULL COMMENT 'Active crawler instance',"
+				"\"root\" VARCHAR(32) NOT NULL COMMENT 'Hash of canonical root URI',"
+				"\"updated\" DATETIME DEFAULT NULL COMMENT 'Timestamp that this resource was updated in the cache',"
+				"\"added\" DATETIME NOT NULL COMMENT 'Timestamp that this resource was added',"
+				"\"last_modified\" DATETIME DEFAULT NULL COMMENT 'Timestamp that this resource was modified',"
+				"\"status\" INT DEFAULT NULL COMMENT 'HTTP status code',"			
+				"\"uri\" VARCHAR(255) NOT NULL COMMENT 'Resource URI',"	
+				"\"next_fetch\" DATETIME NOT NULL COMMENT 'Earliest time for next fetch of this resource',"
+				"\"error_count\" INT NOT NULL DEFAULT 0 COMMENT 'Hard error count',"
+				"\"last_ttl\" INT NOT NULL DEFAULT 0 COMMENT 'Last TTL in hours',"
+				"\"soft_error_count\" INT NOT NULL DEFAULT 0 COMMENT 'Soft error count',"
+				"PRIMARY KEY (\"hash\"),"
+				"KEY \"crawl_resource_crawl_bucket\" (\"crawl_bucket\"),"
+				"KEY \"crawl_resource_cache_bucket\" (\"cache_bucket\"),"
+				"KEY \"crawl_resource_crawl_instance\" (\"crawl_instance\"),"
+				"KEY \"crawl_resource_root\" (\"root\"),"
+				"KEY \"crawl_resource_next_fetch\" (\"next_fetch\")"				
+				") ENGINE=InnoDB DEFAULT CHARSET=utf8 DEFAULT COLLATE=utf8_unicode_ci";
+			break;
+		case SQL_VARIANT_POSTGRES:
+			ddl = "CREATE TABLE \"crawl_resource\" ("
+				"\"hash\" VARCHAR(32) NOT NULL,"
+				"\"shorthash\" BIGINT NOT NULL,"
+				"\"crawl_bucket\" INT NOT NULL,"
+				"\"cache_bucket\" INT NOT NULL,"
+				"\"crawl_instance\" INT DEFAULT NULL,"
+				"\"root\" VARCHAR(32) NOT NULL,"
+				"\"updated\" TIMESTAMP DEFAULT NULL,"
+				"\"added\" TIMESTAMP NOT NULL,"
+				"\"last_modified\" TIMESTAMP DEFAULT NULL,"
+				"\"status\" INT DEFAULT NULL,"
+				"\"uri\" VARCHAR(255) NOT NULL,"
+				"\"next_fetch\" TIMESTAMP NOT NULL,"
+				"\"error_count\" INT NOT NULL DEFAULT 0,"
+				"\"last_ttl\" INT NOT NULL DEFAULT 0,"
+				"\"soft_error_count\" INT NOT NULL DEFAULT 0,"
+				"PRIMARY KEY (\"hash\")"
+				")";
+			break;
+		}
+		if(sql_execute(sql, ddl))
 		{
 			return -1;
+		}
+		if(variant == SQL_VARIANT_POSTGRES)
+		{
+			if(sql_execute(sql, "CREATE INDEX \"crawl_resource_hash\" ON \"crawl_resource\" ( \"hash\" )"))
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "CREATE INDEX \"crawl_resource_crawl_bucket\" ON \"crawl_resource\" ( \"crawl_bucket\" )"))
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "CREATE INDEX \"crawl_resource_cache_bucket\" ON \"crawl_resource\" ( \"cache_bucket\" )"))
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "CREATE INDEX \"crawl_resource_crawl_instance\" ON \"crawl_resource\" ( \"crawl_instance\" )"))
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "CREATE INDEX \"crawl_resource_root\" ON \"crawl_resource\" ( \"root\" )"))
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "CREATE INDEX \"crawl_resource_next_fetch\" ON \"crawl_resource\" ( \"next_fetch\" )"))
+			{
+				return -1;
+			}
 		}
 		return 0;
 	}
 	if(newversion == 3)
 	{
-		if(sql_execute(sql, "ALTER TABLE \"crawl_resource\" "
-					   "ADD COLUMN \"tinyhash\" TINYINT UNSIGNED NOT NULL AFTER \"shorthash\", "
-					   "ADD INDEX \"tinyhash\" (\"tinyhash\")"))
+		switch(variant)
 		{
-			return -1;
+		case SQL_VARIANT_MYSQL:
+			if(sql_execute(sql, "ALTER TABLE \"crawl_resource\" "
+						   "ADD COLUMN \"tinyhash\" TINYINT UNSIGNED NOT NULL AFTER \"shorthash\", "
+						   "ADD INDEX \"tinyhash\" (\"tinyhash\")"))
+			{
+				return -1;
+			}
+			break;
+		case SQL_VARIANT_POSTGRES:
+			if(sql_execute(sql, "ALTER TABLE \"crawl_resource\" ADD COLUMN \"tinyhash\" INTEGER NOT NULL"))
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "CREATE INDEX \"crawl_resource_tinyhash\" ON \"crawl_resource\" ( \"tinyhash\" )"))
+			{
+				return -1;
+			}
+			break;
 		}
 		return 0;
 	}
 	if(newversion == 4)
 	{
-		if(sql_execute(sql, "ALTER TABLE \"crawl_resource\" "
-					   "ADD COLUMN \"state\" ENUM('NEW', 'FAILED', 'REJECTED', 'ACCEPTED', 'COMPLETE') NOT NULL DEFAULT 'NEW', "
-					   "ADD INDEX \"state\" (\"state\")"))
+		switch(variant)
 		{
-			return -1;
+		case SQL_VARIANT_MYSQL:
+			if(sql_execute(sql, "ALTER TABLE \"crawl_resource\" "
+						   "ADD COLUMN \"state\" ENUM('NEW', 'FAILED', 'REJECTED', 'ACCEPTED', 'COMPLETE') NOT NULL DEFAULT 'NEW', "
+						   "ADD INDEX \"state\" (\"state\")"))
+			{
+				return -1;
+			}
+			break;
+		case SQL_VARIANT_POSTGRES:
+			if(sql_execute(sql, "DROP TYPE IF EXISTS \"crawl_resource_state\""))
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "CREATE TYPE \"crawl_resource_state\" AS ENUM('NEW', 'FAILED', 'REJECTED', 'ACCEPTED', 'COMPLETE')"))
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "ALTER TABLE \"crawl_resource\" "
+						   "ADD COLUMN \"state\" \"crawl_resource_state\" NOT NULL DEFAULT 'NEW'"))
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "CREATE INDEX \"crawl_resource_state\" ON \"crawl_resource\" ( \"state\" )"))
+			{
+				return -1;
+			}			
 		}
 		return 0;
 	}
 	if(newversion == 5)
 	{
-		if(sql_execute(sql, "ALTER TABLE \"crawl_resource\" "
-					   "MODIFY COLUMN \"state\" ENUM('NEW', 'FAILED', 'REJECTED', 'ACCEPTED', 'COMPLETE', 'FORCE') NOT NULL DEFAULT 'NEW'"))
+		switch(variant)
+		{
+		case SQL_VARIANT_MYSQL:
+			ddl = "ALTER TABLE \"crawl_resource\" "
+				"MODIFY COLUMN \"state\" ENUM('NEW', 'FAILED', 'REJECTED', 'ACCEPTED', 'COMPLETE', 'FORCE') NOT NULL DEFAULT 'NEW'";
+			break;
+		case SQL_VARIANT_POSTGRES:
+			/* This is pretty hacky */
+			if(sql_commit(sql))
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "ALTER TYPE \"crawl_resource_state\" ADD VALUE 'FORCE'"))
+			{
+				return -1;
+			}
+			if(sql_begin(sql, SQL_TXN_CONSISTENT))
+			{
+				return -1;
+			}
+			return 0;
+		}
+		if(sql_execute(sql, ddl))
 		{
 			return -1;
 		}
@@ -310,7 +466,7 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 					" FROM "
 					" \"crawl_resource\" \"res\", \"crawl_root\" \"root\" "
 					" WHERE "
-					" \"res\".\"tinyhash\" MOD %d = %d AND "
+					" \"res\".\"tinyhash\" %% %d = %d AND "
 					" \"root\".\"hash\" = \"res\".\"root\" AND "
 					" \"root\".\"earliest_update\" < NOW() AND "
 					" \"res\".\"next_fetch\" < NOW() "
