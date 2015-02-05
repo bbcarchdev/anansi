@@ -1,8 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2014 BBC.
-
-## Copyright 2013 Mo McRoberts.
+## Copyright 2015 BBC.
 ##
 ##  Licensed under the Apache License, Version 2.0 (the "License");
 ##  you may not use this file except in compliance with the License.
@@ -17,11 +15,17 @@
 ##  limitations under the License.
 ##
 
-DIST_SUBDIRS = m4 util caches libcrawl queues daemon libsupport libs3client \
-	libetcd processors init.d
+noinst_LTLIBRARIES = libetcd.la
 
-SUBDIRS = @subdirs@ libetcd libs3client caches libcrawl \
-	libsupport queues processors daemon util init.d
+libetcd_la_SOURCES = libetcd.h \
+	p_libetcd.h \
+	connect.c dir.c key.c
 
-ACLOCAL_AMFLAGS = -I m4
-
+libetcd_la_LDFLAGS = @AM_LDFLAGS@ \
+	@LIBJSONDATA_LDFLAGS@ @LIBURI_LDFLAGS@ @LIBCURL_LDFLAGS@ \
+	-noinst -avoid-version
+libetcd_la_LIBADD = \
+	@LIBJSONDATA_LOCAL_LIBS@ @LIBJSONDATA_LIBS@ \
+	@LIBURI_LOCAL_LIBS@ @LIBURI_LIBS@ \
+	@LIBCURL_LOCAL_LIBS@ @LIBCURL_LIBS@ \
+	@LIBS@

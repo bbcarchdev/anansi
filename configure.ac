@@ -56,6 +56,7 @@ AC_CONFIG_FILES([
 Makefile
 libsupport/Makefile
 libs3client/Makefile
+libetcd/Makefile
 caches/Makefile
 libcrawl/Makefile
 util/Makefile
