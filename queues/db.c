@@ -915,6 +915,7 @@ db_insert_resource_txn(SQL *db, void *userdata)
 {
 	struct resource_insert *data;
 	SQL_STATEMENT *rs;
+	int crawl_bucket, cache_bucket;
 	
 	data = (struct resource_insert *) userdata;
 	
@@ -946,8 +947,24 @@ db_insert_resource_txn(SQL *db, void *userdata)
 		/* rollback with success */
 		return 0;
 	}
+	if(data->me->ncrawlers)
+	{
+		crawl_bucket = data->shortkey % data->me->ncrawlers;
+	}
+	else
+	{
+		crawl_bucket = 0;
+	}
+	if(data->me->ncaches)
+	{
+		cache_bucket = data->shortkey % data->me->ncaches;
+	}
+	else
+	{
+		cache_bucket = 0;
+	}
 	/* resource isn't present in the table */
-	if(sql_executef(db, "INSERT INTO \"crawl_resource\" (\"hash\", \"shorthash\", \"tinyhash\", \"crawl_bucket\", \"cache_bucket\", \"root\", \"uri\", \"added\", \"next_fetch\", \"state\") VALUES (%Q, %lu, %d, %d, %d, %Q, %Q, NOW(), NOW(), %Q)", data->cachekey, data->shortkey, (data->shortkey % 256), (data->shortkey % data->me->ncrawlers), (data->shortkey % data->me->ncaches), data->rootkey, data->uri, "NEW"))
+	if(sql_executef(db, "INSERT INTO \"crawl_resource\" (\"hash\", \"shorthash\", \"tinyhash\", \"crawl_bucket\", \"cache_bucket\", \"root\", \"uri\", \"added\", \"next_fetch\", \"state\") VALUES (%Q, %lu, %d, %d, %d, %Q, %Q, NOW(), NOW(), %Q)", data->cachekey, data->shortkey, (data->shortkey % 256), crawl_bucket, cache_bucket, data->rootkey, data->uri, "NEW"))
 	{
 		/* INSERT failed */
 		if(sql_deadlocked(db))
