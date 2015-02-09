@@ -10,3 +10,5 @@ configure config.sub config.guess aclocal.m4 ltmain.sh Makefile.in: configure.ac
 override_dh_auto_configure: configure
 	dh_auto_configure -- --without-included-libsql --without-included-jsondata --without-included-liburi
 
+override_dh_strip:
+	true
