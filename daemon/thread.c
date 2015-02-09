@@ -211,7 +211,7 @@ thread_handler_(void *arg)
 			/* Cluster has re-balanced */
 			context->api->set_threads(context, newthreads);
 			context->api->set_base(context, newbase);
-			log_printf(LOG_NOTICE, "[%s] re-balancing cluster: crawler %d/%d is now %d/%d\n", instid + threadid, crawlercount, newbase + threadid, newthreads);
+			log_printf(LOG_NOTICE, "[%s] re-balancing cluster: crawler %d/%d (thread %d/%d) is now %d/%d\n", env, instid + threadid, crawlercount, threadid, threadcount, newbase + threadid, newthreads);
 			crawlercount = newthreads;
 			instid = newbase;
 		}
