@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC.
  */
 
 /*
@@ -70,7 +70,11 @@ main(int argc, char **argv)
 	{
 		return 1;
 	}
-	detach = config_get_bool(CRAWLER_APP_NAME ":detach", 1);
+	if(cluster_init())
+	{
+		return 1;
+	}
+	detach = config_get_bool("crawler:detach", 1);
 	signal(SIGHUP, SIG_IGN);
 	if(detach)
 	{
@@ -91,7 +95,7 @@ main(int argc, char **argv)
 	signal(SIGTERM, signal_handler);
 	if(detach)
 	{
-		child = start_daemon(CRAWLER_APP_NAME ":pidfile", LOCALSTATEDIR "/run/crawld.pid");
+		child = start_daemon("crawler:pidfile", LOCALSTATEDIR "/run/crawld.pid");
 		if(child < 0)
 		{
 			return 1;
@@ -102,8 +106,7 @@ main(int argc, char **argv)
 		}
 	}
 
-	/* Perform a single thread's crawl actions */
-	if(thread_create(0))
+	if(thread_run())
 	{
 		return 1;
 	}
@@ -123,15 +126,16 @@ config_defaults(void)
 	/* Log to stderr initially, until daemonized */
 	config_set_default("log:stderr", "1");
 	config_set_default("global:configFile", SYSCONFDIR "/crawl.conf");
+	config_set_default("instance:cluster", "anansi");
 	config_set_default("instance:crawler", "1");
 	config_set_default("instance:crawlercount", "1");
 	config_set_default("instance:cache", "1");
 	config_set_default("instance:cachecount", "1");
 	config_set_default("instance:threadcount", "1");	
-	config_set_default(CRAWLER_APP_NAME ":pidfile", LOCALSTATEDIR "/run/crawld.pid");
-	config_set_default(CRAWLER_APP_NAME ":queue", "db");
-	config_set_default(CRAWLER_APP_NAME ":processor", "rdf");
-	config_set_default(CRAWLER_APP_NAME ":cache", "cache");
+	config_set_default("crawler:pidfile", LOCALSTATEDIR "/run/crawld.pid");
+	config_set_default("queue:name", "db");
+	config_set_default("processor:name", "rdf");
+	config_set_default("cache:uri", "cache");
 	return 0;
 }
 
@@ -157,14 +161,14 @@ process_args(int argc, char **argv)
 			usage();
 			exit(EXIT_SUCCESS);
 		case 'f':
-			config_set(CRAWLER_APP_NAME ":detach", "0");
+			config_set("crawler:detach", "0");
 			break;
 		case 'd':
+			config_set("crawler:detach", "0");
 			config_set("log:level", "debug");
 			config_set("log:stderr", "1");
-			config_set("db:debug-queries", "1");
-			config_set("db:debug-errors", "1");
-			config_set(CRAWLER_APP_NAME ":detach", "0");
+			config_set("queue:debug-queries", "1");
+			config_set("queue:debug-errors", "1");
 			break;
 		case 'c':
 			config_set("global:configFile", optarg);

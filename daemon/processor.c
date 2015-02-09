@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC
  */
 
 /*
@@ -23,13 +23,17 @@
 # include "config.h"
 #endif
 
-#include "p_crawld.h"
+#include "p_libcrawld.h"
 
-static int processor_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata);
-static int processor_unchanged_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata);
-static int processor_failed_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata);
+/* Implement a libcrawl processor handler which interfaces with the crawld
+ * queue modules.
+ */
 
-static PROCESSOR *(*processor_constructor)(CRAWL *crawler);
+static int processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata);
+static int processor_unchanged_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata);
+static int processor_failed_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata);
+
+static PROCESSOR *(*constructor)(CRAWL *crawler);
 
 int
 processor_init(void)
@@ -39,7 +43,7 @@ processor_init(void)
 	/* processor_init() is invoked before any other threads are created, so
 	 * it's safe to use config_getptr_unlocked().
 	 */
-	name = config_getptr_unlocked(CRAWLER_APP_NAME ":processor", NULL);
+	name = config_getptr_unlocked("processor:name", NULL);
 	if(!name)
 	{
 		log_printf(LOG_CRIT, "no 'processor' configuration option could be found in the [crawl] section\n");
@@ -47,11 +51,11 @@ processor_init(void)
 	}
 	if(!strcmp(name, "rdf"))
 	{
-		processor_constructor = rdf_create;
+		constructor = rdf_create;
 	}
 	else if(!strcmp(name, "lod"))
 	{
-		processor_constructor = lod_create;
+		constructor = lod_create;
 	}
 	else
 	{
@@ -67,38 +71,27 @@ processor_cleanup(void)
 	return 0;
 }
 
+/* Create a processor instance and attach it to the context */
 int
-processor_init_crawler(CRAWL *crawl, CONTEXT *data)
+processor_init_context(CONTEXT *context)
 {
-	
-	data->processor = processor_constructor(crawl);
-	if(!data->processor)
+	CRAWL *crawl;
+
+	crawl = context->crawl;
+	context->processor = constructor(crawl);
+	if(!context->processor)
 	{
 		log_printf(LOG_CRIT, "failed to initialise processing engine\n");
 		return -1;
 	}
-	crawl_set_updated(crawl, processor_handler);
-	crawl_set_unchanged(crawl, processor_unchanged_handler);
-	crawl_set_failed(crawl, processor_failed_handler);
-	return 0;
-}
-
-int
-processor_cleanup_crawler(CRAWL *crawl, CONTEXT *data)
-{
-	(void) crawl;
-	
-	if(!data->processor)
-	{
-		return 0;
-	}
-	data->processor->api->release(data->processor);
-	data->processor = NULL;
+	crawl_set_updated(crawl, processor_handler_);
+	crawl_set_unchanged(crawl, processor_unchanged_handler_);
+	crawl_set_failed(crawl, processor_failed_handler_);
 	return 0;
 }
 
 static int
-processor_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
+processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 {
 	CONTEXT *data;
 	PROCESSOR *pdata;
@@ -151,7 +144,7 @@ processor_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 }
 
 static int
-processor_unchanged_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
+processor_unchanged_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 {
 	const char *uri;
 	
@@ -166,7 +159,7 @@ processor_unchanged_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *
 }
 
 static int
-processor_failed_handler(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
+processor_failed_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 {
 	const char *uri;
 	

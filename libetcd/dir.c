@@ -21,13 +21,13 @@
 
 #include "p_libetcd.h"
 
-ETCDDIR *
-etcd_dir_create_(ETCD *etcd, ETCDDIR *parent, const char *name)
+ETCD *
+etcd_dir_create_(ETCD *parent, const char *name)
 {
-	ETCDDIR *dir;
-	char *sb;
+	ETCD *dir;
+	char *sb, *p, *lp;
 
-	dir = (ETCDDIR *) calloc(1, sizeof(ETCDDIR));
+	dir = (ETCD *) calloc(1, sizeof(ETCD));
 	if(!dir)
 	{
 		return NULL;
@@ -42,41 +42,56 @@ etcd_dir_create_(ETCD *etcd, ETCDDIR *parent, const char *name)
 		free(dir);
 		return NULL;
 	}
-	dir->uri = uri_create_str(name, parent ? parent->base : etcd->uri);
+	lp = NULL;
+	for(p = sb; *name; name++, p++)
+	{
+		*p = *name;
+		if(!lp && *p == '/')
+		{
+			lp = p;
+		}
+		else
+		{
+			lp = NULL;
+		}
+	}
+	if(lp)
+	{
+		lp++;
+		*lp = 0;		
+	}
+	else
+	{
+		*p = '/';
+		p++;
+		*p = 0;
+	}
+	dir->uri = uri_create_str(sb, parent->uri);
+	free(sb);
 	if(!dir->uri)
 	{
 		free(dir);
-		free(sb);
 		return NULL;
 	}
-	strcpy(sb, name);
-	strcat(sb, "/");
-	dir->base = uri_create_str(sb, parent ? parent->base : etcd->uri);
-	free(sb);
-	if(!dir->base)
-	{
-		uri_destroy(dir->uri);
-		free(dir);
-		return NULL;
-	}	
+	dir->verbose = parent->verbose;
 	return dir;
 }	
 
-ETCDDIR *
-etcd_dir_open(ETCD *etcd, ETCDDIR *parent, const char *name)
+ETCD *
+etcd_dir_open(ETCD *parent, const char *name)
 {
-	ETCDDIR *dir;
+	ETCD *dir;
 	CURL *ch;
 	int status;
 	jd_var dict = JD_INIT;
 	jd_var *node, *k;
 
-	dir = etcd_dir_create_(etcd, parent, name);
+	dir = etcd_dir_create_(parent, name);
 	if(!dir)
 	{
 		return NULL;
 	}
-	ch = etcd_curl_create_(etcd, dir->uri);
+	ch = etcd_curl_create_(parent, dir->uri, NULL);
 	if(!ch)
 	{
 		etcd_dir_close(dir);
@@ -108,22 +123,21 @@ etcd_dir_open(ETCD *etcd, ETCDDIR *parent, const char *name)
 	}
 	return dir;
 }
-	
 
-ETCDDIR *
-etcd_dir_create(ETCD *etcd, ETCDDIR *parent, const char *name, int mustexist)
+ETCD *
+etcd_dir_create(ETCD *parent, const char *name, int mustexist)
 {
-	ETCDDIR *dir;
+	ETCD *dir;
 	CURL *ch;
 	const char *data = "dir=1", *existdata = "dir=1&prevExist=true";
 	int status;
 
-	dir = etcd_dir_create_(etcd, parent, name);
+	dir = etcd_dir_create_(parent, name);
 	if(!dir)
 	{
 		return NULL;
 	}
-	ch = etcd_curl_put_(etcd, dir->uri, (mustexist ? existdata : data));
+	ch = etcd_curl_put_(parent, dir->uri, (mustexist ? existdata : data));
 	status = etcd_curl_perform_(ch);
 	etcd_curl_done_(ch);
 	if(status)
@@ -135,12 +149,93 @@ etcd_dir_create(ETCD *etcd, ETCDDIR *parent, const char *name, int mustexist)
 }
 
 void
-etcd_dir_close(ETCDDIR *dir)
+etcd_dir_close(ETCD *dir)
 {
 	if(dir)
 	{
 		uri_destroy(dir->uri);
-		uri_destroy(dir->base);
 	}
 	free(dir);
 }
+
+int
+etcd_dir_get(ETCD *dir, jd_var *out)
+{
+	CURL *ch;
+	int status;
+	jd_var dict = JD_INIT;
+	jd_var *node, *nodes, *entry, *key, *outkey;
+	const char *str, *t;
+	size_t c, n;
+
+	ch = etcd_curl_create_(dir, dir->uri, NULL);
+	if(!ch)
+	{
+		return -1;
+	}	
+	status = etcd_curl_perform_json_(ch, &dict);
+	etcd_curl_done_(ch);
+	if(status)
+	{
+		jd_release(&dict);
+		return status;
+	}
+	if(dict.type != HASH)
+	{
+		jd_release(&dict);
+		return -1;
+	}
+	if(!(node = jd_get_ks(&dict, "node", 0)) || node->type != HASH)
+	{
+		jd_release(&dict);
+		return -1;
+	}
+	if(!(nodes = jd_get_ks(node, "nodes", 0)) || nodes->type != ARRAY)
+	{
+		jd_release(&dict);
+		jd_set_hash(out, 1);
+		return 0;
+	}
+	c = jd_count(nodes);
+	jd_set_hash(out, c);
+	for(n = 0; n < c; n++)
+	{
+		entry = jd_get_idx(nodes, n);
+		key = jd_get_ks(entry, "key", 0);
+		if(key && key->type == STRING)
+		{
+			str = jd_bytes(key, NULL);
+			t = strrchr(str, '/');
+			if(t)
+			{
+				t++;
+				outkey = jd_get_ks(out, t, 1);
+			}
+			else
+			{
+				outkey = jd_get_ks(out, str, 1);
+			}
+			jd_clone(outkey, entry, 1);
+		}
+	}
+	jd_release(&dict);
+	return 0;
+}
+
+int
+etcd_dir_wait(ETCD *dir, int recursive, jd_var *out)
+{
+	CURL *ch;
+	const char *data = "wait=true", *rdata = "wait=true&recursive=true";
+	int status;
+
+	ch = etcd_curl_create_(dir, dir->uri, (recursive ? rdata : data));
+	if(!ch)
+	{
+		return -1;
+	}	
+	status = etcd_curl_perform_json_(ch, out);
+	etcd_curl_done_(ch);
+	return status;
+}
+

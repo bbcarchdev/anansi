@@ -33,17 +33,12 @@
 struct etcd_struct
 {
 	URI *uri;
+	int verbose;
 };
 
-struct etcddir_struct
-{
-	URI *uri;
-	URI *base;
-};
+ETCD *etcd_dir_create_(ETCD *parent, const char *name);
 
-ETCDDIR *etcd_dir_create_(ETCD *etcd, ETCDDIR *parent, const char *name);
-
-CURL *etcd_curl_create_(ETCD *etcd, URI *uri);
+CURL *etcd_curl_create_(ETCD *etcd, URI *uri, const char *query);
 CURL *etcd_curl_put_(ETCD *etcd, URI *uri, const char *data);
 void etcd_curl_done_(CURL *ch);
 int etcd_curl_perform_(CURL *ch);

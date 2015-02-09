@@ -19,23 +19,25 @@
 # define LIBETCD_H_                     1
 
 # include "liburi.h"
+
 # include "jsondata.h"
 
 typedef struct etcd_struct ETCD;
-typedef struct etcddir_struct ETCDDIR;
 
 ETCD *etcd_connect(const char *url);
 ETCD *etcd_connect_uri(const URI *uri);
 void etcd_disconnect(ETCD *etcd);
+ETCD *etcd_clone(ETCD *etcd);
 
-ETCDDIR *etcd_dir_open(ETCD *etcd, ETCDDIR *parent, const char *name);
-ETCDDIR *etcd_dir_create(ETCD *etcd, ETCDDIR *parent, const char *name, int mustexist);
-int etcd_dir_delete(ETCD *etcd, const char *name, int recurse);
-int etcd_dir_list(ETCD *etcd, const char *name, jd_var *out);
-void etcd_dir_close(ETCDDIR *dir);
+ETCD *etcd_dir_open(ETCD *parent, const char *name);
+ETCD *etcd_dir_create(ETCD *parent, const char *name, int mustexist);
+int etcd_dir_get(ETCD *dir, jd_var *out);
+int etcd_dir_delete(ETCD *parent, const char *name, int recurse);
+void etcd_dir_close(ETCD *dir);
+int etcd_dir_wait(ETCD *dir, int recursive, jd_var *change);
 
-int etcd_key_set(ETCD *etcd, ETCDDIR *dir, const char *name, const char *value);
-int etcd_key_set_ttl(ETCD *etcd, ETCDDIR *dir, const char *name, const char *value, int ttl);
-int etcd_key_set_data_ttl(ETCD *etcd, ETCDDIR *dir, const char *name, const unsigned char *data, size_t len, int ttl);
+int etcd_key_set(ETCD *dir, const char *name, const char *value);
+int etcd_key_set_ttl(ETCD *dir, const char *name, const char *value, int ttl);
+int etcd_key_set_data_ttl(ETCD *dir, const char *name, const unsigned char *data, size_t len, int ttl);
 
 #endif /*!LIBETCD_H_*/

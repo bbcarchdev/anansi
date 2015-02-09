@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014-2015 BBC.
+ * Copyright 2014-2015 BBC
  */
 
 /*
@@ -23,11 +23,15 @@
 # include "config.h"
 #endif
 
-#include "p_crawld.h"
+#include "p_libcrawld.h"
 
-static int queue_handler(CRAWL *crawl, URI **next, CRAWLSTATE *state, void *userdata);
+/* Implement a libcrawl queue handler which interfaces with crawld queue
+ * modules.
+ */
 
-static QUEUE *(*queue_constructor)(CONTEXT *ctx);
+static int queue_handler_(CRAWL *crawl, URI **next, CRAWLSTATE *state, void *userdata);
+
+static QUEUE *(*constructor)(CONTEXT *ctx);
 
 /* Global initialisation */
 int
@@ -38,15 +42,15 @@ queue_init(void)
 	/* queue_init() is invoked before any other threads are created, so
 	 * it's safe to use config_getptr_unlocked().
 	 */
-	name = config_getptr_unlocked(CRAWLER_APP_NAME ":queue", NULL);
+	name = config_getptr_unlocked("queue:name", NULL);
 	if(!name)
 	{
-		log_printf(LOG_CRIT, "no 'queue' configuration option could be found in the [crawl] section\n");
+		log_printf(LOG_CRIT, "no queue name configuration option could be found\n");
 		return -1;
 	}
 	if(!strcmp(name, "db"))
 	{
-		queue_constructor = db_create;
+		constructor = db_create;
 	}
 	else
 	{
@@ -63,35 +67,24 @@ queue_cleanup(void)
 	return 0;
 }
 
-/* Initialise a crawl thread */
+/* Create a queue instance and attach it to the context */
 int
-queue_init_crawler(CRAWL *crawler, CONTEXT *ctx)
+queue_init_context(CONTEXT *context)
 {
-	ctx->queue = queue_constructor(ctx);
-	if(!ctx->queue)
+	CRAWL *crawl;
+
+	crawl = context->crawl;
+	context->queue = constructor(context);
+	if(!context->queue)
 	{
 		log_printf(LOG_CRIT, "failed to intialise queue\n");
 		return -1;
 	}
-	crawl_set_next(crawler, queue_handler);
+	crawl_set_next(crawl, queue_handler_);
 	return 0;
 }
 
-/* Clean up a crawl thread */
-int
-queue_cleanup_crawler(CRAWL *crawler, CONTEXT *ctx)
-{
-	(void) crawler;
-	
-	if(!ctx->queue)
-	{
-		return 0;
-	}
-	ctx->queue->api->release(ctx->queue);
-	ctx->queue = NULL;
-	return 0;
-}
-
+/* Add a URI to the crawl queue */
 int
 queue_add_uristr(CRAWL *crawl, const char *uristr)
 {
@@ -106,7 +99,7 @@ queue_add_uristr(CRAWL *crawl, const char *uristr)
 		log_printf(LOG_ERR, "Failed to parse URI <%s>\n", uristr);
 		return -1;
 	}
-	r = policy_uri(crawl, uri, uristr, (void *) data);
+	r = policy_uri_(crawl, uri, uristr, (void *) data);
 	if(r == 1)
 	{
 		log_printf(LOG_DEBUG, "Adding URI <%s> to crawler queue\n", uristr);
@@ -116,6 +109,7 @@ queue_add_uristr(CRAWL *crawl, const char *uristr)
 	return r;
 }
 
+/* Add a URI to the crawl queue */
 int
 queue_add_uri(CRAWL *crawl, URI *uri)
 {
@@ -130,7 +124,7 @@ queue_add_uri(CRAWL *crawl, URI *uri)
 		log_printf(LOG_CRIT, "failed to unparse URI\n");
 		return -1;
 	}
-	r = policy_uri(crawl, uri, uristr, (void *) data);
+	r = policy_uri_(crawl, uri, uristr, (void *) data);
 	if(r == 1)
 	{
 		log_printf(LOG_DEBUG, "Adding URI <%s> to crawler queue\n", uristr);
@@ -140,6 +134,7 @@ queue_add_uri(CRAWL *crawl, URI *uri)
 	return r;	
 }
 
+/* Mark a URI as having been updated */
 int
 queue_updated_uristr(CRAWL *crawl, const char *uristr, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state)
 {
@@ -149,6 +144,7 @@ queue_updated_uristr(CRAWL *crawl, const char *uristr, time_t updated, time_t la
 	return data->queue->api->updated_uristr(data->queue, uristr, updated, last_modified, status, ttl, state);
 }
 
+/* Mark a URI as having been updated */
 int
 queue_updated_uri(CRAWL *crawl, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state)
 {
@@ -158,6 +154,7 @@ queue_updated_uri(CRAWL *crawl, URI *uri, time_t updated, time_t last_modified, 
 	return data->queue->api->updated_uri(data->queue, uri, updated, last_modified, status, ttl, state);
 }
 
+/* Mark a URI as unchanged */
 int
 queue_unchanged_uristr(CRAWL *crawl, const char *uristr, int error)
 {
@@ -167,6 +164,7 @@ queue_unchanged_uristr(CRAWL *crawl, const char *uristr, int error)
 	return data->queue->api->unchanged_uristr(data->queue, uristr, error);
 }
 
+/* Mark a URI as unchanged */
 int
 queue_unchanged_uri(CRAWL *crawl, URI *uri, int error)
 {
@@ -176,8 +174,9 @@ queue_unchanged_uri(CRAWL *crawl, URI *uri, int error)
 	return data->queue->api->unchanged_uri(data->queue, uri, error);
 }
 
+/* Implement the libcrawl queue handler */
 static int
-queue_handler(CRAWL *crawl, URI **next, CRAWLSTATE *state, void *userdata)
+queue_handler_(CRAWL *crawl, URI **next, CRAWLSTATE *state, void *userdata)
 {
 	CONTEXT *data;
 	
@@ -185,7 +184,7 @@ queue_handler(CRAWL *crawl, URI **next, CRAWLSTATE *state, void *userdata)
 	
 	data = (CONTEXT *) userdata;
 
-	if(crawld_terminate)
+	if(data->terminate)
 	{
 		return 0;
 	}

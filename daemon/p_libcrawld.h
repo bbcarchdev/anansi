@@ -1,10 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014-2015 BBC
- */
-
-/*
- * Copyright 2013 Mo McRoberts.
+ * Copyright 2015 BBC
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,8 +15,8 @@
  *  limitations under the License.
  */
 
-#ifndef P_CRAWLD_H_
-# define P_CRAWLD_H_                   1
+#ifndef P_LIBCRAWLD_H_
+# define P_LIBCRAWLD_H_                 1
 
 # define _BSD_SOURCE                   1
 # define _FILE_OFFSET_BITS             64
@@ -39,28 +35,39 @@
 # include <pthread.h>
 # include <uuid/uuid.h>
 
+# define CONTEXT_STRUCT_DEFINED         1
+
+# include "libcrawl.h"
 # include "libcrawld.h"
 # include "libsupport.h"
 # include "liburi.h"
-# include "libetcd.h"
 
-# define CRAWLER_APP_NAME               "crawler"
+struct context_struct
+{
+	struct context_api_struct *api;
+	pthread_rwlock_t lock;
+	unsigned long refcount;
+	CRAWL *crawl;
+	int thread_offset;
+	int thread_base;
+	int crawler_id;
+	int thread_id;
+	int cache_id;
+	int thread_count;
+	PROCESSOR *processor;
+	QUEUE *queue;
+	size_t cfgbuflen;
+	char *cfgbuf;
+	int terminate;
+};
 
-# define REGISTRY_KEY_TTL               120
-# define REGISTRY_REFRESH               60
+int policy_uri_(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
 
-extern volatile int crawld_terminate;
+/* Processor constructors */
+PROCESSOR *rdf_create(CRAWL *crawler);
+PROCESSOR *lod_create(CRAWL *crawler);
 
-int thread_init(void);
-int thread_cleanup(void);
-int thread_create(int crawler_offset);
-int thread_run(void);
-int thread_terminate(void);
+/* Queue constructors */
+QUEUE *db_create(CONTEXT *ctx);
 
-int cluster_init(void);
-int cluster_threads(void);
-int cluster_inst_id(void);
-int cluster_inst_threads(void);
-const char *cluster_env(void);
-
-#endif /*!P_CRAWLD_H_*/
+#endif /*!P_LIBCRAWLD_H_*/

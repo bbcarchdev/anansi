@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2014 BBC.
+## Copyright 2015 BBC.
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -21,6 +21,7 @@ AM_CPPFLAGS = @AM_CPPFLAGS@ \
 	-I$(top_builddir)/daemon -I$(top_srcdir)/daemon \
 	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl \
 	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport \
+	-I$(top_builddir)/libetcd -I$(top_srcdir)/libetcd \
 	$(LIBRDF_CPPFLAGS)
 
 noinst_LTLIBRARIES = libprocessors.la

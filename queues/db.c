@@ -28,7 +28,11 @@
 #define QUEUE_STRUCT_DEFINED           1
 #define TXN_MAX_RETRIES                10
 
-#include "p_crawld.h"
+#include <stdlib.h>
+#include <string.h>
+
+#include "libsupport.h"
+#include "libcrawld.h"
 
 #include <libsql.h>
 
@@ -42,13 +46,17 @@ static int db_updated_uri(QUEUE *me, URI *uri, time_t updated, time_t last_modif
 static int db_updated_uristr(QUEUE *me, const char *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
 static int db_unchanged_uri(QUEUE *me, URI *uri, int error);
 static int db_unchanged_uristr(QUEUE *me, const char *uristr, int error);
+static int db_set_crawlers(QUEUE *db, int count);
+static int db_set_caches(QUEUE *db, int count);
+static int db_set_crawler(QUEUE *db, int id);
+static int db_set_cache(QUEUE *db, int id);
+
 static int db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey, const char *uri, const char *rootkey, int force);
 static int db_insert_root(QUEUE *me, const char *rootkey, const char *uri);
 static int db_insert_resource_txn(SQL *db, void *userdata);
 static int db_insert_root_txn(SQL *db, void *userdata);
 static int db_log_query(SQL *restrict db, const char *restrict statement);
 static int db_log_error(SQL *restrict db, const char *restrict sqlstate, const char *restrict message);
-
 static struct queue_api_struct db_api = {
 	NULL,
 	db_addref,
@@ -60,6 +68,10 @@ static struct queue_api_struct db_api = {
 	db_unchanged_uri,
 	db_unchanged_uristr,
 	db_force_add,
+	db_set_crawlers,
+	db_set_caches,
+	db_set_crawler,
+	db_set_cache
 };
 
 struct queue_struct
@@ -111,21 +123,9 @@ db_create(CONTEXT *ctx)
 	p->crawl = ctx->api->crawler(ctx);
 	p->crawler_id = ctx->api->crawler_id(ctx);
 	p->cache_id = ctx->api->cache_id(ctx);
-	p->ncrawlers = config_get_int("instance:crawlercount", p->crawler_id);
-	if(!p->ncrawlers)
-	{
-		log_printf(LOG_CRIT, "DB: No crawlercount has been specified in [instance] section of the configuration file\n");
-		free(p);
-		return NULL;
-	}	
-	p->ncaches = config_get_int("instance:cachecount", 0);
-	if(!p->ncaches)
-	{
-		log_printf(LOG_CRIT, "DB: No cachecount has been specified in [instance] section of the configuration file\n");
-		free(p);
-		return NULL;
-	}
-	dburi = ctx->api->config_get(ctx, "db:uri", "mysql://localhost/crawl");
+	p->ncrawlers = ctx->api->threads(ctx);
+	p->ncaches = ctx->api->caches(ctx);
+	dburi = ctx->api->config_get(ctx, "queue:uri", "mysql://localhost/crawl");
 	p->db = sql_connect(dburi);
 	if(!p->db)
 	{
@@ -133,12 +133,12 @@ db_create(CONTEXT *ctx)
 		free(p);
 		return NULL;
 	}
-	if(config_get_bool("db:debug-queries", 0))
+	if(config_get_bool("queue:debug-queries", 0))
 	{
 		sql_set_querylog(p->db, db_log_query);
 		sql_set_errorlog(p->db, db_log_error);
 	}
-	else if(config_get_bool("db:debug-errors", 0))
+	else if(config_get_bool("queue:debug-errors", 0))
 	{
 		sql_set_errorlog(p->db, db_log_error);
 	}
@@ -471,7 +471,7 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 					" \"root\".\"earliest_update\" < NOW() AND "
 					" \"res\".\"next_fetch\" < NOW() "
 					" ORDER BY \"root\".\"earliest_update\" ASC, \"res\".\"next_fetch\" ASC",
-					me->ncrawlers, me->crawler_id - 1);
+					me->ncrawlers, me->crawler_id);
 	if(!rs)
 	{
 		log_printf(LOG_CRIT, "DB: %s\n", sql_error(me->db));
@@ -830,6 +830,34 @@ db_unchanged_uristr(QUEUE *me, const char *uristr, int error)
 	return 0;
 }
 
+static int
+db_set_crawlers(QUEUE *me, int count)
+{
+	me->ncrawlers = count;
+	return 0;
+}
+
+static int
+db_set_caches(QUEUE *me, int count)
+{
+	me->ncaches = count;
+	return 0;
+}
+
+static int
+db_set_crawler(QUEUE *me, int id)
+{
+	me->crawler_id = id;
+	return 0;
+}
+
+static int
+db_set_cache(QUEUE *me, int id)
+{
+	me->cache_id = id;
+	return 0;
+}
+
 
 static int
 db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey, const char *uri, const char *rootkey, int force)
@@ -919,7 +947,7 @@ db_insert_resource_txn(SQL *db, void *userdata)
 		return 0;
 	}
 	/* resource isn't present in the table */
-	if(sql_executef(db, "INSERT INTO \"crawl_resource\" (\"hash\", \"shorthash\", \"tinyhash\", \"crawl_bucket\", \"cache_bucket\", \"root\", \"uri\", \"added\", \"next_fetch\", \"state\") VALUES (%Q, %lu, %d, %d, %d, %Q, %Q, NOW(), NOW(), %Q)", data->cachekey, data->shortkey, (data->shortkey % 256), (data->shortkey % data->me->ncrawlers) + 1, (data->shortkey % data->me->ncaches) + 1, data->rootkey, data->uri, "NEW"))
+	if(sql_executef(db, "INSERT INTO \"crawl_resource\" (\"hash\", \"shorthash\", \"tinyhash\", \"crawl_bucket\", \"cache_bucket\", \"root\", \"uri\", \"added\", \"next_fetch\", \"state\") VALUES (%Q, %lu, %d, %d, %d, %Q, %Q, NOW(), NOW(), %Q)", data->cachekey, data->shortkey, (data->shortkey % 256), (data->shortkey % data->me->ncrawlers), (data->shortkey % data->me->ncaches), data->rootkey, data->uri, "NEW"))
 	{
 		/* INSERT failed */
 		if(sql_deadlocked(db))

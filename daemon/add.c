@@ -19,7 +19,16 @@
 # include "config.h"
 #endif
 
-#include "p_crawld.h"
+# include <stdio.h>
+# include <stdlib.h>
+# include <string.h>
+# include <errno.h>
+# include <unistd.h>
+
+# include "libcrawl.h"
+# include "libcrawld.h"
+# include "libsupport.h"
+# include "liburi.h"
 
 static const char *short_program_name = "add";
 static const char *uristr;
@@ -36,6 +45,8 @@ int
 main(int argc, char **argv)
 {
 	CONTEXT *context;
+	CRAWL *crawler;
+	QUEUE *queue;
 	URI *uri;
 	int r, err, skip, added, line;
 	char *uribuf, *t;
@@ -66,11 +77,13 @@ main(int argc, char **argv)
 	{
 		return 1;
 	}
-	crawl_set_verbose(context->crawl, config_get_int(CRAWLER_APP_NAME ":verbose", 0));
-	if(queue_init_crawler(context->crawl, context))
+	crawler = context->api->crawler(context);
+	crawl_set_verbose(crawler, config_get_int("crawler:verbose", 0));
+	if(queue_init_context(context))
 	{
 		return 1;
 	}
+	queue = context->api->queue(context);
 	err = 0;
 	skip = 0;
 	line = 0;
@@ -114,11 +127,11 @@ main(int argc, char **argv)
 			}
 			if(force)
 			{
-				r = context->queue->api->force_add(context->queue, uri, uribuf);
+				r = queue->api->force_add(queue, uri, uribuf);
 			}
 			else
 			{
-				r = context->queue->api->add(context->queue, uri, uribuf);
+				r = queue->api->add(queue, uri, uribuf);
 			}
 			if(r)
 			{
@@ -145,11 +158,11 @@ main(int argc, char **argv)
 		}
 		if(force)
 		{
-			r = context->queue->api->force_add(context->queue, uri, uristr);
+			r = queue->api->force_add(queue, uri, uristr);
 		}
 		else
 		{
-			r = context->queue->api->add(context->queue, uri, uristr);
+			r = queue->api->add(queue, uri, uristr);
 		}
 		if(r)
 		{
@@ -162,7 +175,6 @@ main(int argc, char **argv)
 		}
 		uri_destroy(uri);
 	}
-	queue_cleanup_crawler(context->crawl, context);
 	context->api->release(context);
 	queue_cleanup();
 	return err;
@@ -182,9 +194,9 @@ config_defaults(void)
 	config_set_default("instance:cache", "1");
 	config_set_default("instance:cachecount", "1");
 	config_set_default("instance:threadcount", "1");	
-	config_set_default(CRAWLER_APP_NAME ":queue", "db");
-	config_set_default(CRAWLER_APP_NAME ":processor", "rdf");
-	config_set_default(CRAWLER_APP_NAME ":cache", "cache");	
+	config_set_default("queue:name", "db");
+	config_set_default("processor:name", "rdf");
+	config_set_default("cache:uri", "cache");	
 	return 0;
 }
 

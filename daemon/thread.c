@@ -25,10 +25,13 @@
 
 #include "p_crawld.h"
 
-static int thread_setup(CONTEXT *context, CRAWL *crawler);
-static int thread_prefetch(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
+static void *thread_handler_(void *arg);
+static int thread_setup_(CONTEXT *context, CRAWL *crawler);
+static int thread_prefetch_(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
 
 static char *cache, *username, *password, *endpoint; 
+static CONTEXT **contexts;
+static pthread_mutex_t lock;
 
 volatile int crawld_terminate = 0;
 
@@ -36,16 +39,18 @@ int
 thread_init(void)
 {
 	/* Obtain global options which will be applied to each thread */
-	cache = config_geta(CRAWLER_APP_NAME ":cache", NULL);
+	cache = config_geta("cache:uri", NULL);
 	username = config_geta("cache:username", NULL);
 	password = config_geta("cache:password", NULL);
 	endpoint = config_geta("cache:endpoint", NULL);
+	pthread_mutex_init(&lock, NULL);
 	return 0;
 }
 
 int
 thread_cleanup(void)
 {
+	pthread_mutex_destroy(&lock);
 	free(cache);
 	free(username);
 	free(password);
@@ -54,119 +59,217 @@ thread_cleanup(void)
 }
 
 int
+thread_run(void)
+{
+	int c, nthreads;
+
+	nthreads = cluster_inst_threads();
+	log_printf(LOG_DEBUG, "creating %d crawler threads\n", nthreads);
+	contexts = (CONTEXT **) calloc(nthreads, sizeof(CONTEXT *));
+	if(!contexts)
+	{
+		log_printf(LOG_CRIT, "failed to allocate memory for context pointers\n");
+		return -1;
+	}
+	
+	for(c = 0; c < nthreads; c++)
+	{
+		log_printf(LOG_DEBUG, "launching thread %d\n", c);
+		if(thread_create(c))
+		{
+			log_printf(LOG_CRIT, "failed to create thread %d\n", c);
+			return -1;
+		}
+	}
+	log_printf(LOG_DEBUG, "main thread is now sleeping\n");
+	while(!crawld_terminate)
+	{
+		sleep(1);
+	}
+	thread_terminate();
+	return 0;
+}
+
+int
+thread_terminate(void)
+{
+	int nthreads, c, alive;
+
+	nthreads = cluster_inst_threads();
+	log_printf(LOG_NOTICE, "terminating crawler threads...\n");   
+	pthread_mutex_lock(&lock);
+	crawld_terminate = 1;
+	for(c = 0; c < nthreads; c++)
+	{
+		if(contexts[c])
+		{
+			contexts[c]->api->terminate(contexts[c]);
+		}
+	}
+	pthread_mutex_unlock(&lock);
+	log_printf(LOG_NOTICE, "waiting for crawler threads to terminate...\n");
+	while(1)
+	{
+		alive = 0;
+		pthread_mutex_lock(&lock);
+		for(c = 0; c < nthreads; c++)
+		{
+			if(contexts[c])
+			{
+				alive = 1;
+			}
+		}
+		pthread_mutex_unlock(&lock);
+		if(!alive)
+		{
+			break;
+		}
+		sleep(1);
+	}
+	return 0;
+}
+
+int
 thread_create(int offset)
 {
 	CONTEXT *context;
-	
+	CRAWL *crawl;
+	pthread_t thread;
+
 	context = context_create(offset);
+	crawl = context->api->crawler(context);
 	if(!context)
 	{
 		return -1;
 	}
 	if(cache)
 	{
-		if(crawl_set_cache_path(context->crawl, cache))
+		if(crawl_set_cache_path(crawl, cache))
 		{
 			return -1;
 		}
 	}
 	if(username)
 	{
-		if(crawl_set_username(context->crawl, username))
+		if(crawl_set_username(crawl, username))
 		{
 			return -1;
 		}
 	}
 	if(password)
 	{
-		if(crawl_set_password(context->crawl, password))
+		if(crawl_set_password(crawl, password))
 		{
 			return -1;
 		}
 	}
 	if(endpoint)
 	{
-		if(crawl_set_endpoint(context->crawl, endpoint))
+		if(crawl_set_endpoint(crawl, endpoint))
 		{
 			return -1;
 		}
 	}
-	thread_handler(context);
+	pthread_create(&thread, NULL, thread_handler_, (void *) context);
 	return 0;
 }
 
-void *
-thread_handler(void *arg)
+/* The body of a single crawl thread */
+static void *
+thread_handler_(void *arg)
 {
 	CONTEXT *context;
 	CRAWL *crawler;
-	int threadcount, crawlercount, cachecount;
-	char *env;
+	int instid, threadid, threadcount, crawlercount, newbase, newthreads;
+	const char *env;
 
 	/* no addref() of the context because this thread is given ownership of the
 	 * object.
 	 */
 	context = (CONTEXT *) arg;
-	crawler = context->crawl;
-	threadcount = config_get_int("instance:threadcount", 1);
-	crawlercount = config_get_int("instance:crawlercount", 1);
-	cachecount = config_get_int("instance:cachecount", 1);
-	env = config_geta("instance:environment", "none");	
-	crawl_set_verbose(crawler, config_get_bool(CRAWLER_APP_NAME ":verbose", 0));
-	if(!thread_setup(context, crawler))
-	{	
-		log_printf(LOG_NOTICE, "[%s] crawler %d/%d (thread %d/%d), cache %d/%d ready", env, context->crawler_id, crawlercount, context->thread_id, threadcount, context->cache_id, cachecount);
-		while(!crawld_terminate)
-		{
-			if(crawl_perform(crawler))
-			{
-				log_printf(LOG_CRIT, "crawl perform operation failed: %s\n", strerror(errno));
-				break;
-			}
-			if(crawld_terminate)
-			{
-				break;
-			}
-			sleep(1);
-		}
+	crawler = context->api->crawler(context);
+	instid = cluster_inst_id();
+	threadcount = cluster_inst_threads();
+	crawlercount = cluster_threads();
+	env = cluster_env();
+	threadid = context->api->thread_id(context);
+	if(thread_setup_(context, crawler))
+	{
+		context->api->release(context);
+		return NULL;
 	}
-	queue_cleanup_crawler(crawler, context);
-	processor_cleanup_crawler(crawler, context);
-	log_printf(LOG_NOTICE, "[%s] crawler %d/%d (thread %d/%d), cache %d/%d terminating", env, context->crawler_id, crawlercount, context->thread_id, threadcount, context->cache_id, cachecount);
-	free(env);
+	pthread_mutex_lock(&lock);
+	contexts[threadid] = context;
+	pthread_mutex_unlock(&lock);
+	log_printf(LOG_NOTICE, "[%s] crawler %d/%d (thread %d/%d), ready\n", env, instid + threadid, crawlercount, threadid, threadcount);
+	while(!context->api->terminated(context))
+	{
+		newbase = cluster_inst_id();
+		newthreads = cluster_threads();
+		if(newbase != instid || newthreads != crawlercount)
+		{
+			/* Cluster has re-balanced */
+			context->api->set_threads(context, newthreads);
+			context->api->set_base(context, newbase);
+			log_printf(LOG_NOTICE, "[%s] re-balancing cluster: crawler %d/%d is now %d/%d\n", instid + threadid, crawlercount, newbase + threadid, newthreads);
+			crawlercount = newthreads;
+			instid = newbase;
+		}
+		/* Fetch and process a single item from the queue */
+		if(crawl_perform(crawler))
+		{
+			log_printf(LOG_CRIT, "crawl perform operation failed: %s\n", strerror(errno));
+			break;
+		}
+		if(context->api->terminated(context))
+		{
+			break;
+		}
+		sleep(1);
+	}
+	log_printf(LOG_NOTICE, "[%s] crawler %d/%d (thread %d/%d), terminating\n", env, instid + threadid, crawlercount, threadid, threadcount);
+	context->api->terminate(context);
+	pthread_mutex_lock(&lock);
+	contexts[threadid] = NULL;
 	context->api->release(context);
+	pthread_mutex_unlock(&lock);
 	return NULL;
 }
 
 static int
-thread_setup(CONTEXT *context, CRAWL *crawler)
+thread_setup_(CONTEXT *context, CRAWL *crawler)
 {
-	if(processor_init_crawler(crawler, context))
+	if(processor_init_context(context))
 	{
 		return -1;
 	}
-	if(queue_init_crawler(crawler, context))
+	if(queue_init_context(context))
 	{
 		return -1;
 	}
-	if(policy_init_crawler(crawler, context))
+	if(policy_init_context(context))
 	{
 		return -1;
 	}
-	if(crawl_set_prefetch(crawler, thread_prefetch))
+	if(crawl_set_prefetch(crawler, thread_prefetch_))
 	{
 		return -1;
 	}
+	context->api->set_threads(context, cluster_threads());
+	context->api->set_base(context, cluster_inst_id());
 	return 0;
 }
 
 static int
-thread_prefetch(CRAWL *crawl, URI *uri, const char *uristr, void *userdata)
+thread_prefetch_(CRAWL *crawl, URI *uri, const char *uristr, void *userdata)
 {
+	CONTEXT *context;
+
 	(void) crawl;
 	(void) uri;
-	(void) userdata;
-	
+
+	context = (CONTEXT *) userdata;
+
 	if(crawld_terminate)
 	{
 		return -1;

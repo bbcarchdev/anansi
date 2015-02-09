@@ -24,20 +24,20 @@
 #define XDIGIT(c) ((c < 10) ? '0' + c : 'a' + (c - 10))
 
 int
-etcd_key_set(ETCD *etcd, ETCDDIR *dir, const char *name, const char *value)
+etcd_key_set(ETCD *dir, const char *name, const char *value)
 {
-	return etcd_key_set_data_ttl(etcd, dir, name, (const unsigned char *) value, strlen(value), 0);
+	return etcd_key_set_data_ttl(dir, name, (const unsigned char *) value, strlen(value), 0);
 }
 
 
 int
-etcd_key_set_ttl(ETCD *etcd, ETCDDIR *dir, const char *name, const char *value, int ttl)
+etcd_key_set_ttl(ETCD *dir, const char *name, const char *value, int ttl)
 {
-	return etcd_key_set_data_ttl(etcd, dir, name, (const unsigned char *) value, strlen(value), ttl);
+	return etcd_key_set_data_ttl(dir, name, (const unsigned char *) value, strlen(value), ttl);
 }
 
 int
-etcd_key_set_data_ttl(ETCD *etcd, ETCDDIR *dir, const char *name, const unsigned char *data, size_t len, int ttl)
+etcd_key_set_data_ttl(ETCD *dir, const char *name, const unsigned char *data, size_t len, int ttl)
 {
 	URI *uri;
 	CURL *ch;
@@ -88,13 +88,13 @@ etcd_key_set_data_ttl(ETCD *etcd, ETCDDIR *dir, const char *name, const unsigned
 	{
 		*p = 0;
 	}
-	uri = uri_create_str(name, dir ? dir->base : etcd->uri);
+	uri = uri_create_str(name, dir->uri);
 	if(!uri)
 	{
 		free(encoded);
 		return -1;
 	}
-	ch = etcd_curl_put_(etcd, uri, encoded);
+	ch = etcd_curl_put_(dir, uri, encoded);
 	status = etcd_curl_perform_(ch);
 	etcd_curl_done_(ch);
 

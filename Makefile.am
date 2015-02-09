@@ -17,11 +17,12 @@
 ##  limitations under the License.
 ##
 
+ACLOCAL_AMFLAGS = -I m4
+
 DIST_SUBDIRS = m4 util caches libcrawl queues daemon libsupport libs3client \
 	libetcd processors init.d
 
 SUBDIRS = @subdirs@ libetcd libs3client caches libcrawl \
 	libsupport queues processors daemon util init.d
 
-ACLOCAL_AMFLAGS = -I m4
-
+EXTRA_DIST = README.md LICENSE-2.0

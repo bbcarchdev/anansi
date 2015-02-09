@@ -29,6 +29,7 @@ struct etcd_data_struct
 };
 
 static size_t etcd_payload_(char *ptr, size_t size, size_t nmemb, void *userdata);
+static size_t etcd_sink_(char *ptr, size_t size, size_t nmemb, void *userdata);
 
 ETCD *
 etcd_connect(const char *url)
@@ -52,6 +53,10 @@ etcd_connect_uri(const URI *uri)
 	ETCD *p;
 
 	p = (ETCD *) calloc(1, sizeof(ETCD));
+	if(!p)
+	{
+		return NULL;
+	}
 	p->uri = uri_create_str("/v2/keys/", uri);
 	if(!p->uri)
 	{
@@ -61,6 +66,27 @@ etcd_connect_uri(const URI *uri)
 	return p;
 }
 
+ETCD *
+etcd_clone(ETCD *etcd)
+{
+	ETCD *p;
+
+	p = (ETCD *) calloc(1, sizeof(ETCD));
+	if(!p)
+	{
+		return NULL;
+	}
+	p->uri = uri_create_uri(etcd->uri, NULL);
+	if(!p->uri)
+	{
+		free(p);
+		return NULL;
+	}
+	p->verbose = etcd->verbose;
+	return p;
+}
+
+
 void
 etcd_disconnect(ETCD *etcd)
 {
@@ -68,9 +94,9 @@ etcd_disconnect(ETCD *etcd)
 }
 
 CURL *
-etcd_curl_create_(ETCD *etcd, URI *uri)
+etcd_curl_create_(ETCD *etcd, URI *uri, const char *query)
 {
-	char *uristr;
+	char *uristr, *buf;
 	CURL *ch;
 
 	(void) etcd;
@@ -80,14 +106,29 @@ etcd_curl_create_(ETCD *etcd, URI *uri)
 	{
 		return NULL;
 	}
+	if(query)
+	{
+		buf = (char *) calloc(1, strlen(uristr) + strlen(query) + 2);
+		if(!buf)
+		{
+			free(uristr);
+			return NULL;
+		}
+		strcpy(buf, uristr);
+		strcat(buf, "?");
+		strcat(buf, query);
+		free(uristr);
+		uristr = buf;
+	}
 	ch = curl_easy_init();
 	if(!ch)
 	{
 		free(uristr);
 		return NULL;
 	}
-	curl_easy_setopt(ch, CURLOPT_VERBOSE, 1);
+	curl_easy_setopt(ch, CURLOPT_VERBOSE, (int) (etcd->verbose));
 	curl_easy_setopt(ch, CURLOPT_URL, uristr);
+	curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, etcd_sink_);
 	free(uristr);
 	return ch;
 }
@@ -103,7 +144,7 @@ etcd_curl_put_(ETCD *etcd, URI *uri, const char *data)
 {
 	CURL *ch;
 
-	if(!(ch = etcd_curl_create_(etcd, uri)))
+	if(!(ch = etcd_curl_create_(etcd, uri, NULL)))
 	{
 		return NULL;
 	}
@@ -169,6 +210,15 @@ etcd_curl_perform_json_(CURL *ch, jd_var *dict)
 	}
 	free(data.buf);
 	return -1;
+}
+
+static size_t
+etcd_sink_(char *ptr, size_t size, size_t nmemb, void *userdata)
+{
+	(void) ptr;
+	(void) userdata;
+
+	return size * nmemb;
 }
 
 static size_t

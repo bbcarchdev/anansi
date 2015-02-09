@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2014 BBC.
+## Copyright 2014-2015 BBC.
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -16,6 +16,8 @@
 ##  See the License for the specific language governing permissions and
 ##  limitations under the License.
 ##
+
+EXTRA_DIST = README.md
 
 lib_LTLIBRARIES = libcrawl.la
 

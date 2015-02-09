@@ -18,12 +18,26 @@
 #ifndef P_PROCESSORS_H_
 # define P_PROCESSORS_H_                1
 
-# include "p_crawld.h"
+# define _BSD_SOURCE                   1
+# define _FILE_OFFSET_BITS             64
 
+# include <stdio.h>
+# include <stdlib.h>
+# include <string.h>
+# include <errno.h>
+# include <ctype.h>
+# include <unistd.h>
+# include <syslog.h>
+
+# include "libsupport.h"
+# include "libcrawld.h"
 # include <curl/curl.h>
 # include <librdf.h>
 
 typedef int (*rdf_filter_cb)(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *model);
+
+extern PROCESSOR *rdf_create(CRAWL *crawler);
+extern PROCESSOR *lod_create(CRAWL *crawler);
 
 extern librdf_world *rdf_world(PROCESSOR *me);
 extern int rdf_set_filter(PROCESSOR *me, rdf_filter_cb filter);

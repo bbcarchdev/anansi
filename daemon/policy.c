@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC
  */
 
 /*
@@ -23,11 +23,15 @@
 # include "config.h"
 #endif
 
-#include "p_crawld.h"
+#include "p_libcrawld.h"
 
-static int policy_checkpoint(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata);
-static char **policy_create_list(const char *name, const char *defval);
-static int policy_destroy_list(char **list);
+/* Implements a libcrawl policy handler which implements URI scheme and
+ * content type white/blacklisting.
+ */
+
+static int policy_checkpoint_(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata);
+static char **policy_create_list_(const char *name, const char *defval);
+static int policy_destroy_list_(char **list);
 
 static char **types_whitelist;
 static char **types_blacklist;
@@ -37,39 +41,82 @@ static char **schemes_blacklist;
 int
 policy_init(void)
 {
-	types_whitelist = policy_create_list("content-types:whitelist", NULL);
-	types_blacklist = policy_create_list("content-types:blacklist", NULL);
-	schemes_whitelist = policy_create_list("schemes:whitelist", NULL);
-	schemes_blacklist = policy_create_list("schemes:blacklist", NULL);
+	types_whitelist = policy_create_list_("policy:content-types:whitelist", NULL);
+	types_blacklist = policy_create_list_("policy:content-types:blacklist", NULL);
+	schemes_whitelist = policy_create_list_("policy:schemes:whitelist", NULL);
+	schemes_blacklist = policy_create_list_("policy:schemes:blacklist", NULL);
 	return 0;
 }
 
 int
 policy_cleanup(void)
 {
-	policy_destroy_list(types_whitelist);
+	policy_destroy_list_(types_whitelist);
 	types_whitelist = NULL;
-	policy_destroy_list(types_blacklist);
+	policy_destroy_list_(types_blacklist);
 	types_blacklist = NULL;
-	policy_destroy_list(schemes_whitelist);
+	policy_destroy_list_(schemes_whitelist);
 	schemes_whitelist = NULL;
-	policy_destroy_list(schemes_blacklist);
+	policy_destroy_list_(schemes_blacklist);
 	schemes_blacklist = NULL;	
 	return 0;
 }
 
 int
-policy_init_crawler(CRAWL *crawl, CONTEXT *data)
+policy_init_context(CONTEXT *context)
 {
-	(void) data;
-	
-	crawl_set_uri_policy(crawl, policy_uri);
-	crawl_set_checkpoint(crawl, policy_checkpoint);
+	CRAWL *crawl;
+
+	crawl = context->api->crawler(context);
+	crawl_set_uri_policy(crawl, policy_uri_);
+	crawl_set_checkpoint(crawl, policy_checkpoint_);
 	return 0;
 }
 
+int
+policy_uri_(CRAWL *crawl, URI *uri, const char *uristr, void *userdata)
+{
+	char scheme[64];
+	size_t c;
+	int n;
+	
+	(void) userdata;
+	(void) crawl;
+	
+	uri_scheme(uri, scheme, sizeof(scheme));
+	if(schemes_whitelist && schemes_whitelist[0])
+	{
+		n = 0;
+		for(c = 0; schemes_whitelist[c]; c++)
+		{
+			if(!strcasecmp(schemes_whitelist[c], scheme))
+			{
+				n = 1;
+				break;
+			}
+		}
+		if(!n)
+		{
+			log_printf(LOG_NOTICE, "Policy: URI '%s' has a scheme (%s) which is not whitelisted\n", uristr, scheme);
+			return 0;
+		}
+	}
+	if(schemes_blacklist)
+	{
+		for(c = 0; schemes_blacklist[c]; c++)
+		{
+			if(!strcasecmp(schemes_blacklist[c], scheme))
+			{
+				log_printf(LOG_NOTICE, "Policy: URI '%s' has a scheme (%s) which is blacklisted\n", uristr, scheme);
+				return 0;
+			}
+		}
+	}
+	return 1;
+}
+
 static char **
-policy_create_list(const char *key, const char *defval)
+policy_create_list_(const char *key, const char *defval)
 {
 	char **list;
 	char *s, *t, *p;
@@ -121,11 +168,11 @@ policy_create_list(const char *key, const char *defval)
 				list[count] = strdup(p);
 				if(!list[count])
 				{
-					policy_destroy_list(list);
+					policy_destroy_list_(list);
 					return NULL;
 				}
 				count++;
-				p = NULL;				
+				p = NULL;
 			}
 			continue;
 		}
@@ -139,10 +186,10 @@ policy_create_list(const char *key, const char *defval)
 		list[count] = strdup(p);
 		if(!list[count])
 		{
-			policy_destroy_list(list);
+			policy_destroy_list_(list);
 			return NULL;
 		}		
-		count++;		
+		count++;
 	}
 	list[count] = NULL;
 	for(count = 0; list[count]; count++)
@@ -153,7 +200,7 @@ policy_create_list(const char *key, const char *defval)
 }
 
 static int
-policy_destroy_list(char **list)
+policy_destroy_list_(char **list)
 {
 	size_t c;
 	
@@ -165,54 +212,12 @@ policy_destroy_list(char **list)
 	return 0;
 }
 
-int
-policy_uri(CRAWL *crawl, URI *uri, const char *uristr, void *userdata)
-{
-	char scheme[64];
-	size_t c;
-	int n;
-	
-	(void) userdata;
-	(void) crawl;
-	
-	uri_scheme(uri, scheme, sizeof(scheme));
-	if(schemes_whitelist && schemes_whitelist[0])
-	{
-		n = 0;
-		for(c = 0; schemes_whitelist[c]; c++)
-		{
-			if(!strcasecmp(schemes_whitelist[c], scheme))
-			{
-				n = 1;
-				break;
-			}
-		}
-		if(!n)
-		{
-			log_printf(LOG_NOTICE, "Policy: URI '%s' has a scheme (%s) which is not whitelisted\n", uristr, scheme);
-			return 0;
-		}
-	}
-	if(schemes_blacklist)
-	{
-		for(c = 0; schemes_blacklist[c]; c++)
-		{
-			if(!strcasecmp(schemes_blacklist[c], scheme))
-			{
-				log_printf(LOG_NOTICE, "Policy: URI '%s' has a scheme (%s) which is blacklisted\n", uristr, scheme);
-				return 0;
-			}
-		}
-	}
-	return 1;
-}
-
 /* The checkpoint callback is invoked during the fetch in order to confirm
  * that it should proceed before any (signifcant amounts of) data are
  * downloaded.
  */
 static int
-policy_checkpoint(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata)
+policy_checkpoint_(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata)
 {
 	int n, c;
 	const char *type;
