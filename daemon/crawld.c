@@ -105,7 +105,10 @@ main(int argc, char **argv)
 			return 0;
 		}
 	}
-
+	if(cluster_detached())
+	{
+		return 1;
+	}
 	if(thread_run())
 	{
 		return 1;

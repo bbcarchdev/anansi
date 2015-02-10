@@ -62,5 +62,6 @@ int cluster_threads(void);
 int cluster_inst_id(void);
 int cluster_inst_threads(void);
 const char *cluster_env(void);
+int cluster_detached(void);
 
 #endif /*!P_CRAWLD_H_*/

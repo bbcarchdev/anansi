@@ -39,6 +39,14 @@ static int cluster_etcd_ping_(ETCD *dir, ETCDFLAGS flags);
 static void *cluster_etcd_balance_thread_(void *arg);
 static void *cluster_etcd_ping_thread_(void *arg);
 
+typedef enum
+{
+	CLUS_STATIC,
+	CLUS_ETCD
+} CLUSTER_TYPE;
+
+static CLUSTER_TYPE clustertype;
+
 int
 cluster_init(void)
 {
@@ -103,10 +111,28 @@ cluster_env(void)
 	return clusterenv;
 }
 
+/* Invoked after the process has been forked */
+int
+cluster_detached(void)
+{
+	ETCD *balance_dir, *ping_dir;
+
+	/* Start the cluster rebalancing thread */
+	balance_dir = etcd_clone(envdir);
+	pthread_create(&thread, NULL, cluster_etcd_balance_thread_, (void *) balance_dir);
+	/* Start the cluster ping thread */
+	ping_dir = etcd_clone(envdir);
+	pthread_create(&thread, NULL, cluster_etcd_ping_thread_, (void *) ping_dir);
+	log_printf(LOG_NOTICE, "cluster member %s:%s/%s initialised\n", inst_uuidstr, clustername, clusterenv);
+
+	return 0;
+}
+
 /* Initialise a statically-configured cluster */
 static int
 cluster_static_init_(void)
 {
+	clustertype = CLUS_STATIC;
 	inst_id = config_get_int("crawler:id", 0);
 	inst_threads = config_get_int("crawler:threads", 1);
 	clusterthreads = config_get_int("cluster:threads", 1);
@@ -118,8 +144,7 @@ cluster_static_init_(void)
 static int
 cluster_etcd_init_(void)
 {
-	ETCD *balance_dir, *ping_dir;
-
+	clustertype = CLUS_ETCD;
 	inst_threads = config_get_int("crawler:threads", 1);
 	if(!clustername)
 	{
@@ -157,13 +182,6 @@ cluster_etcd_init_(void)
 	cluster_etcd_ping_(envdir, ETCD_NONE);
 	/* Perform an initial cluster balancing */
 	cluster_etcd_balance_(envdir);
-	/* Start the cluster rebalancing thread */
-	balance_dir = etcd_clone(envdir);
-	pthread_create(&thread, NULL, cluster_etcd_balance_thread_, (void *) balance_dir);
-	/* Start the cluster ping thread */
-	ping_dir = etcd_clone(envdir);
-	pthread_create(&thread, NULL, cluster_etcd_ping_thread_, (void *) ping_dir);
-	log_printf(LOG_NOTICE, "cluster member %s:%s/%s initialised\n", inst_uuidstr, clustername, clusterenv);
 	return 0;
 }
 
