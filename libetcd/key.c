@@ -42,6 +42,7 @@ etcd_key_set_data_ttl(ETCD *dir, const char *name, const unsigned char *data, si
 	URI *uri;
 	CURL *ch;
 	char *encoded, *p;
+	const char *query;
 	const unsigned char *dp;
 	size_t enclen, l;
 	int status, c;
@@ -94,7 +95,11 @@ etcd_key_set_data_ttl(ETCD *dir, const char *name, const unsigned char *data, si
 	}
 	if(flags & ETCD_EXISTS)
 	{
-		p += sprintf(p, "&prevExist=true");
+		query = "prevExist=true";
+	}
+	else
+	{
+		query = NULL;
 	}
 	uri = uri_create_str(name, dir->uri);
 	if(!uri)
@@ -102,7 +107,7 @@ etcd_key_set_data_ttl(ETCD *dir, const char *name, const unsigned char *data, si
 		free(encoded);
 		return -1;
 	}
-	ch = etcd_curl_put_(dir, uri, encoded);
+	ch = etcd_curl_put_(dir, uri, encoded, query);
 	status = etcd_curl_perform_(ch);
 	etcd_curl_done_(ch);
 

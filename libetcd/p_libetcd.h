@@ -39,7 +39,7 @@ struct etcd_struct
 ETCD *etcd_dir_create_(ETCD *parent, const char *name);
 
 CURL *etcd_curl_create_(ETCD *etcd, URI *uri, const char *query);
-CURL *etcd_curl_put_(ETCD *etcd, URI *uri, const char *data);
+CURL *etcd_curl_put_(ETCD *etcd, URI *uri, const char *data, const char *query);
 void etcd_curl_done_(CURL *ch);
 int etcd_curl_perform_(CURL *ch);
 int etcd_curl_perform_json_(CURL *ch, jd_var *dict);

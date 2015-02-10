@@ -129,7 +129,8 @@ etcd_dir_create(ETCD *parent, const char *name, ETCDFLAGS flags)
 {
 	ETCD *dir;
 	CURL *ch;
-	const char *data = "dir=1", *existdata = "dir=1&prevExist=true";
+	const char *data = "dir=1";
+	const char *query;
 	int status, mustexist;
 
 	mustexist = (flags & ETCD_EXISTS);
@@ -138,7 +139,15 @@ etcd_dir_create(ETCD *parent, const char *name, ETCDFLAGS flags)
 	{
 		return NULL;
 	}
-	ch = etcd_curl_put_(parent, dir->uri, (mustexist ? existdata : data));
+	if(mustexist)
+	{
+		query = "prevExist=true";
+	}
+	else
+	{
+		query = NULL;
+	}
+	ch = etcd_curl_put_(parent, dir->uri, data, query);
 	status = etcd_curl_perform_(ch);
 	etcd_curl_done_(ch);
 	if(status)

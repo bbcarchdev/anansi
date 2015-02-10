@@ -147,11 +147,11 @@ etcd_curl_done_(CURL *ch)
 }
 
 CURL *
-etcd_curl_put_(ETCD *etcd, URI *uri, const char *data)
+etcd_curl_put_(ETCD *etcd, URI *uri, const char *data, const char *query)
 {
 	CURL *ch;
 
-	if(!(ch = etcd_curl_create_(etcd, uri, NULL)))
+	if(!(ch = etcd_curl_create_(etcd, uri, query)))
 	{
 		return NULL;
 	}
