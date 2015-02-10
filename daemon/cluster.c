@@ -28,6 +28,7 @@ static uuid_t inst_uuid;
 static char inst_uuidstr[40];
 static int inst_id, inst_threads;
 static int clusterthreads;
+static int verbose;
 static ETCD *etcd, *clusterdir, *envdir;
 
 static int cluster_static_init_(void);
@@ -47,6 +48,7 @@ cluster_init(void)
 	clustername = config_geta("cluster:name", NULL);
 	clusterenv = config_geta("cluster:environment", "production");
 	registry = config_geta("cluster:registry", NULL);
+	verbose = config_get_bool("cluster:verbose", 0);
 	if(registry)
 	{
 		return cluster_etcd_init_();
@@ -131,6 +133,7 @@ cluster_etcd_init_(void)
 		log_printf(LOG_CRIT, "cannot connect to registry service\n");
 		return 1;
 	}
+	etcd_set_verbose(etcd, verbose);
 	clusterdir = etcd_dir_create(etcd, clustername, 0);
 	if(!clusterdir)
 	{
@@ -246,6 +249,10 @@ cluster_etcd_balance_thread_(void *arg)
 			r = etcd_dir_wait(dir, 1, &change);
 			jd_release(&change);
 		}
+		if(crawld_terminate)
+		{
+			break;
+		}
 		if(r)
 		{
 			log_printf(LOG_ERR, "failed to receive changes from cluster registry\n");
@@ -254,6 +261,7 @@ cluster_etcd_balance_thread_(void *arg)
 		}
 		cluster_etcd_balance_(dir);
 	}
+	log_printf(LOG_NOTICE, "re-balancing thread is terminating\n");
 	return NULL;
 }
 
@@ -274,6 +282,7 @@ cluster_etcd_ping_thread_(void *arg)
 		log_printf(LOG_DEBUG, "updated registry service for cluster member %s\n", inst_uuidstr);
 		sleep(REGISTRY_REFRESH);
 	}
+	log_printf(LOG_NOTICE, "registry ping thread is terminating\n");
 	return NULL;
 }
 

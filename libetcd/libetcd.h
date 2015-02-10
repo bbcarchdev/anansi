@@ -29,6 +29,8 @@ ETCD *etcd_connect_uri(const URI *uri);
 void etcd_disconnect(ETCD *etcd);
 ETCD *etcd_clone(ETCD *etcd);
 
+int etcd_set_verbose(ETCD *etcd, int verbose);
+
 ETCD *etcd_dir_open(ETCD *parent, const char *name);
 ETCD *etcd_dir_create(ETCD *parent, const char *name, int mustexist);
 int etcd_dir_get(ETCD *dir, jd_var *out);

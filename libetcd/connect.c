@@ -93,6 +93,13 @@ etcd_disconnect(ETCD *etcd)
 	free(etcd);
 }
 
+int
+etcd_set_verbose(ETCD *etcd, int verbose)
+{
+	etcd->verbose = verbose;
+	return 0;
+}
+
 CURL *
 etcd_curl_create_(ETCD *etcd, URI *uri, const char *query)
 {

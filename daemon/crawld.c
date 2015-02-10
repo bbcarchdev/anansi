@@ -169,6 +169,7 @@ process_args(int argc, char **argv)
 			config_set("log:stderr", "1");
 			config_set("queue:debug-queries", "1");
 			config_set("queue:debug-errors", "1");
+			config_set("cluster:verbose", "1");
 			break;
 		case 'c':
 			config_set("global:configFile", optarg);
