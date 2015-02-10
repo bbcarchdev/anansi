@@ -24,20 +24,20 @@
 #define XDIGIT(c) ((c < 10) ? '0' + c : 'a' + (c - 10))
 
 int
-etcd_key_set(ETCD *dir, const char *name, const char *value)
+etcd_key_set(ETCD *dir, const char *name, const char *value, ETCDFLAGS flags)
 {
-	return etcd_key_set_data_ttl(dir, name, (const unsigned char *) value, strlen(value), 0);
+	return etcd_key_set_data_ttl(dir, name, (const unsigned char *) value, strlen(value), 0, flags);
 }
 
 
 int
-etcd_key_set_ttl(ETCD *dir, const char *name, const char *value, int ttl)
+etcd_key_set_ttl(ETCD *dir, const char *name, const char *value, int ttl, ETCDFLAGS flags)
 {
-	return etcd_key_set_data_ttl(dir, name, (const unsigned char *) value, strlen(value), ttl);
+	return etcd_key_set_data_ttl(dir, name, (const unsigned char *) value, strlen(value), ttl, flags);
 }
 
 int
-etcd_key_set_data_ttl(ETCD *dir, const char *name, const unsigned char *data, size_t len, int ttl)
+etcd_key_set_data_ttl(ETCD *dir, const char *name, const unsigned char *data, size_t len, int ttl, ETCDFLAGS flags)
 {
 	URI *uri;
 	CURL *ch;
@@ -52,6 +52,10 @@ etcd_key_set_data_ttl(ETCD *dir, const char *name, const unsigned char *data, si
 	}
 	enclen = 6 + len * 3;
 	if(ttl)
+	{
+		enclen += 32;
+	}
+	if(flags & ETCD_EXISTS)
 	{
 		enclen += 32;
 	}
@@ -82,11 +86,15 @@ etcd_key_set_data_ttl(ETCD *dir, const char *name, const unsigned char *data, si
 	}
 	if(ttl)
 	{
-		sprintf(p, "&ttl=%d", ttl);
+		p += sprintf(p, "&ttl=%d", ttl);
 	}
 	else
 	{
 		*p = 0;
+	}
+	if(flags & ETCD_EXISTS)
+	{
+		p += sprintf(p, "&prevExist=true");
 	}
 	uri = uri_create_str(name, dir->uri);
 	if(!uri)

@@ -125,13 +125,14 @@ etcd_dir_open(ETCD *parent, const char *name)
 }
 
 ETCD *
-etcd_dir_create(ETCD *parent, const char *name, int mustexist)
+etcd_dir_create(ETCD *parent, const char *name, ETCDFLAGS flags)
 {
 	ETCD *dir;
 	CURL *ch;
 	const char *data = "dir=1", *existdata = "dir=1&prevExist=true";
-	int status;
+	int status, mustexist;
 
+	mustexist = (flags & ETCD_EXISTS);
 	dir = etcd_dir_create_(parent, name);
 	if(!dir)
 	{
@@ -223,12 +224,13 @@ etcd_dir_get(ETCD *dir, jd_var *out)
 }
 
 int
-etcd_dir_wait(ETCD *dir, int recursive, jd_var *out)
+etcd_dir_wait(ETCD *dir, ETCDFLAGS flags, jd_var *out)
 {
 	CURL *ch;
 	const char *data = "wait=true", *rdata = "wait=true&recursive=true";
-	int status;
+	int status, recursive;
 
+	recursive = (flags & ETCD_RECURSE);
 	ch = etcd_curl_create_(dir, dir->uri, (recursive ? rdata : data));
 	if(!ch)
 	{

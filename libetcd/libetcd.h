@@ -24,6 +24,13 @@
 
 typedef struct etcd_struct ETCD;
 
+typedef enum
+{
+	ETCD_NONE = 0,
+	ETCD_EXISTS = (1<<0),
+	ETCD_RECURSE = (1<<1)
+} ETCDFLAGS;
+
 ETCD *etcd_connect(const char *url);
 ETCD *etcd_connect_uri(const URI *uri);
 void etcd_disconnect(ETCD *etcd);
@@ -32,14 +39,14 @@ ETCD *etcd_clone(ETCD *etcd);
 int etcd_set_verbose(ETCD *etcd, int verbose);
 
 ETCD *etcd_dir_open(ETCD *parent, const char *name);
-ETCD *etcd_dir_create(ETCD *parent, const char *name, int mustexist);
+ETCD *etcd_dir_create(ETCD *parent, const char *name, ETCDFLAGS flags);
 int etcd_dir_get(ETCD *dir, jd_var *out);
-int etcd_dir_delete(ETCD *parent, const char *name, int recurse);
+int etcd_dir_delete(ETCD *parent, const char *name, ETCDFLAGS flags);
 void etcd_dir_close(ETCD *dir);
-int etcd_dir_wait(ETCD *dir, int recursive, jd_var *change);
+int etcd_dir_wait(ETCD *dir, ETCDFLAGS flags, jd_var *change);
 
-int etcd_key_set(ETCD *dir, const char *name, const char *value);
-int etcd_key_set_ttl(ETCD *dir, const char *name, const char *value, int ttl);
-int etcd_key_set_data_ttl(ETCD *dir, const char *name, const unsigned char *data, size_t len, int ttl);
+int etcd_key_set(ETCD *dir, const char *name, const char *value, ETCDFLAGS flags);
+int etcd_key_set_ttl(ETCD *dir, const char *name, const char *value, int ttl, ETCDFLAGS flags);
+int etcd_key_set_data_ttl(ETCD *dir, const char *name, const unsigned char *data, size_t len, int ttl, ETCDFLAGS flags);
 
 #endif /*!LIBETCD_H_*/

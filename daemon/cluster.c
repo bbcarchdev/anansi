@@ -35,7 +35,7 @@ static int cluster_static_init_(void);
 
 static int cluster_etcd_init_(void);
 static int cluster_etcd_balance_(ETCD *dir);
-static int cluster_etcd_ping_(ETCD *dir);
+static int cluster_etcd_ping_(ETCD *dir, ETCDFLAGS flags);
 static void *cluster_etcd_balance_thread_(void *arg);
 static void *cluster_etcd_ping_thread_(void *arg);
 
@@ -134,7 +134,7 @@ cluster_etcd_init_(void)
 		return 1;
 	}
 	etcd_set_verbose(etcd, verbose);
-	clusterdir = etcd_dir_create(etcd, clustername, 0);
+	clusterdir = etcd_dir_create(etcd, clustername, ETCD_NONE);
 	if(!clusterdir)
 	{
 		clusterdir = etcd_dir_open(etcd, clustername);
@@ -144,7 +144,7 @@ cluster_etcd_init_(void)
 			return 1;
 		}
 	}
-	envdir = etcd_dir_create(clusterdir, clusterenv, 0);
+	envdir = etcd_dir_create(clusterdir, clusterenv, ETCD_NONE);
 	if(!envdir)
 	{
 		envdir = etcd_dir_open(clusterdir, clusterenv);
@@ -154,7 +154,7 @@ cluster_etcd_init_(void)
 			return 1;
 		}
 	}
-	cluster_etcd_ping_(envdir);
+	cluster_etcd_ping_(envdir, ETCD_NONE);
 	/* Perform an initial cluster balancing */
 	cluster_etcd_balance_(envdir);
 	/* Start the cluster rebalancing thread */
@@ -246,7 +246,7 @@ cluster_etcd_balance_thread_(void *arg)
 		{
 			jd_var change = JD_INIT;
 
-			r = etcd_dir_wait(dir, 1, &change);
+			r = etcd_dir_wait(dir, ETCD_RECURSE, &change);
 			jd_release(&change);
 		}
 		if(crawld_terminate)
@@ -273,7 +273,7 @@ cluster_etcd_ping_thread_(void *arg)
 	dir = (ETCD *) arg;
 	while(!crawld_terminate)
 	{
-		if(cluster_etcd_ping_(dir))
+		if(cluster_etcd_ping_(dir, ETCD_EXISTS))
 		{
 			log_printf(LOG_ERR, "failed to update registry service\n");
 			sleep(5);
@@ -287,10 +287,10 @@ cluster_etcd_ping_thread_(void *arg)
 }
 
 static int
-cluster_etcd_ping_(ETCD *dir)
+cluster_etcd_ping_(ETCD *dir, ETCDFLAGS flags)
 {
 	char buf[64];
 
 	sprintf(buf, "%d", inst_threads);
-	return etcd_key_set_ttl(dir, inst_uuidstr, buf, REGISTRY_KEY_TTL);
+	return etcd_key_set_ttl(dir, inst_uuidstr, buf, REGISTRY_KEY_TTL, flags);
 }
