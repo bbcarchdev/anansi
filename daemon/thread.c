@@ -202,7 +202,7 @@ thread_handler_(void *arg)
 	pthread_mutex_lock(&lock);
 	contexts[threadid] = context;
 	pthread_mutex_unlock(&lock);
-	log_printf(LOG_NOTICE, "[%s] crawler %d/%d (thread %d/%d), ready\n", env, instid + threadid, crawlercount, threadid, threadcount);
+	log_printf(LOG_NOTICE, "[%s] crawler %d/%d (thread %d/%d), ready\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount);
 	while(!context->api->terminated(context))
 	{
 		newbase = cluster_inst_id();
@@ -212,7 +212,7 @@ thread_handler_(void *arg)
 			/* Cluster has re-balanced */
 			context->api->set_threads(context, newthreads);
 			context->api->set_base(context, newbase);
-			log_printf(LOG_NOTICE, "[%s] re-balancing: crawler %d/%d (thread %d/%d) is now %d/%d\n", env, instid + threadid, crawlercount, threadid, threadcount, newbase + threadid, newthreads);
+			log_printf(LOG_NOTICE, "[%s] re-balancing: crawler %d/%d (thread %d/%d) is now %d/%d\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount, newbase + threadid + 1, newthreads);
 			crawlercount = newthreads;
 			instid = newbase;
 		}
@@ -228,7 +228,7 @@ thread_handler_(void *arg)
 		}
 		sleep(1);
 	}
-	log_printf(LOG_NOTICE, "[%s] crawler %d/%d (thread %d/%d), terminating\n", env, instid + threadid, crawlercount, threadid, threadcount);
+	log_printf(LOG_NOTICE, "[%s] crawler %d/%d (thread %d/%d), terminating\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount);
 	context->api->terminate(context);
 	pthread_mutex_lock(&lock);
 	contexts[threadid] = NULL;
