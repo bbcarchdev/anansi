@@ -126,6 +126,7 @@ thread_terminate(void)
 		}
 		sleep(1);
 	}
+	log_printf(LOG_NOTICE, "all crawler threads have stopped\n");
 	return 0;
 }
 

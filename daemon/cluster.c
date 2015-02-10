@@ -160,7 +160,7 @@ cluster_etcd_init_(void)
 	/* Start the cluster ping thread */
 	ping_dir = etcd_clone(envdir);
 	pthread_create(&thread, NULL, cluster_etcd_ping_thread_, (void *) ping_dir);
-	log_printf(LOG_INFO, "cluster member %s:%s/%s initialised\n", inst_uuidstr, clustername, clusterenv);
+	log_printf(LOG_NOTICE, "cluster member %s:%s/%s initialised\n", inst_uuidstr, clustername, clusterenv);
 	return 0;
 }
 
@@ -218,7 +218,7 @@ cluster_etcd_balance_(ETCD *dir)
 	pthread_rwlock_wrlock(&lock);
 	if(total != clusterthreads || base != inst_id)
 	{
-		log_printf(LOG_DEBUG, "cluster rebalanced: new base is %d (was %d), new total is %d (was %d)\n", base, inst_id, total, clusterthreads);
+		log_printf(LOG_NOTICE, "cluster has re-balanced: new base is %d (was %d), new total is %d (was %d)\n", base, inst_id, total, clusterthreads);
 		inst_id = base;
 		clusterthreads = total;
 	}
@@ -265,7 +265,13 @@ cluster_etcd_ping_thread_(void *arg)
 	dir = (ETCD *) arg;
 	while(!crawld_terminate)
 	{
-		cluster_etcd_ping_(dir);
+		if(cluster_etcd_ping_(dir))
+		{
+			log_printf(LOG_ERR, "failed to update registry service\n");
+			sleep(5);
+			continue;
+		}
+		log_printf(LOG_DEBUG, "updated registry service for cluster member %s\n", inst_uuidstr);
 		sleep(REGISTRY_REFRESH);
 	}
 	return NULL;

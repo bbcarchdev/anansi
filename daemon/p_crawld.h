@@ -47,7 +47,7 @@
 # define CRAWLER_APP_NAME               "crawler"
 
 # define REGISTRY_KEY_TTL               120
-# define REGISTRY_REFRESH               60
+# define REGISTRY_REFRESH               30
 
 extern volatile int crawld_terminate;
 
