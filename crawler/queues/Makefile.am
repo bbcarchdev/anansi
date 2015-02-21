@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2015 BBC.
+## Copyright 2014-2015 BBC
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -18,17 +18,17 @@
 ##
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ \
-	-I$(top_builddir)/daemon -I$(top_srcdir)/daemon \
+	-I$(top_builddir)/crawler -I$(top_srcdir)/crawler \
 	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl \
 	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport \
 	-I$(top_builddir)/libetcd -I$(top_srcdir)/libetcd \
-	$(LIBRDF_CPPFLAGS)
+	$(LIBRDF_CPPFLAGS) \
+	$(LIBSQL_CPPFLAGS)
 
-noinst_LTLIBRARIES = libprocessors.la
+noinst_LTLIBRARIES = libqueues.la
 
-libprocessors_la_SOURCES = p_processors.h \
-	rdf.c lod.c
+libqueues_la_SOURCES = db.c
 
-libprocessors_la_LDFLAGS = -avoid-version
+libqueues_la_LDFLAGS = -avoid-version
 
-libprocessors_la_LIBADD = $(LIBRDF_LOCAL_LIBS) $(LIBRDF_LIBS)
+libqueues_la_LIBADD = $(LIBSQL_LOCAL_LIBS) $(LIBSQL_LIBS)

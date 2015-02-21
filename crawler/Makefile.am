@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2014-2015 BBC.
+## Copyright 2014-2015 BBC
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -16,6 +16,8 @@
 ##  See the License for the specific language governing permissions and
 ##  limitations under the License.
 ##
+
+SUBDIRS = queues processors .
 
 dist_doc_DATA = crawl.conf
 
@@ -41,8 +43,8 @@ libcrawld_la_SOURCES = p_libcrawld.h libcrawld.h \
 	context.c processor.c queue.c policy.c
 
 libcrawld_la_LIBADD = \
-	$(top_builddir)/queues/libqueues.la \
-	$(top_builddir)/processors/libprocessors.la \
+	queues/libqueues.la \
+	processors/libprocessors.la \
 	$(top_builddir)/libcrawl/libcrawl.la \
 	$(top_builddir)/libsupport/libsupport.la
 

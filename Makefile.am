@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2014 BBC.
+## Copyright 2014-2015 BBC
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -19,10 +19,12 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-DIST_SUBDIRS = m4 util caches libcrawl queues daemon libsupport libs3client \
-	libetcd processors init.d
+DIST_SUBDIRS = m4 \
+	libetcd libs3client libcrawl libsupport \
+	util crawler init.d
 
-SUBDIRS = @subdirs@ libetcd libs3client caches libcrawl \
-	libsupport queues processors daemon util init.d
+SUBDIRS = @subdirs@ \
+	libetcd libs3client libcrawl libsupport \
+	util crawler init.d
 
 EXTRA_DIST = README.md LICENSE-2.0

@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2014-2015 BBC.
+## Copyright 2014-2015 BBC
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -17,6 +17,8 @@
 ##  limitations under the License.
 ##
 
+SUBDIRS = caches .
+
 EXTRA_DIST = README.md
 
 lib_LTLIBRARIES = libcrawl.la
@@ -29,7 +31,7 @@ libcrawl_la_SOURCES = p_libcrawl.h \
 libcrawl_la_LDFLAGS = -avoid-version
 
 libcrawl_la_LIBADD = \
-	$(top_builddir)/caches/libcaches.la \
+	caches/libcaches.la \
 	$(LIBJSONDATA_LOCAL_LIBS) $(LIBJSONDATA_LIBS) \
 	$(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS) \
 	$(LIBCURL_LOCAL_LIBS) $(LIBCURL_LIBS) \

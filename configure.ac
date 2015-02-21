@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2014 BBC.
+## Copyright 2014-2015 BBC
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -57,14 +57,14 @@ Makefile
 libsupport/Makefile
 libs3client/Makefile
 libetcd/Makefile
-caches/Makefile
 libcrawl/Makefile
+libcrawl/caches/Makefile
 util/Makefile
-queues/Makefile
-processors/Makefile
-daemon/Makefile
-m4/Makefile
+crawler/Makefile
+crawler/queues/Makefile
+crawler/processors/Makefile
 init.d/Makefile
+m4/Makefile
 ])
 
 AC_CONFIG_FILES([init.d/crawler:init.d/crawler.sh.in],[chmod +x init.d/crawler])
