@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC
+ * Copyright 2014-2015 BBC
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -87,6 +87,7 @@ s3cache_init_(CRAWLCACHE *cache)
 	{
 		return 0;
 	}
+	crawl_log_(cache->crawl, LOG_DEBUG, "S3: initialising cache at <s3://%s>\n", cache->crawl->uri->host);
 	data->bucket = s3_create(cache->crawl->uri->host);
 	if(!data->bucket)
 	{
@@ -176,6 +177,7 @@ s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
 	f = tmpfile();
 	if(!f)
 	{
+		crawl_log_(cache->crawl, LOG_CRIT, "S3: failed to create temporary file\n");
 		return NULL;
 	}
 	e = 0;
@@ -183,6 +185,7 @@ s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
 	status = 0;
 	s3cache_copy_path_(cache, key, CACHE_PAYLOAD_SUFFIX);
 	req = s3_request_create(data->bucket, data->path, "GET");
+	crawl_log_(cache->crawl, LOG_DEBUG, "S3: fetching <%s>\n", data->path);
 	ch = s3_request_curl(req);
 	curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1);
 	curl_easy_setopt(ch, CURLOPT_WRITEDATA, f);
@@ -194,6 +197,7 @@ s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
 		curl_easy_getinfo(ch, CURLINFO_RESPONSE_CODE, &status);
 		if(status != 200)
 		{
+			crawl_log_(cache->crawl, LOG_ERR, "failed to retrieve <%s> from cache with HTTP status %d\n", data->path, status);
 			e = -1;
 		}			
 	}
@@ -246,6 +250,7 @@ s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *
 	status = 0;
 	s3cache_copy_path_(cache, key, CACHE_PAYLOAD_SUFFIX);
 	req = s3_request_create(data->bucket, data->path, "PUT");
+	crawl_log_(cache->crawl, LOG_DEBUG, "Uploading payload to <%s>\n", data->path);
 	ch = s3_request_curl(req);
 	curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1);
 	curl_easy_setopt(ch, CURLOPT_READDATA, f);

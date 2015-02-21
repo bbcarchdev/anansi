@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC
  */
 
 /*
@@ -31,7 +31,10 @@ static int thread_prefetch_(CRAWL *crawl, URI *uri, const char *uristr, void *us
 
 static char *cache, *username, *password, *endpoint; 
 static CONTEXT **contexts;
+static int activethreads;
 static pthread_mutex_t lock;
+static pthread_cond_t createcond;
+static pthread_mutex_t createlock;
 
 volatile int crawld_terminate = 0;
 
@@ -44,6 +47,8 @@ thread_init(void)
 	password = config_geta("cache:password", NULL);
 	endpoint = config_geta("cache:endpoint", NULL);
 	pthread_mutex_init(&lock, NULL);
+	pthread_cond_init(&createcond, NULL);
+	pthread_mutex_init(&createlock, NULL);
 	return 0;
 }
 
@@ -71,19 +76,26 @@ thread_run(void)
 		log_printf(LOG_CRIT, "failed to allocate memory for context pointers\n");
 		return -1;
 	}
-	
+
 	for(c = 0; c < nthreads; c++)
 	{
-		log_printf(LOG_DEBUG, "launching thread %d\n", c);
+		log_printf(LOG_DEBUG, "launching thread %d\n", c + 1);
 		if(thread_create(c))
 		{
-			log_printf(LOG_CRIT, "failed to create thread %d\n", c);
+			log_printf(LOG_CRIT, "failed to create thread %d\n", c + 1);
 			return -1;
 		}
 	}
 	log_printf(LOG_DEBUG, "main thread is now sleeping\n");
 	while(!crawld_terminate)
 	{
+		pthread_mutex_lock(&lock);
+		c = activethreads;
+		pthread_mutex_unlock(&lock);
+		if(!c)
+		{
+			break;
+		}
 		sleep(1);
 	}
 	thread_terminate();
@@ -136,7 +148,9 @@ thread_create(int offset)
 	CONTEXT *context;
 	CRAWL *crawl;
 	pthread_t thread;
-
+	int oneshot;
+	
+	oneshot = config_get_bool("crawler:oneshot", 0);
 	context = context_create(offset);
 	crawl = context->api->crawler(context);
 	if(!context)
@@ -171,7 +185,18 @@ thread_create(int offset)
 			return -1;
 		}
 	}
+	if(oneshot)
+	{
+		context->api->set_oneshot(context);
+	}
+	/* Launch the thread and wait for the signal from it that it's been
+	 * created.
+	 */
+	pthread_mutex_lock(&createlock);
 	pthread_create(&thread, NULL, thread_handler_, (void *) context);
+	pthread_cond_wait(&createcond, &createlock);
+	log_printf(LOG_DEBUG, "thread %d has started\n", offset + 1);
+	pthread_mutex_unlock(&createlock);
 	return 0;
 }
 
@@ -197,12 +222,19 @@ thread_handler_(void *arg)
 	if(thread_setup_(context, crawler))
 	{
 		context->api->release(context);
+		pthread_mutex_lock(&createlock);
+		pthread_cond_signal(&createcond);
+		pthread_mutex_unlock(&createlock);
 		return NULL;
 	}
 	pthread_mutex_lock(&lock);
+	activethreads++;
 	contexts[threadid] = context;
 	pthread_mutex_unlock(&lock);
 	log_printf(LOG_NOTICE, "[%s] crawler %d/%d (thread %d/%d), ready\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount);
+	pthread_mutex_lock(&createlock);
+	pthread_cond_signal(&createcond);
+	pthread_mutex_unlock(&createlock);
 	while(!context->api->terminated(context))
 	{
 		newbase = cluster_inst_id();
@@ -222,6 +254,10 @@ thread_handler_(void *arg)
 			log_printf(LOG_CRIT, "crawl perform operation failed: %s\n", strerror(errno));
 			break;
 		}
+		if(context->api->oneshot(context))
+		{
+			break;
+		}
 		if(context->api->terminated(context))
 		{
 			break;
@@ -232,6 +268,7 @@ thread_handler_(void *arg)
 	context->api->terminate(context);
 	pthread_mutex_lock(&lock);
 	contexts[threadid] = NULL;
+	activethreads--;
 	context->api->release(context);
 	pthread_mutex_unlock(&lock);
 	return NULL;

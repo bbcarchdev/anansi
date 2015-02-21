@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014-2015 BBC.
+ * Copyright 2014-2015 BBC
  */
 
 /*
@@ -57,6 +57,7 @@ static int db_insert_resource_txn(SQL *db, void *userdata);
 static int db_insert_root_txn(SQL *db, void *userdata);
 static int db_log_query(SQL *restrict db, const char *restrict statement);
 static int db_log_error(SQL *restrict db, const char *restrict sqlstate, const char *restrict message);
+
 static struct queue_api_struct db_api = {
 	NULL,
 	db_addref,
@@ -87,6 +88,8 @@ struct queue_struct
 	int ncaches;
 	char *buf;
 	size_t buflen;
+	int oneshot;
+	URI *testuri;
 };
 
 struct resource_insert
@@ -110,6 +113,7 @@ QUEUE *
 db_create(CONTEXT *ctx)
 {
 	QUEUE *p;
+	char *t;
 	const char *dburi;
 
 	p = (QUEUE *) calloc(1, sizeof(QUEUE));
@@ -149,6 +153,23 @@ db_create(CONTEXT *ctx)
 		free(p);
 		return NULL;
 	}
+	t = config_geta("crawler:test-uri", NULL);
+	if(t && t[0])
+	{
+		log_printf(LOG_NOTICE, "DB: using test URI <%s>\n", t);
+		p->testuri = uri_create_str(t, NULL);
+		if(!p->testuri)
+		{
+			log_printf(LOG_NOTICE, "DB: failed to parse URI <%s>\n", t);
+			sql_disconnect(p->db);
+			free(p);
+			free(t);
+			return NULL;
+		}
+		p->oneshot = 1;
+		db_force_add(p, p->testuri, t);
+	}
+	free(t);
 	return p;
 }
 
@@ -156,7 +177,7 @@ static int
 db_log_query(SQL *restrict db, const char *restrict statement)
 {
 	(void) db;
-	
+
 	log_printf(LOG_DEBUG, "DB: %s\n", statement);
 	return 0;
 }
@@ -165,11 +186,11 @@ static int
 db_log_error(SQL *restrict db, const char *restrict sqlstate, const char *restrict message)
 {
 	(void) db;
-	
+
 	log_printf(LOG_DEBUG, "DB Error: %s: %s\n", sqlstate, message);
 	return 0;
 }
-	
+
 
 /* Until libsql gets a DDL API, this will be messy */
 static int
@@ -188,7 +209,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 	if(lang != SQL_LANG_SQL)
 	{
 		return 0;
-	}	
+	}
 	if(newversion == 0)
 	{
 		/* Return target version */
@@ -279,7 +300,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 				"KEY \"crawl_resource_cache_bucket\" (\"cache_bucket\"),"
 				"KEY \"crawl_resource_crawl_instance\" (\"crawl_instance\"),"
 				"KEY \"crawl_resource_root\" (\"root\"),"
-				"KEY \"crawl_resource_next_fetch\" (\"next_fetch\")"				
+				"KEY \"crawl_resource_next_fetch\" (\"next_fetch\")"
 				") ENGINE=InnoDB DEFAULT CHARSET=utf8 DEFAULT COLLATE=utf8_unicode_ci";
 			break;
 		case SQL_VARIANT_POSTGRES:
@@ -390,7 +411,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 			if(sql_execute(sql, "CREATE INDEX \"crawl_resource_state\" ON \"crawl_resource\" ( \"state\" )"))
 			{
 				return -1;
-			}			
+			}
 		}
 		return 0;
 	}
@@ -461,6 +482,18 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 
 	*state = COS_NEW;
 	*next = NULL;
+
+	if(me->testuri)
+	{
+		*next = me->testuri;
+		*state = COS_FORCE;
+		me->testuri = NULL;
+		return 0;
+	}
+	if(me->oneshot)
+	{
+		return 0;
+	}
 	rs = sql_queryf(me->db,
 					"SELECT \"res\".\"uri\", \"res\".\"state\" "
 					" FROM "
@@ -541,7 +574,7 @@ db_uristr_key_root(QUEUE *me, const char *uristr, char **uri, char *urikey, uint
 	URI *u_resource, *u_root;
 	char *str, *t;
 	char skey[9];
-	
+
 	str = strdup(uristr);
 	if(!str)
 	{

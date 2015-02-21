@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014-2015 BBC.
+ * Copyright 2014-2015 BBC
  */
 
 /*
@@ -184,6 +184,8 @@ int crawl_set_checkpoint(CRAWL *crawl, crawl_checkpoint_cb cb);
 int crawl_set_unchanged(CRAWL *crawl, crawl_unchanged_cb cb);
 /* Set the callback function invoked before an object is fetched */
 int crawl_set_prefetch(CRAWL *crawl, crawl_prefetch_cb cb);
+/* Set the logging function used by the crawler */
+int crawl_set_logger(CRAWL *crawl, void (*logger)(int, const char *, va_list));
 
 /* Open the payload file for a crawl object */
 FILE *crawl_obj_open(CRAWLOBJ *obj);

@@ -46,6 +46,8 @@ static int context_set_base(CONTEXT *me, int base);
 static int context_set_threads(CONTEXT *me, int threads);
 static int context_terminate(CONTEXT *me);
 static int context_terminated(CONTEXT *me);
+static int context_oneshot(CONTEXT *me);
+static int context_set_oneshot(CONTEXT *me);
 
 static struct context_api_struct context_api = {
 	NULL,
@@ -64,7 +66,9 @@ static struct context_api_struct context_api = {
 	context_set_base,
 	context_set_threads,
 	context_terminate,
-	context_terminated
+	context_terminated,
+	context_oneshot,
+	context_set_oneshot,
 };
 
 CONTEXT *
@@ -88,6 +92,7 @@ context_create(int crawler_offset)
 		free(p);
 		return NULL;
 	}
+	crawl_set_logger(p->crawl, log_vprintf);
 	crawl_set_userdata(p->crawl, p);
 	crawl_set_verbose(p->crawl, config_get_bool("crawler:verbose", 0));
 	return p;
@@ -262,7 +267,6 @@ context_terminate(CONTEXT *me)
 	return 0;
 }
 
-
 static int
 context_terminated(CONTEXT *me)
 {
@@ -272,4 +276,17 @@ context_terminated(CONTEXT *me)
 	r =  me->terminate;
 	pthread_rwlock_unlock(&(me->lock));
 	return r;
+}
+
+static int
+context_oneshot(CONTEXT *me)
+{
+	return me->oneshot;
+}
+
+static int
+context_set_oneshot(CONTEXT *me)
+{
+	me->oneshot = 1;
+	return 1;
 }

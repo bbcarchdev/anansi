@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC
  */
 
 /*
@@ -98,6 +98,7 @@ struct crawl_struct
 	crawl_checkpoint_cb checkpoint;
 	crawl_unchanged_cb unchanged;
 	crawl_prefetch_cb prefetch;
+	void (*logger)(int priority, const char *format, va_list ap);
 };
 
 struct crawl_object_struct
@@ -133,6 +134,8 @@ struct crawl_fetch_data_struct
 	int generated_info;
 	int checkpoint_invoked;
 };
+
+void crawl_log_(CRAWL *obj, int priority, const char *format, ...);
 
 CRAWLOBJ *crawl_obj_create_(CRAWL *crawl, URI *uri);
 int crawl_obj_locate_(CRAWLOBJ *obj);

@@ -32,12 +32,16 @@ static int verbose;
 static ETCD *etcd, *clusterdir, *envdir;
 
 static int cluster_static_init_(void);
+static int cluster_static_detached_(void);
 
 static int cluster_etcd_init_(void);
+static int cluster_etcd_detached_(void);
 static int cluster_etcd_balance_(ETCD *dir);
 static int cluster_etcd_ping_(ETCD *dir, ETCDFLAGS flags);
 static void *cluster_etcd_balance_thread_(void *arg);
 static void *cluster_etcd_ping_thread_(void *arg);
+
+static int cluster_test_init_(void);
 
 typedef enum
 {
@@ -57,6 +61,10 @@ cluster_init(void)
 	clusterenv = config_geta("cluster:environment", "production");
 	registry = config_geta("cluster:registry", NULL);
 	verbose = config_get_bool("cluster:verbose", 0);
+	if(config_get_bool("crawler:oneshot", 0) || config_getptr_unlocked("crawler:test-uri", NULL))
+	{
+		return cluster_test_init_();
+	}
 	if(registry)
 	{
 		return cluster_etcd_init_();
@@ -115,16 +123,13 @@ cluster_env(void)
 int
 cluster_detached(void)
 {
-	ETCD *balance_dir, *ping_dir;
-
-	/* Start the cluster rebalancing thread */
-	balance_dir = etcd_clone(envdir);
-	pthread_create(&thread, NULL, cluster_etcd_balance_thread_, (void *) balance_dir);
-	/* Start the cluster ping thread */
-	ping_dir = etcd_clone(envdir);
-	pthread_create(&thread, NULL, cluster_etcd_ping_thread_, (void *) ping_dir);
-	log_printf(LOG_NOTICE, "cluster member %s:%s/%s initialised\n", inst_uuidstr, clustername, clusterenv);
-
+	switch(clustertype)
+	{
+	case CLUS_STATIC:
+		return cluster_static_detached_();
+	case CLUS_ETCD:
+		return cluster_etcd_detached_();
+	}
 	return 0;
 }
 
@@ -137,6 +142,24 @@ cluster_static_init_(void)
 	inst_threads = config_get_int("crawler:threads", 1);
 	clusterthreads = config_get_int("cluster:threads", 1);
 	log_printf(LOG_INFO, "initialising static cluster node [%d/%d] in environment '%s'\n", inst_id, clusterthreads, clusterenv);
+	return 0;
+}
+
+static int
+cluster_static_detached_(void)
+{
+	return 0;
+}
+
+/* Initialise a test cluster */
+static int
+cluster_test_init_(void)
+{
+	clustertype = CLUS_STATIC;
+	inst_id = 0;
+	inst_threads = 1;
+	clusterthreads = 1;
+	log_printf(LOG_NOTICE, "test mode enabled - ignoring cluster configuration\n");
 	return 0;
 }
 
@@ -182,6 +205,22 @@ cluster_etcd_init_(void)
 	cluster_etcd_ping_(envdir, ETCD_NONE);
 	/* Perform an initial cluster balancing */
 	cluster_etcd_balance_(envdir);
+	return 0;
+}
+
+static int
+cluster_etcd_detached_(void)
+{
+	ETCD *balance_dir, *ping_dir;
+
+	/* Start the cluster rebalancing thread */
+	balance_dir = etcd_clone(envdir);
+	pthread_create(&thread, NULL, cluster_etcd_balance_thread_, (void *) balance_dir);
+	/* Start the cluster ping thread */
+	ping_dir = etcd_clone(envdir);
+	pthread_create(&thread, NULL, cluster_etcd_ping_thread_, (void *) ping_dir);
+	log_printf(LOG_NOTICE, "cluster member %s:%s/%s initialised\n", inst_uuidstr, clustername, clusterenv);
+
 	return 0;
 }
 

@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014-2015 BBC.
+ * Copyright 2014-2015 BBC
  */
 
 /*
@@ -47,7 +47,6 @@ main(int argc, char **argv)
 	{
 		exit(EXIT_FAILURE);
 	}
-	log_set_ident(short_program_name);
 	if(config_load(NULL))
 	{
 		return 1;
@@ -113,7 +112,7 @@ main(int argc, char **argv)
 	{
 		return 1;
 	}
-	
+
 	processor_cleanup();
 	queue_cleanup();
 	thread_cleanup();
@@ -123,6 +122,7 @@ main(int argc, char **argv)
 static int
 config_defaults(void)
 {
+	log_set_ident("crawld");
 	config_set_default("log:ident", "crawld");
 	config_set_default("log:facility", "daemon");
 	config_set_default("log:level", "notice");
@@ -134,7 +134,7 @@ config_defaults(void)
 	config_set_default("instance:crawlercount", "1");
 	config_set_default("instance:cache", "1");
 	config_set_default("instance:cachecount", "1");
-	config_set_default("instance:threadcount", "1");	
+	config_set_default("instance:threadcount", "1");
 	config_set_default("crawler:pidfile", LOCALSTATEDIR "/run/crawld.pid");
 	config_set_default("queue:name", "db");
 	config_set_default("processor:name", "rdf");
@@ -145,8 +145,10 @@ config_defaults(void)
 static int
 process_args(int argc, char **argv)
 {
-	int c;
+	int c, opt_nodetach, opt_debug;
 
+	opt_nodetach = 0;
+	opt_debug = 0;
 	short_program_name = strrchr(argv[0], '/');
 	if(short_program_name)
 	{
@@ -156,7 +158,7 @@ process_args(int argc, char **argv)
 	{
 		short_program_name = argv[0];
 	}
-	while((c = getopt(argc, argv, "hfdc:")) != -1)
+	while((c = getopt(argc, argv, "hfdc:t:")) != -1)
 	{
 		switch(c)
 		{
@@ -164,18 +166,28 @@ process_args(int argc, char **argv)
 			usage();
 			exit(EXIT_SUCCESS);
 		case 'f':
-			config_set("crawler:detach", "0");
+			opt_nodetach = 1;
 			break;
 		case 'd':
+			opt_debug = 1;
+			opt_nodetach = 1;
+			break;
+		case 'c':			
+			config_set("global:configFile", optarg);
+			break;
+		case 't':
+			opt_nodetach = 1;
+			opt_debug = 1;
+			log_set_level(LOG_DEBUG);
+			config_set("crawler:test-uri", optarg);
+			config_set("crawler:oneshot", "1");
 			config_set("crawler:detach", "0");
+			config_set("crawler:verbose", "1");
 			config_set("log:level", "debug");
 			config_set("log:stderr", "1");
 			config_set("queue:debug-queries", "1");
 			config_set("queue:debug-errors", "1");
 			config_set("cluster:verbose", "1");
-			break;
-		case 'c':
-			config_set("global:configFile", optarg);
 			break;
 		default:
 			usage();
@@ -189,6 +201,24 @@ process_args(int argc, char **argv)
 		usage();
 		return -1;
 	}
+	if(opt_nodetach)
+	{
+		config_set("crawler:detach", "0");
+	}
+	if(opt_debug)
+	{
+		log_set_level(LOG_DEBUG);
+		log_set_syslog(0);
+		log_set_stderr(1);
+		config_set("crawler:detach", "0");
+		config_set("crawler:verbose", "1");
+		config_set("log:level", "debug");
+		config_set("log:syslog", "0");
+		config_set("log:stderr", "1");
+		config_set("queue:debug-queries", "1");
+		config_set("queue:debug-errors", "1");
+		config_set("cluster:verbose", "1");
+	}
 	return 0;
 }
 
@@ -201,14 +231,15 @@ usage(void)
 		   "  -h                   Print this notice and exit\n"
 		   "  -f                   Don't detach and run in the background\n"
 		   "  -d                   Enable debug output to standard error\n"
-		   "  -c FILE              Specify path to configuration file\n",
+		   "  -c FILE              Specify path to configuration file\n"
+		   "  -t URI               Test crawling a single URI (implies -d)\n",
 		   short_program_name);
 }
 
 pid_t
 start_daemon(const char *configkey, const char *pidfile)
 {
-	pid_t child;    
+	pid_t child;
 	char *file;
 	FILE *f;
 	int fd;

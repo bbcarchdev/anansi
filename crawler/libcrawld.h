@@ -52,6 +52,8 @@ struct context_api_struct
 	int (*set_threads)(CONTEXT *me, int threads);
 	int (*terminate)(CONTEXT *me);
 	int (*terminated)(CONTEXT *me);
+	int (*oneshot)(CONTEXT *me);
+	int (*set_oneshot)(CONTEXT *me);
 };
 
 #ifndef QUEUE_STRUCT_DEFINED

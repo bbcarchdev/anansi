@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC
  */
 
 /*
@@ -68,7 +68,9 @@ static unsigned long
 diskcache_init_(CRAWLCACHE *cache)
 {
 	(void) cache;
+
 	
+	crawl_log_(cache->crawl, LOG_DEBUG, "disk: initialising cache at <%s>\n", cache->crawl->cachepath);
 	return 1;
 }
 
@@ -97,11 +99,18 @@ diskcache_open_write_(CRAWLCACHE *cache, const CACHEKEY key)
 static FILE *
 diskcache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
 {
-	if(diskcache_copy_filename_(cache->crawl, key, CACHE_PAYLOAD_SUFFIX, 1))
+	FILE *f;
+
+	if(diskcache_copy_filename_(cache->crawl, key, CACHE_PAYLOAD_SUFFIX, 0))
 	{
 		return NULL;
 	}
-	return fopen(cache->crawl->cachefile, "rb");
+	f = fopen(cache->crawl->cachefile, "rb");
+	if(!f)
+	{
+		crawl_log_(cache->crawl, LOG_ERR, "disk: failed to open %s for reading: %s\n", cache->crawl->cachefile, strerror(errno));
+	}
+	return f;
 }
 
 static int

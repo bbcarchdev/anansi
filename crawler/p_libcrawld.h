@@ -59,6 +59,7 @@ struct context_struct
 	size_t cfgbuflen;
 	char *cfgbuf;
 	int terminate;
+	int oneshot;
 };
 
 int policy_uri_(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);

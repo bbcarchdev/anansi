@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC
  */
 
 /*
@@ -302,4 +302,28 @@ crawl_set_prefetch(CRAWL *crawl, crawl_prefetch_cb cb)
 {
 	crawl->prefetch = cb;
 	return 0;
+}
+
+int
+crawl_set_logger(CRAWL *crawl, void (*logger)(int, const char *, va_list))
+{
+	crawl->logger = logger;
+	return 0;
+}
+
+void
+crawl_log_(CRAWL *crawl, int priority, const char *format, ...)
+{
+	va_list ap;
+
+	va_start(ap, format);
+	if(crawl->logger)
+	{
+		crawl->logger(priority, format, ap);
+	}
+	else
+	{
+		vsyslog(priority, format, ap);
+	}
+	va_end(ap);
 }
