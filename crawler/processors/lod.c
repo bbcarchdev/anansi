@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -158,7 +158,7 @@ lod_get_content_location(CRAWLOBJ *obj, const char *base)
 				if(array && array->type == ARRAY)
 				{
 					anum = jd_count(array);
-					for(d = 0; d < num; d++)
+					for(d = 0; d < anum; d++)
 					{
 						str = jd_get_idx(array, d);
 						if(!str || str->type != STRING)
