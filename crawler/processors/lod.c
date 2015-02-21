@@ -25,8 +25,6 @@
 
 static int lod_rdf_filter(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *model);
 static int lod_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject);
-static char *lod_get_content_location(CRAWLOBJ *obj, const char *base);
-static int lod_same_origin(URI_INFO *a, URI_INFO *b);
 
 PROCESSOR *
 lod_create(CRAWL *crawler)
@@ -46,7 +44,7 @@ static int
 lod_rdf_filter(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *model)
 {
 	int found;
-	char *cl;
+	const char *cl;
 
 	log_printf(LOG_DEBUG, "LOD: processing <%s>\n", uri);
 	found = 0;
@@ -56,14 +54,13 @@ lod_rdf_filter(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *mode
 	}
 	if(!found)
 	{
-		cl = lod_get_content_location(obj, uri);
-		if(cl)
+		cl = crawl_obj_content_location(obj);
+		if(cl && strcmp(cl, uri))
 		{
 			if(lod_check_licenses(me, model, cl))
 			{
 				found = 1;
 			}
-			free(cl);
 		}
 	}
 	if(!found)
@@ -73,130 +70,6 @@ lod_rdf_filter(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *mode
 	}
 	log_printf(LOG_DEBUG, "LOD: suitable licensing triple located\n");
 	return 1;
-}
-
-static int
-lod_same_origin(URI_INFO *a, URI_INFO *b)
-{
-	if((a->scheme && !b->scheme) ||
-	   (!a->scheme && b->scheme) ||
-	   (a->scheme && b->scheme && strcasecmp(a->scheme, b->scheme)))
-	{
-		log_printf(LOG_DEBUG, "LOD: same-origin: scheme differs\n");
-		return 0;
-	}
-	if(!a->port && a->scheme)
-	{
-		if(!strcasecmp(a->scheme, "http"))
-		{
-			a->port = 80;
-		}
-		else if(!strcasecmp(a->scheme, "https"))
-		{
-			a->port = 443;
-		}
-	}
-	if(!b->port && b->scheme)
-	{
-		if(!strcasecmp(b->scheme, "http"))
-		{
-			b->port = 80;
-		}
-		else if(!strcasecmp(b->scheme, "https"))
-		{
-			b->port = 443;
-		}
-	}
-	if(a->port != b->port)
-	{
-		log_printf(LOG_DEBUG, "LOD: same-origin: port differs\n");
-		return 0;
-	}		
-	if((a->host && !b->host) ||
-	   (!a->host && b->host) ||
-	   (a->host && b->host && strcasecmp(a->host, b->host)))
-	{
-		log_printf(LOG_DEBUG, "LOD: same-origin: host differs\n");
-		return 0;
-	}
-	return 1;
-}
-
-static char *
-lod_get_content_location(CRAWLOBJ *obj, const char *base)
-{
-	char *location;
-	const char *cl;
-	jd_var headers = JD_INIT, keys = JD_INIT, *ks, *array, *str;
-	size_t c, d, num, anum;
-	URI *baseuri, *cluri;
-	URI_INFO *baseinfo, *clinfo;
-
-	baseuri = uri_create_str(base, NULL);
-	if(!baseuri)
-	{
-		log_printf(LOG_CRIT, "failed to create URI from <%s>\n", base);
-		return NULL;
-	}
-	JD_SCOPE
-	{
-		baseinfo = uri_info(baseuri);
-		location = NULL;
-		crawl_obj_headers(obj, &headers, 0);
-		jd_keys(&keys, &headers);
-		num = jd_count(&keys);
-		for(c = 0; c < num; c++)
-		{
-			ks = jd_get_idx(&keys, c);
-			if(!ks || ks->type != STRING)
-			{
-				continue;
-			}
-			if(!strcasecmp(jd_bytes(ks, NULL), "content-location"))
-			{
-				array = jd_get_key(&headers, ks, 0);
-				if(array && array->type == ARRAY)
-				{
-					anum = jd_count(array);
-					for(d = 0; d < anum; d++)
-					{
-						str = jd_get_idx(array, d);
-						if(!str || str->type != STRING)
-						{
-							continue;
-						}
-						cl = jd_bytes(str, NULL);
-						cluri = uri_create_str(cl, baseuri);
-						if(!cluri)
-						{
-							continue;
-						}
-						clinfo = uri_info(cluri);
-						if(lod_same_origin(baseinfo, clinfo))
-						{	
-							location = uri_stralloc(cluri);
-							log_printf(LOG_DEBUG, "LOD: Content-Location: <%s>\n", location);
-						}
-						uri_info_destroy(clinfo);
-						uri_destroy(cluri);
-						if(location)
-						{
-							break;
-						}
-					}
-					if(location)
-					{
-						break;
-					}
-				}
-			}
-		}
-		uri_info_destroy(baseinfo);
-		uri_destroy(baseuri);
-		jd_release(&headers);
-		jd_release(&keys);
-	}
-	return location;
 }
 
 static int
