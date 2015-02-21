@@ -32,7 +32,8 @@
 static unsigned long rdf_addref(PROCESSOR *me);
 static unsigned long rdf_release(PROCESSOR *me);
 static int rdf_process(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
-
+static int rdf_process_headers(PROCESSOR *me, CRAWLOBJ *obj);
+static int rdf_process_link(PROCESSOR *me, CRAWLOBJ *obj, const char *value, librdf_uri *resource);
 static int rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
 static int rdf_postprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
 static int rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type, struct curl_slist **subjects);
@@ -262,7 +263,6 @@ rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conte
 	{
 		return -1;
 	}
-	
 	me->fobj = crawl_obj_open(obj);
 	if(!me->fobj)
 	{
@@ -277,6 +277,7 @@ rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conte
 		return -1;		
 	}
 	librdf_free_parser(parser);
+	rdf_process_headers(me, obj);
 	if(me->filter)
 	{
 		if(!me->filter(me, obj, uri, me->model))
@@ -302,6 +303,234 @@ rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conte
 	}
 	librdf_free_stream(stream);
 	return 1;
+}
+
+static int
+rdf_process_headers(PROCESSOR *me, CRAWLOBJ *obj)
+{
+	jd_var headers = JD_INIT, keys = JD_INIT, *ks, *array, *str;
+	size_t c, d, num, anum;
+	const char *value, *loc;
+	librdf_uri *resource;
+
+	loc = crawl_obj_content_location(obj);
+	if(!loc)
+	{
+		loc = crawl_obj_uristr(obj);
+	}
+	log_printf(LOG_DEBUG, "RDF: Content-Location is <%s>\n", loc);
+	resource = librdf_new_uri(me->world, (const unsigned char *) loc);
+	
+	JD_SCOPE
+	{
+		crawl_obj_headers(obj, &headers, 0);
+				jd_keys(&keys, &headers);
+		num = jd_count(&keys);
+		for(c = 0; c < num; c++)
+		{
+			ks = jd_get_idx(&keys, c);
+			if(!ks || ks->type != STRING)
+			{
+				continue;
+			}
+			if(!strcasecmp(jd_bytes(ks, NULL), "link"))
+			{
+				array = jd_get_key(&headers, ks, 0);
+				if(array && array->type == ARRAY)
+				{
+					anum = jd_count(array);
+					for(d = 0; d < anum; d++)
+					{
+						str = jd_get_idx(array, d);
+						if(!str || str->type != STRING)
+						{
+							continue;
+						}
+						value = jd_bytes(str, NULL);
+						rdf_process_link(me, obj, value, resource);
+					}
+				}
+			}
+		}
+	}
+	librdf_free_uri(resource);
+	return 0;
+}
+
+static int
+rdf_process_link(PROCESSOR *me, CRAWLOBJ *obj, const char *value, librdf_uri *resource)
+{
+	static const char *relbase = "http://www.w3.org/1999/xhtml/vocab#";
+	const char *t, *pend, *vstart, *s;
+	char *relstr, *p;
+	librdf_uri *uri, *rel;
+	int q, abs;
+	librdf_node *subject, *predicate, *object;
+	librdf_statement *st;
+
+	(void) obj;
+
+	t = value;
+	while(*t && isspace(*t))
+	{
+		t++;
+	}
+	if(*t != '<')
+	{
+		log_printf(LOG_NOTICE, "RDF: ignoring malformed Link header (%s)\n", value);
+		return -1;
+	}
+	value = t;
+	while(*t && *t != '>')
+	{
+		t++;
+	}
+	if(!*t)
+	{
+		log_printf(LOG_NOTICE, "RDF: ignoring malformed Link header (%s)\n", value);
+		return -1;
+	}
+	uri = librdf_new_uri2(me->world, (const unsigned char *) (value + 1), (size_t) (t - value - 1));
+	if(!uri)
+	{
+		log_printf(LOG_ERR, "RDF: failed to parse URI: <%s>\n", (const char *) librdf_uri_to_string(uri));
+		return -1;
+	}
+	log_printf(LOG_DEBUG, "RDF: parsed Link URI: <%s>\n", (const char *) librdf_uri_to_string(uri));
+	value = t + 1;
+	rel = NULL;
+	while(*value)
+	{
+		while(*value && *value != ',')
+		{
+			vstart = NULL;
+			q = 0;
+			while(*value == ' ' || *value == '\t')
+			{
+				value++;
+			}
+			if(!*value)
+			{
+				break;
+			}
+			t = value;
+			while(*t)
+			{
+				if(*t == '=' || *t == ';')
+				{
+					break;
+				}
+				if(*t == ' ' || *t == '\t')
+				{
+					log_printf(LOG_NOTICE, "RDF: ignoring link relation with malformed parameters ('%s')\n", value);
+					librdf_free_uri(uri);
+					return -1;
+				}
+				t++;
+			}
+			if(!*t || *t == ',')
+			{
+				break;
+			}	   
+			if(*t == ';')
+			{
+				t++;
+				value = t;
+				continue;
+			}
+			pend = t;
+			t++;
+			while(*t == ' ' || *t == '\t')
+			{
+				t++;
+			}
+			vstart = t;
+			while(*t)
+			{
+				if(q)
+				{
+					if(*t == q)
+					{
+						q = 0;
+					}
+					t++;
+					continue;				
+				}
+				if(*t == '"')
+				{
+					q = *t;
+					t++;
+					continue;
+				}
+				if(*t == ';')
+				{
+					break;
+				}
+				if(*t == ',')
+				{
+					break;
+				}
+				t++;
+			}
+			if(pend - value == 3 && !strncmp(value, "rel", 3))
+			{
+				/* If the relation is not something that looks like a URI,
+				 * create one by concatenating it to relbase; otherwise,
+				 * just parse the relation as a URI.
+				 */
+				relstr = (char *) malloc(t - vstart + strlen(relbase) + 1);
+				p = relstr;
+				abs = 0;
+				for(s = vstart; s < t; s++)
+				{
+					if(*s == ':' || *s == '/')
+					{
+						abs = 1;
+						break;
+					}
+				}
+				if(!abs)
+				{
+					strcpy(relstr, relbase);
+					p = strchr(relstr, 0);
+				}
+				for(s = vstart; s < t; s++)
+				{
+					if(*s == '"')
+					{
+						continue;
+					}
+					*p = *s;
+					p++;
+				}
+				*p = 0;
+				rel = librdf_new_uri(me->world, (const unsigned char *) relstr);
+				log_printf(LOG_DEBUG, "RDF: parsed link relation URI: <%s>\n", (const char *) librdf_uri_to_string(rel));
+				free(relstr);
+				/* Create a new triple (content-location, relation, target) */
+				subject = librdf_new_node_from_uri(me->world, resource);
+				predicate = librdf_new_node_from_uri(me->world, rel);
+				object = librdf_new_node_from_uri(me->world, uri);
+				st = librdf_new_statement_from_nodes(me->world, subject, predicate, object);
+				/* Add the triple to the model */
+				librdf_model_add_statement(me->model, st);
+				librdf_free_statement(st);
+				librdf_free_uri(rel);
+			}
+			value = t;
+			if(!*value || *value == ',')
+			{
+				break;
+			}
+			value++;
+		}
+		if(*value)
+		{
+			value++;
+		}
+	}
+	librdf_free_uri(uri);
+	return 0;
 }
 
 static int
