@@ -25,6 +25,17 @@
 
 static int lod_rdf_filter(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *model);
 static int lod_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject);
+static int lod_init_list(PROCESSOR *me, char ***list, const char *section, const char *key);
+static int lod_list_cb(const char *key, const char *value, void *userdata);
+static int lod_valid_license(PROCESSOR *me, const char *uri);
+
+struct list_data_struct
+{
+	PROCESSOR *me;
+	char **list;
+	size_t size;
+	size_t count;
+};
 
 PROCESSOR *
 lod_create(CRAWL *crawler)
@@ -37,6 +48,9 @@ lod_create(CRAWL *crawler)
 		return NULL;
 	}
 	rdf_set_filter(p, lod_rdf_filter);
+	lod_init_list(p, &(p->license_whitelist), "lod:licenses", "whitelist");
+	lod_init_list(p, &(p->license_blacklist), "lod:licenses", "blacklist");
+	lod_init_list(p, &(p->license_predicates), "lod:licenses", "predicate");
 	return p;
 }
 
@@ -64,7 +78,7 @@ lod_rdf_filter(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *mode
 		}
 	}
 	if(!found)
-	{			
+	{
 		log_printf(LOG_DEBUG, "LOD: failed to locate a suitable licensing triple\n");
 		return 0;
 	}
@@ -73,35 +87,59 @@ lod_rdf_filter(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *mode
 }
 
 static int
+lod_init_list(PROCESSOR *me, char ***list, const char *section, const char *key)
+{
+	struct list_data_struct data;
+	size_t c;
+
+	memset(&data, 0, sizeof(data));
+	data.me = me;
+	if(config_get_all(section, key, lod_list_cb, &data))
+	{
+		for(c = 0; c < data.count; c++)
+		{
+			free(data.list[c]);
+		}
+		free(data.list);
+		return -1;
+	}
+	*list = data.list;
+	return 0;
+}
+
+static int
+lod_list_cb(const char *key, const char *value, void *userdata)
+{
+	struct list_data_struct *data;
+	char **p;
+
+	(void) key;
+
+	data = (struct list_data_struct *) userdata;
+	if(data->count + 1 >= data->size)
+	{
+		p = (char **) realloc(data->list, sizeof(char *) * (data->size + 8));
+		if(!p)
+		{
+			return -1;
+		}
+		data->list = p;
+		data->size += 8;
+		memset(&(data->list[data->count]), 0, sizeof(char *) * (data->size - data->count));
+	}
+	data->list[data->count] = strdup(value);
+	if(!data->list[data->count])
+	{
+		return -1;
+	}
+	data->count++;
+	return 0;
+}
+
+static int
 lod_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject)
 {
-	static const char *predicates[] = {
-		"http://purl.org/dc/terms/rights",
-		"http://purl.org/dc/terms/license",
-		"http://purl.org/dc/terms/accessRights",
-		"http://creativecommons.org/ns#license",
-		"http://www.w3.org/1999/xhtml/vocab#license",
-		NULL
-	};
-	
-	static const char *licenses[] = {
-		"http://creativecommons.org/publicdomain/zero/1.0/",
-		"http://id.loc.gov/about/",
-		"http://creativecommons.org/licenses/by/4.0/",
-		"http://reference.data.gov.uk/id/open-government-licence",
-		"http://bbcarchdev.github.io/licences/dps/1.0#id",
-		"http://creativecommons.org/licenses/by/1.0/",
-		"http://creativecommons.org/licenses/by/2.5/",
-		"http://creativecommons.org/licenses/by/3.0/",
-		"http://creativecommons.org/licenses/by/3.0/us/",
-		"https://www.nationalarchives.gov.uk/doc/open-government-licence/version/2/",
-		"https://www.nationalarchives.gov.uk/doc/open-government-licence/version/2/",
-		"http://www.nationalarchives.gov.uk/doc/open-government-licence/version/1/",
-		"http://www.nationalarchives.gov.uk/doc/open-government-licence/version/1/",
-		NULL
-	};
-
-	size_t c, d;
+	size_t c;
 	librdf_world *world;
 	librdf_stream *stream;
 	librdf_statement *query, *st;
@@ -109,6 +147,11 @@ lod_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject)
 	librdf_uri *puri, *ouri;
 	const char *predicate, *object;
 
+	if(!me->license_predicates)
+	{
+		log_printf(LOG_DEBUG, "LOD: no licensing predicates configured, will not check licensing\n");
+		return 0;
+	}
 	log_printf(LOG_DEBUG, "LOD: examining <%s> for licensing triples\n", subject);
 	world = rdf_world(me);
 	query = librdf_new_statement(world);
@@ -124,9 +167,9 @@ lod_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject)
 		   (puri = librdf_node_get_uri(pnode)) &&
 		   (predicate = (const char *) librdf_uri_as_string(puri)))
 		{
-			for(c = 0; predicates[c]; c++)
+			for(c = 0; me->license_predicates[c]; c++)
 			{
-				if(!strcmp(predicates[c], predicate))
+				if(!strcmp(me->license_predicates[c], predicate))
 				{
 					log_printf(LOG_DEBUG, "LOD: found predicate <%s>\n", predicate);
 					onode = librdf_statement_get_object(st);
@@ -134,16 +177,14 @@ lod_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject)
 					   (ouri = librdf_node_get_uri(onode)) &&
 					   (object = (const char *) librdf_uri_as_string(ouri)))
 					{
-						for(d = 0; licenses[d]; d++)
+						if(lod_valid_license(me, object))
 						{
-							if(!strcmp(licenses[d], object))
-							{
 								log_printf(LOG_DEBUG, "LOD: found license <%s>\n", object);
 								librdf_free_stream(stream);
 								librdf_free_statement(query);
 								return 1;
-							}
 						}
+						log_printf(LOG_DEBUG, "LOD: license <%s> is not acceptable\n", object);
 					}
 				}
 			}
@@ -154,4 +195,37 @@ lod_check_licenses(PROCESSOR *me, librdf_model *model, const char *subject)
 	librdf_free_stream(stream);
 	librdf_free_statement(query);
 	return 0;
+}
+
+static int
+lod_valid_license(PROCESSOR *me, const char *uri)
+{
+	size_t c;
+
+	if(me->license_blacklist)
+	{
+		for(c = 0; me->license_blacklist[c]; c++)
+		{
+			if(!strcmp(me->license_blacklist[c], uri))
+			{
+				/* License is blacklisted */
+				return 0;
+			}
+		}
+	}
+	if(me->license_whitelist)
+	{
+		for(c = 0; me->license_whitelist[c]; c++)
+		{
+			if(!strcmp(me->license_whitelist[c], uri))
+			{
+				/* License is whitelisted */
+				return 1;
+			}
+		}
+		/* License is not whitelisted */
+		return 0;
+	}
+	/* License is not blacklisted, and there is no whitelist */
+	return 1;
 }

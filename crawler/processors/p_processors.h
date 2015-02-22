@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -51,6 +51,9 @@ struct processor_struct
 	const char *parser_type;
 	FILE *fobj;
 	rdf_filter_cb filter;
+	char **license_predicates;
+	char **license_whitelist;
+	char **license_blacklist;
 };
 
 extern PROCESSOR *rdf_create(CRAWL *crawler);

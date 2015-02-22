@@ -79,12 +79,38 @@ rdf_addref(PROCESSOR *me)
 static unsigned long
 rdf_release(PROCESSOR *me)
 {
+	size_t c;
+
 	me->refcount--;
 	if(!me->refcount)
 	{
 		if(me->world)
 		{
 			librdf_free_world(me->world);
+		}
+		if(me->license_predicates)
+		{
+			for(c = 0; me->license_predicates[c]; c++)
+			{
+				free(me->license_predicates[c]);
+			}
+			free(me->license_predicates);
+		}
+		if(me->license_whitelist)
+		{
+			for(c = 0; me->license_whitelist[c]; c++)
+			{
+				free(me->license_whitelist[c]);
+			}
+			free(me->license_whitelist);
+		}
+		if(me->license_blacklist)
+		{
+			for(c = 0; me->license_blacklist[c]; c++)
+			{
+				free(me->license_blacklist[c]);
+			}
+			free(me->license_blacklist);
 		}
 		free(me->content_type);
 		free(me);
