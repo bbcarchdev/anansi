@@ -29,12 +29,29 @@
 # include <unistd.h>
 # include <syslog.h>
 
+# define PROCESSOR_STRUCT_DEFINED       1
+
 # include "libsupport.h"
 # include "libcrawld.h"
 # include <curl/curl.h>
 # include <librdf.h>
 
 typedef int (*rdf_filter_cb)(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *model);
+
+struct processor_struct
+{
+	struct processor_api_struct *api;
+	unsigned long refcount;
+	CRAWL *crawl;
+	librdf_world *world;
+	librdf_storage *storage;
+	librdf_model *model;
+	librdf_uri *uri;
+	char *content_type;
+	const char *parser_type;
+	FILE *fobj;
+	rdf_filter_cb filter;
+};
 
 extern PROCESSOR *rdf_create(CRAWL *crawler);
 extern PROCESSOR *lod_create(CRAWL *crawler);

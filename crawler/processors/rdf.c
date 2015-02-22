@@ -25,8 +25,6 @@
 # include "config.h"
 #endif
 
-#define PROCESSOR_STRUCT_DEFINED       1
-
 #include "p_processors.h"
 
 static unsigned long rdf_addref(PROCESSOR *me);
@@ -44,21 +42,6 @@ static struct processor_api_struct rdf_api = {
 	rdf_addref,
 	rdf_release,
 	rdf_process
-};
-
-struct processor_struct
-{
-	struct processor_api_struct *api;
-	unsigned long refcount;
-	CRAWL *crawl;
-	librdf_world *world;
-	librdf_storage *storage;
-	librdf_model *model;
-	librdf_uri *uri;
-	char *content_type;
-	const char *parser_type;
-	FILE *fobj;
-	rdf_filter_cb filter;
 };
 
 PROCESSOR *
