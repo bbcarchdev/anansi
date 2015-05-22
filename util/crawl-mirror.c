@@ -29,12 +29,14 @@
 #include <errno.h>
 #include <ctype.h>
 #include <liburi.h>
+#include <syslog.h>
 #include <libxml/HTMLparser.h>
 
 #include "libcrawl.h"
 
 #define QUEUE_BLOCK_SIZE               16
 
+static const char *progname;
 static URI *initial_uri;
 static char *initial_uri_str;
 static URI **queue;
@@ -43,6 +45,7 @@ size_t queue_size;
 
 /* Mirror a site using libcrawl and libxml2 */
 
+static void logger(int level, const char *fmt, va_list ap);
 static int push_str(CRAWL *crawl, const char *uristr);
 static int push_uri(CRAWL *crawl, URI *uri);
 static int next_callback(CRAWL *crawl, URI **next, CRAWLSTATE *state, void *userdata);
@@ -55,25 +58,44 @@ int
 main(int argc, char **argv)
 {
 	CRAWL *crawl;
-	
+
+	if((progname = strrchr(argv[0], '/')))
+	{
+		progname++;
+	}
+	else
+	{
+		progname = argv[0];
+	}
 	if(argc != 2)
 	{
-		fprintf(stderr, "Usage: %s URI\n", argv[0]);
+		fprintf(stderr, "Usage: %s URI\n", progname);
 		exit(EXIT_FAILURE);
 	}
 	crawl = crawl_create();
+	crawl_set_logger(crawl, logger);
 	crawl_set_accept(crawl, "text/html;q=1.0, */*;q=0.5");
 	crawl_set_next(crawl, next_callback);
 	crawl_set_updated(crawl, updated_callback);
 	crawl_set_uri_policy(crawl, policy_callback);
 	if(push_str(crawl, argv[1]))
 	{
-		fprintf(stderr, "%s: %s\n", argv[0], strerror(errno));
+		fprintf(stderr, "%s: %s\n", progname, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 	crawl_perform(crawl);
 	crawl_destroy(crawl);
 	return 0;
+}
+
+static void
+logger(int level, const char *fmt, va_list ap)
+{
+	if(level <= LOG_NOTICE)
+	{
+		fprintf(stderr, "%s: ", progname);
+		vfprintf(stderr, fmt, ap);
+	}
 }
 
 static int

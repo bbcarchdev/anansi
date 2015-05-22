@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <jsondata.h>
+#include <syslog.h>
 
 #include "libcrawl.h"
 
@@ -43,6 +44,7 @@ static int verbose = 0;
 
 static void usage(void);
 static int process_args(int argc, char **argv);
+static void logger(int level, const char *fmt, va_list ap);
 
 /* Immediately fetch the specified URI using libcrawl */
 int
@@ -58,6 +60,7 @@ main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 	crawl = crawl_create();	
+	crawl_set_logger(crawl, logger);
 	crawl_set_verbose(crawl, verbose);
 	crawl_set_accept(crawl, accept);
 	if(cache)
@@ -165,4 +168,12 @@ usage(void)
 		   progname);
 }
 
-		   
+static void
+logger(int level, const char *fmt, va_list ap)
+{
+	if(verbose || level <= LOG_NOTICE)
+	{
+		fprintf(stderr, "%s: ", progname);
+		vfprintf(stderr, fmt, ap);
+	}
+}

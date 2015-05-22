@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC.
  */
 
 /*
@@ -28,8 +28,13 @@
 #include <string.h>
 #include <errno.h>
 #include <jsondata.h>
+#include <syslog.h>
 
 #include "libcrawl.h"
+
+static const char *progname;
+
+static void logger(int level, const char *fmt, va_list ap);
 
 /* Locate the cached data for the specified URI using libcrawl */
 int
@@ -38,17 +43,26 @@ main(int argc, char **argv)
 	CRAWL *crawl;
 	CRAWLOBJ *obj;
 	jd_var headers = JD_INIT;
-	
+
+	if((progname = strrchr(argv[0], '/')))
+	{
+		progname++;
+	}
+	else
+	{
+		progname = argv[0];
+	}	
 	if(argc != 2)
 	{
-		fprintf(stderr, "Usage: %s URI\n", argv[0]);
+		fprintf(stderr, "Usage: %s URI\n", progname);
 		exit(EXIT_FAILURE);
 	}
 	crawl = crawl_create();
+	crawl_set_logger(crawl, logger);
 	obj = crawl_locate(crawl, argv[1]);
 	if(!obj)
 	{
-		fprintf(stderr, "%s: failed to locate resource: %s\n", argv[0], strerror(errno));
+		fprintf(stderr, "%s: failed to locate resource: %s\n", progname, strerror(errno));
 		crawl_destroy(crawl);
 		return 1;
 	}
@@ -64,4 +78,14 @@ main(int argc, char **argv)
 	crawl_obj_destroy(obj);
 	crawl_destroy(crawl);
 	return 0;
+}
+
+static void
+logger(int level, const char *fmt, va_list ap)
+{
+	if(level <= LOG_NOTICE)
+	{
+		fprintf(stderr, "%s: ", progname);
+		vfprintf(stderr, fmt, ap);
+	}
 }
