@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014 BBC.
+ * Copyright 2014-2015 BBC.
  */
 
 /*
@@ -122,36 +122,78 @@ crawl_cache_key_(CRAWL *crawl, CACHEKEY dest, const char *uri)
 char *
 cache_uri_(CRAWL *crawl, const CACHEKEY key)
 {
+	if(!crawl->cache.impl)
+	{
+		if(crawl_cache_init_(crawl))
+		{
+			return NULL;
+		}
+	}
 	return crawl->cache.impl->uri(&(crawl->cache), key);
 }
 
 FILE *
 cache_open_payload_write_(CRAWL *crawl, const CACHEKEY key)
 {
+	if(!crawl->cache.impl)
+	{
+		if(crawl_cache_init_(crawl))
+		{
+			return NULL;
+		}
+	}
 	return crawl->cache.impl->payload_open_write(&(crawl->cache), key);
 }
 
 int
 cache_close_payload_rollback_(CRAWL *crawl, const CACHEKEY key, FILE *f)
 {
+	if(!crawl->cache.impl)
+	{
+		if(crawl_cache_init_(crawl))
+		{
+			return -1;
+		}
+	}
 	return crawl->cache.impl->payload_close_rollback(&(crawl->cache), key, f);
 }
 
 int
 cache_close_payload_commit_(CRAWL *crawl, const CACHEKEY key, FILE *f, CRAWLOBJ *obj)
 {
+	if(!crawl->cache.impl)
+	{
+		if(crawl_cache_init_(crawl))
+		{
+			return -1;
+		}
+	}
 	return crawl->cache.impl->payload_close_commit(&(crawl->cache), key, f, obj);
 }
 
 int
 cache_info_read_(CRAWL *crawl, const CACHEKEY key, jd_var *dict)
 {
+	if(!crawl->cache.impl)
+	{
+		if(crawl_cache_init_(crawl))
+		{
+			return -1;
+		}
+	}
 	return crawl->cache.impl->info_read(&(crawl->cache), key, dict);
 }
 
 int
 cache_info_write_(CRAWL *crawl, const CACHEKEY key, jd_var *dict)
 {
+	if(!crawl->cache.impl)
+	{
+		if(crawl_cache_init_(crawl))
+		{
+			return -1;
+		}
+	}
 	return crawl->cache.impl->info_write(&(crawl->cache), key, dict);
 }
 

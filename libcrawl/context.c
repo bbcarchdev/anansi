@@ -31,11 +31,9 @@ crawl_create(void)
 	CRAWL *p;
 
 	p = (CRAWL *) calloc(1, sizeof(CRAWL));
-	/* Use 'diskcache' as the default */
-	crawl_set_cache_path(p, "cache");
 	p->ua = strdup("User-Agent: Mozilla/5.0 (compatible; Anansi; libcrawl; +https://bbcarchdev.github.io/res/)");
 	p->accept = strdup("Accept: */*");
-	if(!p->cachepath || !p->ua || !p->accept)
+	if(!p->ua || !p->accept)
 	{
 		crawl_destroy(p);
 		return NULL;
@@ -85,34 +83,34 @@ crawl_set_cache(CRAWL *crawl, const CRAWLCACHEIMPL *cache)
 /* Set the username (or access key) used by the cache */
 int
 crawl_set_username(CRAWL *crawl, const char *username)
-{
-	if(crawl->cache.impl)
+{	
+	if(!crawl->cache.impl)
 	{
-		return crawl->cache.impl->set_username(&(crawl->cache), username);
+		crawl_cache_init_(crawl);
 	}
-	return 0;
+	return crawl->cache.impl->set_username(&(crawl->cache), username);
 }
 
 /* Set the password (or secret) used by the cache */
 int
 crawl_set_password(CRAWL *crawl, const char *password)
 {
-	if(crawl->cache.impl)
+	if(!crawl->cache.impl)
 	{
-		return crawl->cache.impl->set_password(&(crawl->cache), password);
+		crawl_cache_init_(crawl);
 	}
-	return 0;
+	return crawl->cache.impl->set_password(&(crawl->cache), password);
 }
 
 /* Set the endpoint used by the cache */
 int
 crawl_set_endpoint(CRAWL *crawl, const char *endpoint)
 {
-	if(crawl->cache.impl)
+	if(!crawl->cache.impl)
 	{
-		return crawl->cache.impl->set_endpoint(&(crawl->cache), endpoint);
+		crawl_cache_init_(crawl);
 	}
-	return 0;
+	return crawl->cache.impl->set_endpoint(&(crawl->cache), endpoint);
 }
 
 /* Set the Accept header used in requests */
@@ -326,4 +324,15 @@ crawl_log_(CRAWL *crawl, int priority, const char *format, ...)
 		vsyslog(priority, format, ap);
 	}
 	va_end(ap);
+}
+
+int
+crawl_cache_init_(CRAWL *crawl)
+{
+	if(!crawl->cachepath || !crawl->cache.impl)
+	{
+		/* Use 'diskcache' as the default */
+		return crawl_set_cache_path(crawl, "cache");
+	}
+	return 0;
 }

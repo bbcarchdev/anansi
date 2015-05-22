@@ -67,6 +67,13 @@ crawl_obj_create_(CRAWL *crawl, URI *uri)
 int
 crawl_obj_locate_(CRAWLOBJ *obj)
 {
+	if(!obj->crawl->cache.impl)
+	{
+		if(!crawl_cache_init_(obj->crawl))
+		{
+			return -1;
+		}
+	}
 	if(obj->crawl->cache.impl->info_read(&(obj->crawl->cache), obj->key, &(obj->info)))
 	{
 		return -1;

@@ -141,6 +141,7 @@ CRAWLOBJ *crawl_obj_create_(CRAWL *crawl, URI *uri);
 int crawl_obj_locate_(CRAWLOBJ *obj);
 int crawl_obj_replace_(CRAWLOBJ *obj, jd_var *dict);
 
+int crawl_cache_init_(CRAWL *crawl);
 int crawl_cache_key_(CRAWL *crawl, CACHEKEY dest, const char *uri);
 char *cache_uri_(CRAWL *crawl, const CACHEKEY key);
 FILE *cache_open_payload_write_(CRAWL *crawl, const CACHEKEY key);
