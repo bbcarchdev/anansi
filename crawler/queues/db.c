@@ -752,8 +752,14 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 		statestr = "FORCE";
 		break;
 	}
-	if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"updated\" = %Q, \"last_modified\" = %Q, \"status\" = %d, \"next_fetch\" = %Q, \"crawl_instance\" = NULL, \"state\" = %Q WHERE \"hash\" = %Q",
-					updatedstr, lastmodstr, status, nextfetchstr, statestr, cachekey))
+	if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"updated\" = %Q, \"last_modified\" = %Q, \"status\" = %d, \"crawl_instance\" = NULL, \"state\" = %Q WHERE \"hash\" = %Q",
+					updatedstr, lastmodstr, status, statestr, cachekey))
+	{
+		log_printf(LOG_CRIT, "%s\n", sql_error(me->db));
+		exit(1);
+	}
+	if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"next_fetch\" = %Q WHERE \"hash\" = %Q AND \"next_fetch\" < %Q",
+					nextfetchstr, cachekey, nextfetchstr))
 	{
 		log_printf(LOG_CRIT, "%s\n", sql_error(me->db));
 		exit(1);
@@ -763,7 +769,12 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 	strftime(lastmodstr, 32, "%Y-%m-%d %H:%M:%S", &tm);
 	now += 2;
 	strftime(nextfetchstr, 32, "%Y-%m-%d %H:%M:%S", &tm);
-	if(sql_executef(me->db, "UPDATE \"crawl_root\" SET \"last_updated\" = %Q, \"earliest_update\" = %Q WHERE \"hash\" = %Q", lastmodstr, nextfetchstr, rootkey))
+	if(sql_executef(me->db, "UPDATE \"crawl_root\" SET \"last_updated\" = %Q WHERE \"hash\" = %Q", lastmodstr, rootkey))
+	{
+		log_printf(LOG_CRIT, "%s\n", sql_error(me->db));
+		exit(1);
+	}
+	if(sql_executef(me->db, "UPDATE \"crawl_root\" SET \"earliest_update\" = %Q WHERE \"hash\" = %Q AND \"earliest_update\" < %Q", nextfetchstr, rootkey, nextfetchstr))
 	{
 		log_printf(LOG_CRIT, "%s\n", sql_error(me->db));
 		exit(1);
