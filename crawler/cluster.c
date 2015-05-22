@@ -174,7 +174,7 @@ cluster_etcd_init_(void)
 		log_printf(LOG_CRIT, "cannot use registry service because no cluster name has been specified\n");
 		return 1;
 	}
-	log_printf(LOG_INFO, "initialising cluster member %s:%s/%s\n", clustername, inst_uuidstr, clusterenv);
+	log_printf(LOG_DEBUG, "initialising cluster member %s@%s/%s\n", inst_uuidstr, clustername, clusterenv);
 	etcd = etcd_connect(registry);
 	if(!etcd)
 	{
@@ -219,7 +219,7 @@ cluster_etcd_detached_(void)
 	/* Start the cluster ping thread */
 	ping_dir = etcd_clone(envdir);
 	pthread_create(&thread, NULL, cluster_etcd_ping_thread_, (void *) ping_dir);
-	log_printf(LOG_NOTICE, "cluster member %s:%s/%s initialised\n", inst_uuidstr, clustername, clusterenv);
+	log_printf(LOG_INFO, "cluster member %s@%s/%s initialised\n", inst_uuidstr, clustername, clusterenv);
 
 	return 0;
 }
@@ -231,6 +231,7 @@ cluster_etcd_balance_(ETCD *dir)
 	size_t n, c;
 	const char *name;
 
+	base = -1;
 	JD_SCOPE
 	{
 		jd_var dict = JD_INIT, keys = JD_INIT;
@@ -246,6 +247,7 @@ cluster_etcd_balance_(ETCD *dir)
 		c = jd_count(&keys);
 		base = 0;
 		total = 0;
+		log_printf(LOG_DEBUG, "re-balancing cluster %s/%s:\n", clustername, clusterenv);
 		for(n = 0; n < c; n++)
 		{
 			key = jd_get_idx(&keys, n);
@@ -270,7 +272,12 @@ cluster_etcd_balance_(ETCD *dir)
 			}
 			if(!strcmp(name, inst_uuidstr))
 			{
+				log_printf(LOG_DEBUG, "* %s [%d]\n", inst_uuidstr, total);
 				base = total;
+			}
+			else
+			{
+				log_printf(LOG_DEBUG, "  %s [%d]\n", inst_uuidstr, total);
 			}
 			total += val;
 		}
@@ -278,7 +285,14 @@ cluster_etcd_balance_(ETCD *dir)
 	pthread_rwlock_wrlock(&lock);
 	if(total != clusterthreads || base != inst_id)
 	{
-		log_printf(LOG_NOTICE, "cluster has re-balanced: new base is %d (was %d), new total is %d (was %d)\n", base, inst_id, total, clusterthreads);
+		if(base == -1)
+		{
+			log_printf(LOG_NOTICE, "this instance is not a member of %s/%s\n", clustername, clusterenv);			
+		}
+		else
+		{
+			log_printf(LOG_NOTICE, "cluster %s/%s has re-balanced: new base is %d (was %d), new total is %d (was %d)\n", clustername, clusterenv, base, inst_id, total, clusterthreads);
+		}
 		inst_id = base;
 		clusterthreads = total;
 	}

@@ -119,7 +119,7 @@ thread_terminate(void)
 		}
 	}
 	pthread_mutex_unlock(&lock);
-	log_printf(LOG_NOTICE, "waiting for crawler threads to terminate...\n");
+	log_printf(LOG_INFO, "waiting for crawler threads to terminate...\n");
 	while(1)
 	{
 		alive = 0;
@@ -244,7 +244,22 @@ thread_handler_(void *arg)
 			/* Cluster has re-balanced */
 			context->api->set_threads(context, newthreads);
 			context->api->set_base(context, newbase);
-			log_printf(LOG_NOTICE, "[%s] re-balancing: crawler %d/%d (thread %d/%d) is now %d/%d\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount, newbase + threadid + 1, newthreads);
+			if(newbase == -1)
+			{
+				log_printf(LOG_NOTICE, "[%s] suspending crawl thread %d/%d/\n", env, threadid + 1, threadcount);
+				instid = newbase;
+				crawlercount = newthreads;
+				sleep(SUSPEND_WAIT);
+				continue;
+			}
+			if(instid == -1)
+			{
+				log_printf(LOG_NOTICE, "[%s] resuming suspended crawler %d/%d (thread %d/%d) is now %d/%d\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount, newbase + threadid + 1, newthreads);
+			}
+			else
+			{
+				log_printf(LOG_INFO, "[%s] re-balancing: crawler %d/%d (thread %d/%d) is now %d/%d\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount, newbase + threadid + 1, newthreads);
+			}
 			crawlercount = newthreads;
 			instid = newbase;
 		}
@@ -264,7 +279,7 @@ thread_handler_(void *arg)
 		}
 		sleep(1);
 	}
-	log_printf(LOG_NOTICE, "[%s] crawler %d/%d (thread %d/%d), terminating\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount);
+	log_printf(LOG_NOTICE, "[%s] crawler %d/%d (thread %d/%d) is terminating\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount);
 	context->api->terminate(context);
 	pthread_mutex_lock(&lock);
 	contexts[threadid] = NULL;

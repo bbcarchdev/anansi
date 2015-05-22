@@ -48,6 +48,7 @@
 
 # define REGISTRY_KEY_TTL               120
 # define REGISTRY_REFRESH               30
+# define SUSPEND_WAIT                   10
 
 extern volatile int crawld_terminate;
 
