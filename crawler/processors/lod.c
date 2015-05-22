@@ -79,7 +79,7 @@ lod_rdf_filter(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *mode
 	}
 	if(!found)
 	{
-		log_printf(LOG_INFO, "REJECT <%s>: LOD: no suitable licensing triple\n", uri);
+		log_printf(LOG_INFO, "REJECTED <%s>: LOD: no suitable licensing triple\n", uri);
 		return 0;
 	}
 	log_printf(LOG_DEBUG, "LOD: suitable licensing triple located\n");
