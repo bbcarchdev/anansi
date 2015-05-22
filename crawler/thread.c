@@ -327,6 +327,6 @@ thread_prefetch_(CRAWL *crawl, URI *uri, const char *uristr, void *userdata)
 	{
 		return -1;
 	}
-	log_printf(LOG_INFO, "Fetching %s\n", uristr);
+	log_printf(LOG_DEBUG, "Fetching %s\n", uristr);
 	return 0;
 }

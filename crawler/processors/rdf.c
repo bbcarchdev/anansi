@@ -155,17 +155,20 @@ rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conten
 	if(status > 300 && status < 304)
 	{
 		/* Don't process the payload of redirects */
+		log_printf(LOG_INFO, "REJECTED <%s>: RDF: ignoring payload of redirect (HTTP status %d)\n", uri, status);
 		return 0;
 	}
 	if(status < 200 || status > 299)
 	{
 		/* Don't bother processing failed responses */
 		errno = EINVAL;
+		log_printf(LOG_INFO, "FAILED <%s>: RDF: ignoring payload for HTTP status %d\n", uri, status);
 		return -1;
 	}
 	if(!content_type)
 	{
 		/* We can't parse if we don't know what it is */
+		log_printf(LOG_INFO, "FAILED <%s>: RDF payload has no Content-Type\n", uri);
 		errno = EINVAL;
 		return -1;
 	}
@@ -223,7 +226,7 @@ rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conten
 	log_printf(LOG_DEBUG, "rdf_preprocess: content_type='%s', parser_type='%s'\n", me->content_type, me->parser_type);
 	if(!me->parser_type)
 	{
-		log_printf(LOG_WARNING, "RDF: No suitable parser type found for '%s'\n", me->content_type);
+		log_printf(LOG_INFO, "REJECTED <%s>: RDF: no parser found for '%s'\n", uri, me->content_type);
 		return 0;
 	}
 	return 1;
@@ -275,13 +278,13 @@ rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conte
 	me->fobj = crawl_obj_open(obj);
 	if(!me->fobj)
 	{
-		log_printf(LOG_ERR, "RDF: failed to open payload for processing\n");
+		log_printf(LOG_ERR, "FAILED <%s>: RDF: failed to open payload for processing\n", uri);
 		librdf_free_parser(parser);
 		return -1;
 	}
 	if(librdf_parser_parse_file_handle_into_model(parser, me->fobj, 0, me->uri, me->model))
 	{
-		log_printf(LOG_ERR, "RDF: failed to parse '%s' (%s) as '%s'\n", uri, content_type, me->parser_type);
+		log_printf(LOG_ERR, "FAILED <%s>: RDF: failed to parse '%s' as '%s'\n", uri, content_type, me->parser_type);
 		librdf_free_parser(parser);
 		return -1;		
 	}

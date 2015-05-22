@@ -114,7 +114,7 @@ processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 	{
 		if(!location)
 		{
-			log_printf(LOG_NOTICE, "received a %d redirect with no location specified\n");
+			log_printf(LOG_NOTICE, "<%s>: received a %d redirect with no location specified\n", uri, status);
 		}
 		else if(strcmp(location, uri))
 		{
@@ -131,6 +131,7 @@ processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 	}
 	else if(r > 0)
 	{
+		log_printf(LOG_INFO, "ACCEPT <%s>\n", uri);
 		state = COS_ACCEPTED;
 		ttl = 86400;
 	}
