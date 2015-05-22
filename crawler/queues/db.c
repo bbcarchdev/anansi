@@ -502,7 +502,8 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 					" \"root\".\"rate\" > 0 AND "
 					" \"res\".\"tinyhash\" %% %d = %d AND "
 					" \"root\".\"hash\" = \"res\".\"root\" AND "
-					" \"root\".\"earliest_update\" < NOW() "
+					" \"root\".\"earliest_update\" < NOW() AND "
+					" \"res\".\"next_fetch\" < NOW() "
 					" ORDER BY \"root\".\"earliest_update\" ASC, \"res\".\"next_fetch\" ASC, \"root\".\"rate\" ASC",
 					me->ncrawlers, me->crawler_id);
 	if(!rs)
