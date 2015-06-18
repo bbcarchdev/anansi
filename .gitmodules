@@ -1,15 +1,9 @@
 [submodule "m4"]
 	path = m4
 	url = git://github.com/bbcarchdev/m4.git
-[submodule "liburi"]
-	path = liburi
-	url = git://github.com/bbcarchdev/liburi.git
 [submodule "jsondata"]
 	path = jsondata
 	url = git://github.com/bbcarchdev/jsondata.git
-[submodule "libsql"]
-	path = libsql
-	url = git://github.com/bbcarchdev/libsql.git
 [submodule "libsupport"]
 	path = libsupport
 	url = git://github.com/bbcarchdev/libsupport.git
