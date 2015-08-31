@@ -47,6 +47,7 @@ BT_REQUIRE_LIBJSONDATA_INCLUDED
 BT_REQUIRE_LIBXML2
 BT_REQUIRE_LIBSQL_INCLUDED
 BT_REQUIRE_LIBRDF
+BT_REQUIRE_LIBUUID
 LIBS="$save_LIBS"
 
 extra_libs="$OPENSSL_INSTALLED_LIBS $LIBCURL_INSTALLED_LIBS $LIBURI_INSTALLED_LIBS $LIBJSONDATA_INSTALLED_LIBS"
@@ -57,6 +58,7 @@ Makefile
 libsupport/Makefile
 libs3client/Makefile
 libetcd/Makefile
+libcluster/Makefile
 libcrawl/Makefile
 libcrawl/caches/Makefile
 util/Makefile
