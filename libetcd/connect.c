@@ -90,6 +90,10 @@ etcd_clone(ETCD *etcd)
 void
 etcd_disconnect(ETCD *etcd)
 {
+	if(etcd && etcd->uri)
+	{
+		uri_destroy(etcd->uri);
+	}
 	free(etcd);
 }
 

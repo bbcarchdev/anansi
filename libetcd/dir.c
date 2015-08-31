@@ -161,7 +161,7 @@ etcd_dir_create(ETCD *parent, const char *name, ETCDFLAGS flags)
 void
 etcd_dir_close(ETCD *dir)
 {
-	if(dir)
+	if(dir && dir->uri)
 	{
 		uri_destroy(dir->uri);
 	}
