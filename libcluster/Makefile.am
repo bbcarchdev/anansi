@@ -15,9 +15,19 @@
 ##  limitations under the License.
 ##
 
+ACLOCAL_AMFLAGS = -I m4
+
 SUBDIRS = libetcd .
 
-EXTRA_DIST = README.md LICENSE-2.0
+EXTRA_DIST = README.md LICENSE-2.0 libcluster.pc.in libcluster-uninstalled.pc.in
+
+DISTCLEANFILES = libcluster.pc libcluster-uninstalled.pc
+
+pkgconfigdir = $(libdir)/pkgconfig
+
+noinst_DATA = libcluster-uninstalled.pc
+
+pkgconfig_DATA = libcluster.pc
 
 noinst_LTLIBRARIES = libcluster.la
 
