@@ -42,6 +42,7 @@
 # include "libcrawld.h"
 # include "libsupport.h"
 # include "liburi.h"
+# include "libcluster.h"
 # include "libetcd.h"
 
 # define CRAWLER_APP_NAME               "crawler"

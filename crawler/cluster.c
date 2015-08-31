@@ -22,58 +22,57 @@
 #include "p_crawld.h"
 
 static pthread_rwlock_t lock;
-static pthread_t thread;
 static char *clustername, *clusterenv, *registry;
-static uuid_t inst_uuid;
-static char inst_uuidstr[40];
+static CLUSTER *cluster;
+
 static int inst_id, inst_threads;
 static int clusterthreads;
-static int verbose;
-static ETCD *etcd, *clusterdir, *envdir;
 
-static int cluster_static_init_(void);
-static int cluster_static_detached_(void);
-
-static int cluster_etcd_init_(void);
-static int cluster_etcd_detached_(void);
-static int cluster_etcd_balance_(ETCD *dir);
-static int cluster_etcd_ping_(ETCD *dir, ETCDFLAGS flags);
-static void *cluster_etcd_balance_thread_(void *arg);
-static void *cluster_etcd_ping_thread_(void *arg);
-
-static int cluster_test_init_(void);
-
-typedef enum
-{
-	CLUS_STATIC,
-	CLUS_ETCD
-} CLUSTER_TYPE;
-
-static CLUSTER_TYPE clustertype;
+static int cluster_balancer_(CLUSTER *cluster, CLUSTERSTATE *state);
 
 int
 cluster_init(void)
 {
+	int n;
+
 	pthread_rwlock_init(&lock, NULL);
-	uuid_generate(inst_uuid);
-	uuid_unparse_lower(inst_uuid, inst_uuidstr);
-	clustername = config_geta("cluster:name", NULL);
-	clusterenv = config_geta("cluster:environment", "production");
-	registry = config_geta("cluster:registry", NULL);
-	verbose = config_get_bool("cluster:verbose", 0);
+	clustername = config_geta("cluster:name", CRAWLER_APP_NAME);
+	cluster = cluster_create(clustername);
+	cluster_set_logger(cluster, log_vprintf);
+	cluster_set_balancer(cluster, cluster_balancer_);
+	if(config_get_bool("cluster:verbose", 0))
+	{
+		cluster_set_verbose(cluster, 1);
+	}
+	if((clusterenv = config_geta("cluster:environment", NULL)))
+	{
+		cluster_set_env(cluster, clusterenv);
+	}
 	if(config_get_bool("crawler:oneshot", 0) || config_getptr_unlocked("crawler:test-uri", NULL))
 	{
-		return cluster_test_init_();
+		log_printf(LOG_NOTICE, "test mode enabled - ignoring cluster configuration\n");
+		cluster_set_threads(cluster, 1);
+		cluster_static_set_index(cluster, 0);
+		cluster_static_set_total(cluster, 1);		
+		return 0;
 	}
-	if(registry)
+	if((n = config_get_int("crawler:threads", 1)))
 	{
-		return cluster_etcd_init_();
+		cluster_set_threads(cluster, n);
 	}
-	if(clustername)
+	if((registry = config_geta("cluster:registry", NULL)))
 	{
-		log_printf(LOG_WARNING, "a cluster name has been set but no registry service specified; the name will be ignored\n");
+		cluster_set_registry(cluster, registry);
 	}
-	return cluster_static_init_();
+	if((n = config_get_int("crawler:id", 0)))
+	{
+		cluster_static_set_index(cluster, n);
+	}
+	if((n = config_get_int("cluster:threads", 0)))
+	{
+		cluster_static_set_total(cluster, n);
+	}
+	return 0;
 }
 
 /* Return the number of threads this instance will start */
@@ -123,245 +122,21 @@ cluster_env(void)
 int
 cluster_detached(void)
 {
-	switch(clustertype)
-	{
-	case CLUS_STATIC:
-		return cluster_static_detached_();
-	case CLUS_ETCD:
-		return cluster_etcd_detached_();
-	}
-	return 0;
+	return cluster_join(cluster);
 }
 
-/* Initialise a statically-configured cluster */
+/* Invoked by libcluster when the cluster balances */
 static int
-cluster_static_init_(void)
+cluster_balancer_(CLUSTER *cluster, CLUSTERSTATE *state)
 {
-	clustertype = CLUS_STATIC;
-	inst_id = config_get_int("crawler:id", 0);
-	inst_threads = config_get_int("crawler:threads", 1);
-	clusterthreads = config_get_int("cluster:threads", 1);
-	log_printf(LOG_INFO, "initialising static cluster node [%d/%d] in environment '%s'\n", inst_id, clusterthreads, clusterenv);
-	return 0;
-}
+	(void) cluster;
 
-static int
-cluster_static_detached_(void)
-{
-	return 0;
-}
-
-/* Initialise a test cluster */
-static int
-cluster_test_init_(void)
-{
-	clustertype = CLUS_STATIC;
-	inst_id = 0;
-	inst_threads = 1;
-	clusterthreads = 1;
-	log_printf(LOG_NOTICE, "test mode enabled - ignoring cluster configuration\n");
-	return 0;
-}
-
-/* Initialise a cluster using etcd */
-static int
-cluster_etcd_init_(void)
-{
-	clustertype = CLUS_ETCD;
-	inst_threads = config_get_int("crawler:threads", 1);
-	if(!clustername)
-	{
-		log_printf(LOG_CRIT, "cannot use registry service because no cluster name has been specified\n");
-		return 1;
-	}
-	log_printf(LOG_DEBUG, "initialising cluster member %s@%s/%s\n", inst_uuidstr, clustername, clusterenv);
-	etcd = etcd_connect(registry);
-	if(!etcd)
-	{
-		log_printf(LOG_CRIT, "cannot connect to registry service\n");
-		return 1;
-	}
-	etcd_set_verbose(etcd, verbose);
-	clusterdir = etcd_dir_create(etcd, clustername, ETCD_NONE);
-	if(!clusterdir)
-	{
-		clusterdir = etcd_dir_open(etcd, clustername);
-		if(!clusterdir)
-		{
-			log_printf(LOG_CRIT, "failed to create or open registry directory for cluster '%s'\n", clustername);
-			return 1;
-		}
-	}
-	envdir = etcd_dir_create(clusterdir, clusterenv, ETCD_NONE);
-	if(!envdir)
-	{
-		envdir = etcd_dir_open(clusterdir, clusterenv);
-		if(!envdir)
-		{
-			log_printf(LOG_CRIT, "failed to create or open registry directory for cluster '%s/%s'\n", clustername, clusterenv);
-			return 1;
-		}
-	}
-	cluster_etcd_ping_(envdir, ETCD_NONE);
-	/* Perform an initial cluster balancing */
-	cluster_etcd_balance_(envdir);
-	return 0;
-}
-
-static int
-cluster_etcd_detached_(void)
-{
-	ETCD *balance_dir, *ping_dir;
-
-	/* Start the cluster rebalancing thread */
-	balance_dir = etcd_clone(envdir);
-	pthread_create(&thread, NULL, cluster_etcd_balance_thread_, (void *) balance_dir);
-	/* Start the cluster ping thread */
-	ping_dir = etcd_clone(envdir);
-	pthread_create(&thread, NULL, cluster_etcd_ping_thread_, (void *) ping_dir);
-	log_printf(LOG_INFO, "cluster member %s@%s/%s initialised\n", inst_uuidstr, clustername, clusterenv);
-
-	return 0;
-}
-
-static int
-cluster_etcd_balance_(ETCD *dir)
-{
-	int total, base, val;
-	size_t n, c;
-	const char *name;
-
-	base = -1;
-	JD_SCOPE
-	{
-		jd_var dict = JD_INIT, keys = JD_INIT;
-		jd_var *key, *entry, *value;
-
-		if(etcd_dir_get(dir, &dict))
-		{
-			log_printf(LOG_ERR, "failed to retrieve cluster directory\n");
-			return -1;
-		}
-		jd_keys(&keys, &dict);
-		jd_sort(&keys);
-		c = jd_count(&keys);
-		base = 0;
-		total = 0;
-		log_printf(LOG_DEBUG, "re-balancing cluster %s/%s:\n", clustername, clusterenv);
-		for(n = 0; n < c; n++)
-		{
-			key = jd_get_idx(&keys, n);
-			name = jd_bytes(key, NULL);
-			entry = jd_get_key(&dict, key, 0);
-			if(!entry || entry->type != HASH)
-			{
-				continue;
-			}
-			value = jd_get_ks(entry, "value", 0);
-			if(!value)
-			{
-				continue;
-			}
-			JD_TRY
-			{
-				val = jd_get_int(value);
-			}
-			JD_CATCH(e)
-			{
-				val = 0;
-			}
-			if(!strcmp(name, inst_uuidstr))
-			{
-				log_printf(LOG_DEBUG, "* %s [%d]\n", inst_uuidstr, total);
-				base = total;
-			}
-			else
-			{
-				log_printf(LOG_DEBUG, "  %s [%d]\n", inst_uuidstr, total);
-			}
-			total += val;
-		}
-	}
+	log_printf(LOG_NOTICE, "cluster has re-balanced: instance thread indices %d..%d from a cluster size %d\n", state->index, state->threads, state->total);
 	pthread_rwlock_wrlock(&lock);
-	if(total != clusterthreads || base != inst_id)
-	{
-		if(base == -1)
-		{
-			log_printf(LOG_NOTICE, "this instance is not a member of %s/%s\n", clustername, clusterenv);			
-		}
-		else
-		{
-			log_printf(LOG_NOTICE, "cluster %s/%s has re-balanced: new base is %d (was %d), new total is %d (was %d)\n", clustername, clusterenv, base, inst_id, total, clusterthreads);
-		}
-		inst_id = base;
-		clusterthreads = total;
-	}
+	inst_id = state->index;
+	inst_threads = state->threads;
+	clusterthreads = state->total;
 	pthread_rwlock_unlock(&lock);
 	return 0;
 }
 
-static void *
-cluster_etcd_balance_thread_(void *arg)
-{
-	ETCD *dir;
-	int r;
-
-	dir = (ETCD *) arg;
-
-	/* Repeatedly watch the etcd directory for changes, and invoke
-	 * cluster_etcd_balance() when they occur
-	 */
-	while(!crawld_terminate)
-	{
-		JD_SCOPE
-		{
-			jd_var change = JD_INIT;
-
-			r = etcd_dir_wait(dir, ETCD_RECURSE, &change);
-			jd_release(&change);
-		}
-		if(crawld_terminate)
-		{
-			break;
-		}
-		if(r)
-		{
-			log_printf(LOG_ERR, "failed to receive changes from cluster registry\n");
-			sleep(30);
-			continue;
-		}
-		cluster_etcd_balance_(dir);
-	}
-	log_printf(LOG_NOTICE, "re-balancing thread is terminating\n");
-	return NULL;
-}
-
-static void *
-cluster_etcd_ping_thread_(void *arg)
-{
-	ETCD *dir;
-
-	dir = (ETCD *) arg;
-	while(!crawld_terminate)
-	{
-		if(cluster_etcd_ping_(dir, ETCD_EXISTS))
-		{
-			log_printf(LOG_ERR, "failed to update registry service\n");
-			sleep(5);
-			continue;
-		}
-		log_printf(LOG_DEBUG, "updated registry service for cluster member %s\n", inst_uuidstr);
-		sleep(REGISTRY_REFRESH);
-	}
-	log_printf(LOG_NOTICE, "registry ping thread is terminating\n");
-	return NULL;
-}
-
-static int
-cluster_etcd_ping_(ETCD *dir, ETCDFLAGS flags)
-{
-	char buf[64];
-
-	sprintf(buf, "%d", inst_threads);
-	return etcd_key_set_ttl(dir, inst_uuidstr, buf, REGISTRY_KEY_TTL, flags);
-}

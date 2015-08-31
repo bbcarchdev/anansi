@@ -24,7 +24,8 @@ dist_doc_DATA = crawl.conf
 AM_CPPFLAGS = @AM_CPPFLAGS@ @CPPFLAGS@ \
 	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl \
 	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport \
-	-I$(top_builddir)/libetcd -I$(top_builddir)/libetcd
+	-I$(top_builddir)/libetcd -I$(top_srcdir)/libetcd \
+	-I$(top_builddir)/libcluster -I$(top_srcdir)/libcluster
 
 noinst_LTLIBRARIES = libcrawld.la
 
@@ -34,6 +35,7 @@ bin_PROGRAMS = crawler-add
 
 crawld_SOURCES = p_crawld.h crawld.c cluster.c thread.c
 crawld_LDADD = libcrawld.la \
+	$(top_builddir)/libcluster/libcluster.la \
 	$(top_builddir)/libetcd/libetcd.la
 
 crawler_add_SOURCES = p_crawld.h add.c
