@@ -164,6 +164,19 @@ etcd_curl_put_(ETCD *etcd, URI *uri, const char *data, const char *query)
 	return ch;
 }
 
+CURL *
+etcd_curl_delete_(ETCD *etcd, URI *uri, const char *query)
+{
+	CURL *ch;
+
+	if(!(ch = etcd_curl_create_(etcd, uri, query)))
+	{
+		return NULL;
+	}
+	curl_easy_setopt(ch, CURLOPT_CUSTOMREQUEST, "DELETE");
+	return ch;
+}
+
 int
 etcd_curl_perform_(CURL *ch)
 {

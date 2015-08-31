@@ -116,3 +116,29 @@ etcd_key_set_data_ttl(ETCD *dir, const char *name, const unsigned char *data, si
 	return status;
 }
 
+int
+etcd_key_delete(ETCD *dir, const char *name, ETCDFLAGS flags)
+{
+	URI *uri;
+	CURL *ch;
+	int status;
+
+	(void) flags;
+
+	while(*name == '/')
+	{
+		name++;
+	}
+	uri = uri_create_str(name, dir->uri);
+	if(!uri)
+	{
+		return -1;
+	}
+	ch = etcd_curl_delete_(dir, uri, NULL);
+	status = etcd_curl_perform_(ch);
+	etcd_curl_done_(ch);
+
+	uri_destroy(uri);
+	return status;
+}
+

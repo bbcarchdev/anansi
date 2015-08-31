@@ -46,6 +46,7 @@ void etcd_dir_close(ETCD *dir);
 int etcd_dir_wait(ETCD *dir, ETCDFLAGS flags, jd_var *change);
 
 int etcd_key_set(ETCD *dir, const char *name, const char *value, ETCDFLAGS flags);
+int etcd_key_delete(ETCD *dir, const char *name, ETCDFLAGS flags);
 int etcd_key_set_ttl(ETCD *dir, const char *name, const char *value, int ttl, ETCDFLAGS flags);
 int etcd_key_set_data_ttl(ETCD *dir, const char *name, const unsigned char *data, size_t len, int ttl, ETCDFLAGS flags);
 
