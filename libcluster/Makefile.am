@@ -15,6 +15,8 @@
 ##  limitations under the License.
 ##
 
+SUBDIRS = libetcd .
+
 EXTRA_DIST = README.md LICENSE-2.0
 
 noinst_LTLIBRARIES = libcluster.la
@@ -22,7 +24,7 @@ noinst_LTLIBRARIES = libcluster.la
 noinst_PROGRAMS = cluster-test
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ @CPPFLAGS@ @LIBUUID_CPPFLAGS@ \
-	-I$(top_builddir)/libetcd -I$(top_builddir)/libetcd
+	-Ilibetcd -I$(srcdir)/libetcd
 
 libcluster_la_SOURCES = libcluster.h \
 	p_libcluster.h \
@@ -33,8 +35,9 @@ libcluster_la_LDFLAGS = @AM_LDFLAGS@ \
 	-noinst -avoid-version
 
 libcluster_la_LIBADD = \
+	libetcd/libetcd.la \
 	@LIBURI_LOCAL_LIBS@ @LIBURI_LIBS@ \
-	${top_builddir}/libetcd/libetcd.la \
+	@LIBJSONDATA_LOCAL_LIBS@ @LIBJSONDATA_LIBS@ \
 	@LIBUUID_LOCAL_LIBS@ @LIBUUID_LIBS@ \
 	@PTHREAD_LOCAL_LIBS@ @PTHREAD_LIBS@
 
