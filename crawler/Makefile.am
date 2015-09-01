@@ -23,8 +23,7 @@ dist_doc_DATA = crawl.conf
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ @CPPFLAGS@ \
 	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl \
-	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport \
-	-I$(top_builddir)/libcluster -I$(top_srcdir)/libcluster
+	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport
 
 noinst_LTLIBRARIES = libcrawld.la
 
@@ -33,8 +32,7 @@ sbin_PROGRAMS = crawld
 bin_PROGRAMS = crawler-add
 
 crawld_SOURCES = p_crawld.h crawld.c cluster.c thread.c
-crawld_LDADD = libcrawld.la \
-	$(top_builddir)/libcluster/libcluster.la
+crawld_LDADD = libcrawld.la $(LIBCLUSTER_LOCAL_LIBS) $(LIBCLUSTER_LIBS)
 
 crawler_add_SOURCES = p_crawld.h add.c
 crawler_add_LDADD = libcrawld.la $(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS)

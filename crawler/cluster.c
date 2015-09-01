@@ -28,10 +28,10 @@ static CLUSTER *cluster;
 static int inst_id, inst_threads;
 static int clusterthreads;
 
-static int cluster_balancer_(CLUSTER *cluster, CLUSTERSTATE *state);
+static int crawl_cluster_balancer_(CLUSTER *cluster, CLUSTERSTATE *state);
 
 int
-cluster_init(void)
+crawl_cluster_init(void)
 {
 	int n;
 
@@ -39,7 +39,7 @@ cluster_init(void)
 	clustername = config_geta("cluster:name", CRAWLER_APP_NAME);
 	cluster = cluster_create(clustername);
 	cluster_set_logger(cluster, log_vprintf);
-	cluster_set_balancer(cluster, cluster_balancer_);
+	cluster_set_balancer(cluster, crawl_cluster_balancer_);
 	if(config_get_bool("cluster:verbose", 0))
 	{
 		cluster_set_verbose(cluster, 1);
@@ -51,14 +51,14 @@ cluster_init(void)
 	if(config_get_bool("crawler:oneshot", 0) || config_getptr_unlocked("crawler:test-uri", NULL))
 	{
 		log_printf(LOG_NOTICE, "test mode enabled - ignoring cluster configuration\n");
-		cluster_set_threads(cluster, 1);
+		cluster_set_workers(cluster, 1);
 		cluster_static_set_index(cluster, 0);
 		cluster_static_set_total(cluster, 1);		
 		return 0;
 	}
 	if((n = config_get_int("crawler:threads", 1)))
 	{
-		cluster_set_threads(cluster, n);
+		cluster_set_workers(cluster, n);
 	}
 	if((registry = config_geta("cluster:registry", NULL)))
 	{
@@ -77,7 +77,7 @@ cluster_init(void)
 
 /* Return the number of threads this instance will start */
 int
-cluster_inst_threads(void)
+crawl_cluster_inst_threads(void)
 {
 	int count;
 
@@ -89,7 +89,7 @@ cluster_inst_threads(void)
 
 /* Return the number of crawler threads in total */
 int
-cluster_threads(void)
+crawl_cluster_threads(void)
 {
 	int count;
 
@@ -101,7 +101,7 @@ cluster_threads(void)
 
 /* Return the base numeric ID of this crawler */
 int
-cluster_inst_id(void)
+crawl_cluster_inst_id(void)
 {
 	int id;
 
@@ -113,28 +113,28 @@ cluster_inst_id(void)
 
 /* Return the name of the environment this cluster resides in */
 const char *
-cluster_env(void)
+crawl_cluster_env(void)
 {
 	return clusterenv;
 }
 
 /* Invoked after the process has been forked */
 int
-cluster_detached(void)
+crawl_cluster_detached(void)
 {
 	return cluster_join(cluster);
 }
 
 /* Invoked by libcluster when the cluster balances */
 static int
-cluster_balancer_(CLUSTER *cluster, CLUSTERSTATE *state)
+crawl_cluster_balancer_(CLUSTER *cluster, CLUSTERSTATE *state)
 {
 	(void) cluster;
 
-	log_printf(LOG_NOTICE, "cluster has re-balanced: instance thread indices %d..%d from a cluster size %d\n", state->index, state->threads, state->total);
+	log_printf(LOG_NOTICE, "cluster has re-balanced: instance thread indices %d..%d from a cluster size %d\n", state->index, state->workers, state->total);
 	pthread_rwlock_wrlock(&lock);
 	inst_id = state->index;
-	inst_threads = state->threads;
+	inst_threads = state->workers;
 	clusterthreads = state->total;
 	pthread_rwlock_unlock(&lock);
 	return 0;
