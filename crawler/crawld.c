@@ -158,7 +158,7 @@ process_args(int argc, char **argv)
 	{
 		short_program_name = argv[0];
 	}
-	while((c = getopt(argc, argv, "hfdc:t:")) != -1)
+	while((c = getopt(argc, argv, "hfdc:t:S")) != -1)
 	{
 		switch(c)
 		{
@@ -188,6 +188,14 @@ process_args(int argc, char **argv)
 			config_set("queue:debug-queries", "1");
 			config_set("queue:debug-errors", "1");
 			config_set("cluster:verbose", "1");
+			break;
+		case 'S':
+			opt_nodetach = 1;
+			config_set("crawler:oneshot", "1");
+			config_set("crawler:detach", "0");
+			config_set("crawler:verbose", "1");
+			config_set("crawler:schema-update", "1");
+			config_set("log:stderr", "1");
 			break;
 		default:
 			usage();
@@ -232,7 +240,8 @@ usage(void)
 		   "  -f                   Don't detach and run in the background\n"
 		   "  -d                   Enable debug output to standard error\n"
 		   "  -c FILE              Specify path to configuration file\n"
-		   "  -t URI               Test crawling a single URI (implies -d)\n",
+		   "  -t URI               Test crawling a single URI (implies -d)\n"
+		   "  -S                   Perform schema migrations and then exit\n",
 		   short_program_name);
 }
 

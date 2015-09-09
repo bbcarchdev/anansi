@@ -153,23 +153,32 @@ db_create(CONTEXT *ctx)
 		free(p);
 		return NULL;
 	}
-	t = config_geta("crawler:test-uri", NULL);
-	if(t && t[0])
+	if(config_get_bool("crawler:schema-update", 0))
 	{
-		log_printf(LOG_NOTICE, "DB: using test URI <%s>\n", t);
-		p->testuri = uri_create_str(t, NULL);
-		if(!p->testuri)
-		{
-			log_printf(LOG_NOTICE, "DB: failed to parse URI <%s>\n", t);
-			sql_disconnect(p->db);
-			free(p);
-			free(t);
-			return NULL;
-		}
+		log_printf(LOG_NOTICE, "DB: performing schema update only\n");
+		p->testuri = NULL;
 		p->oneshot = 1;
-		db_force_add(p, p->testuri, t);
 	}
-	free(t);
+	else
+	{
+		t = config_geta("crawler:test-uri", NULL);
+		if(t && t[0])
+		{
+			log_printf(LOG_NOTICE, "DB: using test URI <%s>\n", t);
+			p->testuri = uri_create_str(t, NULL);
+			if(!p->testuri)
+			{
+				log_printf(LOG_NOTICE, "DB: failed to parse URI <%s>\n", t);
+				sql_disconnect(p->db);
+				free(p);
+				free(t);
+				return NULL;
+			}
+			p->oneshot = 1;
+			db_force_add(p, p->testuri, t);
+		}
+		free(t);
+	}
 	return p;
 }
 
