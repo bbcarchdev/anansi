@@ -133,7 +133,7 @@ db_create(CONTEXT *ctx)
 	p->db = sql_connect(dburi);
 	if(!p->db)
 	{
-		log_printf(LOG_CRIT, "DB: Failed to connect to database <%s>\n", dburi);
+		log_printf(LOG_CRIT, MSG_C_DB_CONNECT " <%s>\n", dburi);
 		free(p);
 		return NULL;
 	}
@@ -148,14 +148,14 @@ db_create(CONTEXT *ctx)
 	}
 	if(sql_migrate(p->db, "com.github.nevali.crawl.db", db_migrate, NULL))
 	{
-		log_printf(LOG_CRIT, "DB: Database migration failed\n");
+		log_printf(LOG_CRIT, MSG_C_DB_MIGRATE "\n");
 		sql_disconnect(p->db);
 		free(p);
 		return NULL;
 	}
 	if(config_get_bool("crawler:schema-update", 0))
 	{
-		log_printf(LOG_NOTICE, "DB: performing schema update only\n");
+		log_printf(LOG_NOTICE, MSG_N_DB_MIGRATEONLY "\n");
 		p->testuri = NULL;
 		p->oneshot = 1;
 	}
@@ -164,11 +164,11 @@ db_create(CONTEXT *ctx)
 		t = config_geta("crawler:test-uri", NULL);
 		if(t && t[0])
 		{
-			log_printf(LOG_NOTICE, "DB: using test URI <%s>\n", t);
+			log_printf(LOG_NOTICE, MSG_N_DB_TESTURI " <%s>\n", t);
 			p->testuri = uri_create_str(t, NULL);
 			if(!p->testuri)
 			{
-				log_printf(LOG_NOTICE, "DB: failed to parse URI <%s>\n", t);
+				log_printf(LOG_CRIT, MSG_C_DB_URIPARSE " <%s>\n", t);
 				sql_disconnect(p->db);
 				free(p);
 				free(t);
@@ -196,7 +196,7 @@ db_log_error(SQL *restrict db, const char *restrict sqlstate, const char *restri
 {
 	(void) db;
 
-	log_printf(LOG_DEBUG, "DB Error: %s: %s\n", sqlstate, message);
+	log_printf(LOG_ERR, MSG_E_DB_SQL " [%s]: %s\n", sqlstate, message);
 	return 0;
 }
 
@@ -224,7 +224,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 		/* Return target version */
 		return 5;
 	}
-	log_printf(LOG_NOTICE, "DB: Migrating database to version %d\n", newversion);
+	log_printf(LOG_NOTICE, MSG_N_DB_MIGRATING " to version %d\n", newversion);
 	if(newversion == 1)
 	{
 		if(sql_execute(sql, "DROP TABLE IF EXISTS \"crawl_root\""))
@@ -517,7 +517,7 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 					me->ncrawlers, me->crawler_id);
 	if(!rs)
 	{
-		log_printf(LOG_CRIT, "DB: %s\n", sql_error(me->db));
+		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
 		exit(EXIT_FAILURE);
 	}
 	if(sql_stmt_eof(rs))
@@ -765,13 +765,13 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 	if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"updated\" = %Q, \"last_modified\" = %Q, \"status\" = %d, \"crawl_instance\" = NULL, \"state\" = %Q WHERE \"hash\" = %Q",
 					updatedstr, lastmodstr, status, statestr, cachekey))
 	{
-		log_printf(LOG_CRIT, "%s\n", sql_error(me->db));
+		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
 		exit(1);
 	}
 	if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"next_fetch\" = %Q WHERE \"hash\" = %Q AND \"next_fetch\" < %Q",
 					nextfetchstr, cachekey, nextfetchstr))
 	{
-		log_printf(LOG_CRIT, "%s\n", sql_error(me->db));
+		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
 		exit(1);
 	}
 	now = time(NULL);
@@ -781,19 +781,19 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 	strftime(nextfetchstr, 32, "%Y-%m-%d %H:%M:%S", &tm);
 	if(sql_executef(me->db, "UPDATE \"crawl_root\" SET \"last_updated\" = %Q WHERE \"hash\" = %Q", lastmodstr, rootkey))
 	{
-		log_printf(LOG_CRIT, "%s\n", sql_error(me->db));
+		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
 		exit(1);
 	}
 	if(sql_executef(me->db, "UPDATE \"crawl_root\" SET \"earliest_update\" = %Q WHERE \"hash\" = %Q AND \"earliest_update\" < %Q", nextfetchstr, rootkey, nextfetchstr))
 	{
-		log_printf(LOG_CRIT, "%s\n", sql_error(me->db));
+		log_printf(LOG_CRIT, MSG_C_DB_SQL "%s\n", sql_error(me->db));
 		exit(1);
 	}
 	if(status >= 400 && status < 499)
 	{
 		if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"error_count\" = \"error_count\" + 1 WHERE \"hash\" = %Q", cachekey))
 		{
-			log_printf(LOG_CRIT, "DB: %s\n", sql_error(me->db));
+			log_printf(LOG_CRIT, MSG_C_DB_SQL "%s\n", sql_error(me->db));
 			exit(1);
 		}
 	}
@@ -801,7 +801,7 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 	{
 		if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"error_count\" = 0, \"soft_error_count\" = \"soft_error_count\" + 1 WHERE \"hash\" = %Q", cachekey))
 		{
-			log_printf(LOG_CRIT, "DB: %s\n", sql_error(me->db));
+			log_printf(LOG_CRIT, MSG_C_DB_SQL "%s\n", sql_error(me->db));
 			exit(1);
 		}
 	}
@@ -809,7 +809,7 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 	{
 		if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"error_count\" = 0, \"soft_error_count\" = 0 WHERE \"hash\" = %Q", cachekey))
 		{
-			log_printf(LOG_CRIT, "DB: %s\n", sql_error(me->db));
+			log_printf(LOG_CRIT, MSG_C_DB_SQL "%s\n", sql_error(me->db));
 			exit(1);
 		}	
 	}	
@@ -854,7 +854,7 @@ db_unchanged_uristr(QUEUE *me, const char *uristr, int error)
 	strftime(nextfetchstr, 32, "%Y-%m-%d %H:%M:%S", &tm);
 	if(sql_executef(me->db, "UPDATE \"crawl_root\" SET \"last_updated\" = %Q, \"earliest_update\" = %Q WHERE \"hash\" = %Q", updatedstr, nextfetchstr, rootkey))
 	{
-		log_printf(LOG_CRIT, "%s\n", sql_error(me->db));
+		log_printf(LOG_CRIT, MSG_C_DB_SQL "%s\n", sql_error(me->db));
 		exit(1);
 	}
 	if(error)
@@ -865,7 +865,7 @@ db_unchanged_uristr(QUEUE *me, const char *uristr, int error)
 		if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"updated\" = %Q, \"next_fetch\" = %Q, \"crawl_instance\" = NULL, \"error_count\" = \"error_count\" + 1 WHERE \"hash\" = %Q",
 			updatedstr, nextfetchstr, cachekey))
 		{
-			log_printf(LOG_CRIT, "%s\n", sql_error(me->db));
+			log_printf(LOG_CRIT, MSG_C_DB_SQL "%s\n", sql_error(me->db));
 			exit(1);
 		}
 	}
@@ -877,7 +877,7 @@ db_unchanged_uristr(QUEUE *me, const char *uristr, int error)
 		if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"updated\" = %Q, \"next_fetch\" = %Q, \"crawl_instance\" = NULL, \"error_count\" = 0 WHERE \"hash\" = %Q",
 			updatedstr, nextfetchstr, cachekey))
 		{
-			log_printf(LOG_CRIT, "%s\n", sql_error(me->db));
+			log_printf(LOG_CRIT, MSG_C_DB_SQL "%s\n", sql_error(me->db));
 			exit(1);
 		}		
 	}
@@ -927,7 +927,7 @@ db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey, const cha
 
 	if(sql_perform(me->db, db_insert_resource_txn, &data, TXN_MAX_RETRIES, SQL_TXN_CONSISTENT))
 	{
-		log_printf(LOG_CRIT, "DB: %s\n", sql_error(me->db));
+		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
 		exit(1);
 		return -1;
 	}
@@ -941,7 +941,7 @@ db_insert_root(QUEUE *me, const char *rootkey, const char *uri)
 	
 	if(!rootkey || strlen(rootkey) != 32)
 	{
-		log_printf(LOG_CRIT, "DB: invalid root key '%s'\n", rootkey);
+		log_printf(LOG_CRIT, MSG_C_DB_INVALIDROOT " '%s'\n", rootkey);
 		abort();
 	}
 	data.me = me;
@@ -950,7 +950,7 @@ db_insert_root(QUEUE *me, const char *rootkey, const char *uri)
 		
 	if(sql_perform(me->db, db_insert_root_txn, &data, TXN_MAX_RETRIES, SQL_TXN_CONSISTENT))
 	{
-		log_printf(LOG_CRIT, "DB: %s\n", sql_error(me->db));
+		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
 		exit(1);
 		return -1;
 	}

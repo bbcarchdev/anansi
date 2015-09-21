@@ -96,6 +96,21 @@ struct processor_api_struct
 	int (*process)(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
 };
 
+/* Log messages */
+
+
+/* RDBMS queue */
+# define MSG_C_DB_CONNECT               "%ANANSI-C-5000: failed to connect to database"
+# define MSG_C_DB_MIGRATE               "%ANANSI-C-5001: database migration failed"
+# define MSG_N_DB_MIGRATEONLY           "%ANANSI-N-5002: performing schema migration only"
+# define MSG_N_DB_TESTURI               "%ANANSI-N-5003: using test URI"
+# define MSG_C_DB_URIPARSE              "%ANANSI-C-5004: failed to parse URI"
+# define MSG_E_DB_URIPARSE              "%ANANSI-E-5004: failed to parse URI"
+# define MSG_E_DB_SQL                   "%ANSNSI-E-5005: SQL error"
+# define MSG_C_DB_SQL                   "%ANSNSI-C-5005: SQL error"
+# define MSG_N_DB_MIGRATING             "%ANANSI-N-5006: migrating database schema"
+# define MSG_C_DB_INVALIDROOT           "%ANANSI-C-5007: invalid root key"
+
 CONTEXT *context_create(int crawler_offset);
 
 int processor_init(void);
