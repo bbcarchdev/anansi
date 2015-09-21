@@ -315,7 +315,7 @@ crawl_log_(CRAWL *crawl, int priority, const char *format, ...)
 	va_list ap;
 
 	va_start(ap, format);
-	if(crawl->logger)
+	if(crawl && crawl->logger)
 	{
 		crawl->logger(priority, format, ap);
 	}
