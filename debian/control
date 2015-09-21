@@ -6,7 +6,7 @@ Standards-Version: 3.9.3
 Homepage: http://bbcarchdev.github.io/res/
 Vcs-Browser: https://github.com/bbcarchdev/anansi
 Vcs-Git: git://github.com/bbcarchdev/anansi.git
-Build-Depends: debhelper (>= 8.0.0), libsql-dev, liburi-dev, libjsondata-dev, libmysqlclient-dev, libcurl4-gnutls-dev, libxml2-dev, librdf0-dev, pkg-config, autoconf, automake, libtool, libltdl-dev, uuid-dev, libcluster-dev
+Build-Depends: debhelper (>= 8.0.0), libsql-dev, liburi-dev, libjsondata-dev, libmysqlclient-dev, libcurl4-gnutls-dev, libxml2-dev, librdf0-dev, pkg-config, autoconf, automake, libtool, libltdl-dev, uuid-dev, libcluster-dev, libcluster
 
 Package: libcrawl
 Architecture: any
