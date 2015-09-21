@@ -85,6 +85,8 @@ diskcache_done_(CRAWLCACHE *cache)
 static FILE *
 diskcache_open_write_(CRAWLCACHE *cache, const CACHEKEY key)
 {
+	FILE *f;
+
 	if(diskcache_copy_filename_(cache->crawl, key, CACHE_PAYLOAD_SUFFIX, 1))
 	{
 		return NULL;
@@ -93,7 +95,13 @@ diskcache_open_write_(CRAWLCACHE *cache, const CACHEKEY key)
 	{
 		return NULL;
 	}
-	return fopen(cache->crawl->cachefile, "wb");
+	f = fopen(cache->crawl->cachefile, "wb");
+	if(!f)
+	{
+		crawl_log_(cache->crawl, LOG_ERR, MSG_E_DISK_PAYLOADWRITE ": %s: %s\n", cache->crawl->cachefile, strerror(errno));
+		return NULL;
+	}
+	return f;
 }
 
 static FILE *
@@ -108,7 +116,8 @@ diskcache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
 	f = fopen(cache->crawl->cachefile, "rb");
 	if(!f)
 	{
-		crawl_log_(cache->crawl, LOG_ERR, "disk: failed to open %s for reading: %s\n", cache->crawl->cachefile, strerror(errno));
+		crawl_log_(cache->crawl, LOG_ERR, MSG_E_DISK_PAYLOADREAD ": %s: %s\n", cache->crawl->cachefile, strerror(errno));
+		return NULL;
 	}
 	return f;
 }
@@ -124,7 +133,12 @@ diskcache_close_rollback_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
 			return -1;
 		}
 	}
-	return unlink(cache->crawl->cachefile);
+	if(unlink(cache->crawl->cachefile))
+	{
+		crawl_log_(cache->crawl, LOG_ERR, MSG_E_DISK_PAYLOADRM "%s: %s\n", cache->crawl->cachefile, strerror(errno));
+		return -1;
+	}
+	return 0;
 }
 
 static int
@@ -147,7 +161,12 @@ diskcache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ
 		errno = ENOMEM;
 		return -1;
 	}
-	return rename(cache->crawl->cachefile, cache->crawl->cachetmp);
+	if(rename(cache->crawl->cachefile, cache->crawl->cachetmp))
+	{
+		crawl_log_(cache->crawl, LOG_ERR, MSG_E_DISK_PAYLOADCOMMIT ": %s -> %s: %s\n", cache->crawl->cachefile, cache->crawl->cachetmp, strerror(errno));
+		return -1;
+	}
+	return 0;
 }
 
 static int
@@ -227,13 +246,14 @@ diskcache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 		diskcache_close_info_rollback_(cache, key, f);
 		return e;
 	}
-	diskcache_close_info_commit_(cache, key, f);
-	return 0;
+	return diskcache_close_info_commit_(cache, key, f);
 }
 
 static FILE *
 diskcache_open_info_write_(CRAWLCACHE *cache, const CACHEKEY key)
 {
+	FILE *f;
+	
 	if(diskcache_copy_filename_(cache->crawl, key, CACHE_INFO_SUFFIX, 1))
 	{
 		return NULL;
@@ -242,17 +262,31 @@ diskcache_open_info_write_(CRAWLCACHE *cache, const CACHEKEY key)
 	{
 		return NULL;
 	}
-	return fopen(cache->crawl->cachefile, "w");
+	f = fopen(cache->crawl->cachefile, "w");
+	if(!f)
+	{
+		crawl_log_(cache->crawl, LOG_ERR, MSG_E_DISK_PAYLOADWRITE ": %s: %s\n", cache->crawl->cachefile, strerror(errno));
+		return NULL;
+	}
+	return f; 
 }
 
 static FILE *
 diskcache_open_info_read_(CRAWLCACHE *cache, const CACHEKEY key)
 {
+	FILE *f;
+
 	if(diskcache_copy_filename_(cache->crawl, key, CACHE_INFO_SUFFIX, 0))
 	{
 		return NULL;
 	}
-	return fopen(cache->crawl->cachefile, "r");
+	f = fopen(cache->crawl->cachefile, "r");
+	if(!f)
+	{
+		crawl_log_(cache->crawl, LOG_ERR, MSG_E_DISK_INFOREAD ": %s: %s\n", cache->crawl->cachefile, strerror(errno));
+		return NULL;
+	}
+	return f;
 }
 
 static int
@@ -273,7 +307,12 @@ diskcache_close_info_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
 		errno = ENOMEM;
 		return -1;
 	}
-	return rename(cache->crawl->cachefile, cache->crawl->cachetmp);
+	if(rename(cache->crawl->cachefile, cache->crawl->cachetmp))
+	{
+		crawl_log_(cache->crawl, LOG_ERR, MSG_E_DISK_INFOCOMMIT ": %s -> %s: %s\n", cache->crawl->cachefile, cache->crawl->cachetmp, strerror(errno));
+		return -1;
+	}
+	return 0;
 }
 
 static int
@@ -287,7 +326,12 @@ diskcache_close_info_rollback_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
 			return -1;
 		}
 	}
-	return unlink(cache->crawl->cachefile);
+	if(unlink(cache->crawl->cachefile))
+	{
+		crawl_log_(cache->crawl, LOG_ERR, MSG_E_DISK_INFORM ": %s: %s\n", cache->crawl->cachefile, strerror(errno));
+		return -1;
+	}
+	return 0;
 }
 
 static char *
@@ -392,6 +436,7 @@ diskcache_create_dirs_(CRAWL *crawl, const char *path)
 			{
 				return -1;
 			}
+			crawl_log_(crawl, LOG_ERR, MSG_E_DISK_DIRSTAT "%s: %s\n", crawl->cachetmp, strerror(errno));
 		}
 		if(mkdir(crawl->cachetmp, 0777))
 		{
@@ -399,6 +444,8 @@ diskcache_create_dirs_(CRAWL *crawl, const char *path)
 			{
 				continue;
 			}
+			crawl_log_(crawl, LOG_ERR, MSG_E_DISK_MKDIR "%s: %s\n", crawl->cachetmp, strerror(errno));
+			return -1;
 		}
 	}
 	return 0;

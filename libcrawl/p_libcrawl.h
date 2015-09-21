@@ -81,6 +81,17 @@
 # define MSG_C_NOMEM                    "%ANANSI-C-1000: Memory allocation failure"
 # define MSG_N_NONEXT                   "%ANANSI-N-1001: crawl_perform(): no 'next resource' handler has been registered"
 
+/* disk cache */
+# define MSG_E_DISK_PAYLOADREAD         "%ANANSI-E-4000: disk: failed to open payload for reading"
+# define MSG_E_DISK_INFOREAD            "%ANANSI-E-4001: disk: failed to open sidecar for reading"
+# define MSG_E_DISK_PAYLOADCOMMIT       "%ANANSI-E-4002: disk: failed to rename temporary payload file"
+# define MSG_E_DISK_INFOCOMMIT          "%ANANSI-E-4003: disk: failed to rename temporary sidecar file"
+# define MSG_E_DISK_PAYLOADRM           "%ANANSI-E-4004: disk: failed to roll back payload"
+# define MSG_E_DISK_INFORM              "%ANANSI-E-4005: disk: failed to roll back sidecar"
+# define MSG_E_DISK_PAYLOADWRITE        "%ANANSI-E-4006: disk: failed to open temporary payload file for writing"
+# define MSG_E_DISK_MKDIR               "%ANANSI-E-4007: disk: failed to create cache directory"
+# define MSG_E_DISK_DIRSTAT             "%ANANSI-E-4008: disk: failed to stat cache directory"
+
 struct crawl_struct
 {
 	void *userdata;
