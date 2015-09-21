@@ -111,7 +111,7 @@ main(int argc, char **argv)
 			t = strchr(uribuf, '\n');
 			if(!t)
 			{
-				log_printf(LOG_ERR, "stdin:%d: line too long, skipping\n", line + 1);
+				log_printf(LOG_ERR, MSG_E_CRAWL_LINETOOLONG " at stdin:%d\n", line + 1);
 				skip = 1;
 				err = 1;
 				continue;
@@ -120,8 +120,8 @@ main(int argc, char **argv)
 			*t = 0;
 			uri = uri_create_str(uribuf, NULL);
 			if(!uri)
-			{
-				log_printf(LOG_ERR, "stdin:%d: failed to parse URI <%s>\n", line, uribuf);
+			{				
+				log_printf(LOG_ERR, MSG_E_CRAWL_URIPARSE "<%s> at stdin:%d\n", uribuf, line);
 				err = 1;
 				continue;
 			}
@@ -135,7 +135,7 @@ main(int argc, char **argv)
 			}
 			if(r)
 			{
-				log_printf(LOG_CRIT, "stdin:%d: failed to add <%s> to the crawler queue\n", line, uribuf);
+				log_printf(LOG_ERR, MSG_E_CRAWL_ADDFAILED " <%s> at stdin:%d\n", uribuf, line);
 				err = 1;
 			}
 			else
@@ -146,14 +146,14 @@ main(int argc, char **argv)
 			uri_destroy(uri);					
 		}
 		free(uribuf);
-		log_printf(LOG_NOTICE, "added %d URIs to the crawler queue\n", added);
+		log_printf(LOG_NOTICE, MSG_N_CRAWL_UPDATED ": added %d URIs\n", added);
 	}
 	else
 	{
 		uri = uri_create_str(uristr, NULL);
 		if(!uri)
 		{
-			log_printf(LOG_CRIT, "failed to parse URI <%s>\n", uristr);
+			log_printf(LOG_CRIT, MSG_C_CRAWL_URIPARSE " <%s>\n", uristr);
 			return 1;
 		}
 		if(force)
@@ -166,12 +166,13 @@ main(int argc, char **argv)
 		}
 		if(r)
 		{
-			log_printf(LOG_CRIT, "failed to add <%s> to the crawler queue\n", uristr);
+			log_printf(LOG_CRIT, MSG_C_CRAWL_ADDFAILED " <%s>\n", uristr);
 			err = 1;
 		}
 		else
 		{
-			log_printf(LOG_NOTICE, "added <%s> to the crawler queue\n", uristr);
+			
+			log_printf(LOG_NOTICE, MSG_N_CRAWL_UPDATED ": added <%s>\n", uristr);
 		}
 		uri_destroy(uri);
 	}

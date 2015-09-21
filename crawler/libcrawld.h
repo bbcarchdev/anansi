@@ -98,6 +98,13 @@ struct processor_api_struct
 
 /* Log messages */
 
+/* crawld and utilities */
+# define MSG_E_CRAWL_LINETOOLONG        "%ANANSI-E-2000: line too long, skipping"
+# define MSG_E_CRAWL_URIPARSE           "%ANANSI-E-2001: failed to parse URI"
+# define MSG_C_CRAWL_URIPARSE           "%ANANSI-C-2001: failed to parse URI"
+# define MSG_E_CRAWL_ADDFAILED          "%ANANSI-E-2002: failed to add URI to crawl queue"
+# define MSG_C_CRAWL_ADDFAILED          "%ANANSI-E-2002: failed to add URI to crawl queue"
+# define MSG_N_CRAWL_UPDATED            "%ANANSI-N-2003: crawler queue updated"
 
 /* RDBMS queue */
 # define MSG_C_DB_CONNECT               "%ANANSI-C-5000: failed to connect to database"
