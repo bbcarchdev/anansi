@@ -236,6 +236,7 @@ int crawl_perform(CRAWL *crawl);
 
 /* Memory allocation helpers */
 void *crawl_alloc(CRAWL *restrict crawl, size_t nbytes);
+char *crawl_strdup(CRAWL *restrict crawl, const char *src);
 void *crawl_realloc(CRAWL *restrict crawl, void *restrict ptr, size_t nbytes);
 void crawl_free(CRAWL *restrict crawl, void *restrict ptr);
 

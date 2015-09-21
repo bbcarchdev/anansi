@@ -35,6 +35,20 @@ crawl_alloc(CRAWL *restrict crawl, size_t nbytes)
 	return p;
 }
 
+char *
+crawl_strdup(CRAWL *restrict crawl, const char *src)
+{
+	char *p;
+
+	p = strdup(src);
+	if(!p)
+	{
+		crawl_log_(crawl, LOG_CRIT, MSG_C_NOMEM ": failed to duplicate string of %lu bytes\n", (unsigned long) strlen(src) + 1);
+		abort();
+	}
+	return p;
+}
+
 void *
 crawl_realloc(CRAWL *restrict crawl, void *restrict ptr, size_t nbytes)
 {
