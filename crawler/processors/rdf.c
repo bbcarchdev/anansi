@@ -155,20 +155,20 @@ rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conten
 	if(status > 300 && status < 304)
 	{
 		/* Don't process the payload of redirects */
-		log_printf(LOG_INFO, "REJECTED <%s>: RDF: ignoring payload of redirect (HTTP status %d)\n", uri, status);
+		log_printf(LOG_INFO, MSG_I_RDF_SKIPPED_REDIRECT " <%s> (RDF: HTTP status %d)\n", uri, status);
 		return 0;
 	}
 	if(status < 200 || status > 299)
 	{
 		/* Don't bother processing failed responses */
 		errno = EINVAL;
-		log_printf(LOG_INFO, "FAILED <%s>: RDF: ignoring payload for HTTP status %d\n", uri, status);
+		log_printf(LOG_INFO, MSG_I_RDF_FAILED_HTTP " <%s> (RDF: HTTP status %d)\n", uri, status);
 		return -1;
 	}
 	if(!content_type)
 	{
 		/* We can't parse if we don't know what it is */
-		log_printf(LOG_INFO, "FAILED <%s>: RDF payload has no Content-Type\n", uri);
+		log_printf(LOG_INFO, MSG_I_RDF_FAILED_NOTYPE " <%s>\n", uri);
 		errno = EINVAL;
 		return -1;
 	}
@@ -226,7 +226,8 @@ rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conten
 	log_printf(LOG_DEBUG, "rdf_preprocess: content_type='%s', parser_type='%s'\n", me->content_type, me->parser_type);
 	if(!me->parser_type)
 	{
-		log_printf(LOG_INFO, "REJECTED <%s>: RDF: no parser found for '%s'\n", uri, me->content_type);
+		
+		log_printf(LOG_INFO, MSG_I_RDF_REJECTED_TYPE " <%s> (RDF: no parser found for '%s')\n", uri, me->content_type);
 		return 0;
 	}
 	return 1;
@@ -278,13 +279,13 @@ rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conte
 	me->fobj = crawl_obj_open(obj);
 	if(!me->fobj)
 	{
-		log_printf(LOG_ERR, "FAILED <%s>: RDF: failed to open payload for processing\n", uri);
+		log_printf(LOG_ERR, MSG_E_RDF_ERROR_PAYLOAD " <%s>\n", uri);
 		librdf_free_parser(parser);
 		return -1;
 	}
 	if(librdf_parser_parse_file_handle_into_model(parser, me->fobj, 0, me->uri, me->model))
 	{
-		log_printf(LOG_ERR, "FAILED <%s>: RDF: failed to parse '%s' as '%s'\n", uri, content_type, me->parser_type);
+		log_printf(LOG_INFO, MSG_I_RDF_FAILED_PARSE " <%s> (RDF: failed to parse '%s' as '%s')\n", uri, content_type, me->parser_type);
 		librdf_free_parser(parser);
 		return -1;		
 	}
@@ -395,7 +396,7 @@ rdf_process_link(PROCESSOR *me, CRAWLOBJ *obj, const char *value, librdf_uri *re
 		}
 		if(*t != '<')
 		{
-			log_printf(LOG_NOTICE, "RDF: ignoring malformed Link header (%s)\n", value);
+			log_printf(LOG_INFO, MSG_I_RDF_MALFORMEDLINK " ('%s')\n", value);
 			return -1;
 		}
 		value = t + 1;
@@ -405,7 +406,7 @@ rdf_process_link(PROCESSOR *me, CRAWLOBJ *obj, const char *value, librdf_uri *re
 		}
 		if(!*t)
 		{
-			log_printf(LOG_NOTICE, "RDF: ignoring malformed Link header (%s)\n", value);
+			log_printf(LOG_INFO, MSG_I_RDF_MALFORMEDLINK " ('%s')\n", value);
 			return -1;
 		}
 		uristr = (char *) malloc(t - value + 1);
@@ -439,7 +440,7 @@ rdf_process_link(PROCESSOR *me, CRAWLOBJ *obj, const char *value, librdf_uri *re
 				}
 				if(*t == ' ' || *t == '\t')
 				{
-					log_printf(LOG_NOTICE, "RDF: ignoring link relation with malformed parameters ('%s')\n", value);
+					log_printf(LOG_NOTICE, MSG_I_RDF_MALFORMEDLINKPARAM " ('%s')\n", value);
 					return -1;
 				}
 				t++;

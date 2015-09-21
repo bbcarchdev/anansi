@@ -36,6 +36,24 @@
 # include <curl/curl.h>
 # include <librdf.h>
 
+/* Log messages */
+
+/* RDF (3000-3099) */
+
+# define MSG_I_RDF_SKIPPED_REDIRECT     "%%ANANSI-I-3000: SKIPPED (redirect)"
+# define MSG_I_RDF_FAILED_HTTP          "%%ANANSI-I-3001: FAILED (error response)"
+# define MSG_I_RDF_FAILED_NOTYPE        "%%ANANSI-I-3002: FAILED (no Content-Type in response)"
+# define MSG_I_RDF_REJECTED_TYPE        "%%ANANSI-I-3003: REJECTED (unsupported content type)"
+# define MSG_E_RDF_ERROR_PAYLOAD        "%%ANANSI-E-3004: ERROR (cannot open payload for processing)"
+# define MSG_I_RDF_FAILED_PARSE         "%%ANANSI-I-3005: FAILED (unable to parse payload)"
+# define MSG_I_RDF_MALFORMEDLINK        "%%ANANSI-I-3006: ignoring malford Link header in response"
+# define MSG_I_RDF_MALFORMEDLINKPARAM   "%%ANANSI-I-3007: ignoring Link header in response with malformed parameters"
+
+/* LOD (3100-3199) */
+
+# define MSG_I_LOD_REJECTED             "%%ANANSI-I-3100: REJECTED"
+
+
 typedef int (*rdf_filter_cb)(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *model);
 
 struct processor_struct
