@@ -22,7 +22,7 @@
 #include "p_libcrawl.h"
 
 void *
-crawl_alloc(CRAWL *crawl, size_t nbytes)
+crawl_alloc(CRAWL *restrict crawl, size_t nbytes)
 {
 	void *p;
 
@@ -36,7 +36,7 @@ crawl_alloc(CRAWL *crawl, size_t nbytes)
 }
 
 void *
-crawl_realloc(CRAWL *crawl, void *ptr, size_t nbytes)
+crawl_realloc(CRAWL *restrict crawl, void *restrict ptr, size_t nbytes)
 {
 	void *p;
 
@@ -50,7 +50,7 @@ crawl_realloc(CRAWL *crawl, void *ptr, size_t nbytes)
 }
 
 void
-crawl_free(CRAWL *crawl, void *ptr)
+crawl_free(CRAWL *restrict crawl, void *restrict ptr)
 {
 	(void) crawl;
 

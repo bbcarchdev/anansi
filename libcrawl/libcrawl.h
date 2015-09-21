@@ -235,8 +235,8 @@ CRAWLOBJ *crawl_locate_uri(CRAWL *crawl, URI *uri);
 int crawl_perform(CRAWL *crawl);
 
 /* Memory allocation helpers */
-void *crawl_alloc(CRAWL *crawl, size_t nbytes);
-void *crawl_realloc(CRAWL *crawl, void *ptr, size_t nbytes);
-void crawl_free(CRAWL *crawl, void *ptr);
+void *crawl_alloc(CRAWL *restrict crawl, size_t nbytes);
+void *crawl_realloc(CRAWL *restrict crawl, void *restrict ptr, size_t nbytes);
+void crawl_free(CRAWL *restrict crawl, void *restrict ptr);
 
 #endif /*!LIBCRAWL_H_*/
