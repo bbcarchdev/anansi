@@ -91,7 +91,7 @@ main(int argc, char **argv)
 	if(loop)
 	{
 		uribuflen = 1023;
-		uribuf = (char *) calloc(1, uribuflen + 1);
+		uribuf = (char *) crawl_alloc(crawler, uribuflen + 1);
 		if(!uribuf)
 		{
 			log_printf(LOG_CRIT, "failed to allocate %u bytes for URI buffer\n", (unsigned) (uribuflen + 1));
@@ -145,7 +145,7 @@ main(int argc, char **argv)
 			}
 			uri_destroy(uri);					
 		}
-		free(uribuf);
+		crawl_free(crawler, uribuf);
 		log_printf(LOG_NOTICE, MSG_N_CRAWL_UPDATED ": added %d URIs\n", added);
 	}
 	else

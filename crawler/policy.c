@@ -151,7 +151,7 @@ policy_create_list_(const char *key, const char *defval)
 	{
 		count++;
 	}
-	list = (char **) calloc(count + 1, sizeof(char *));
+	list = (char **) crawl_alloc(NULL, (count + 1) * sizeof(char *));
 	if(!list)
 	{
 		return NULL;
@@ -165,7 +165,7 @@ policy_create_list_(const char *key, const char *defval)
 			*t = 0;
 			if(p)
 			{
-				list[count] = strdup(p);
+				list[count] = crawl_strdup(NULL, p);
 				if(!list[count])
 				{
 					policy_destroy_list_(list);
@@ -183,7 +183,7 @@ policy_create_list_(const char *key, const char *defval)
 	}
 	if(p)
 	{
-		list[count] = strdup(p);
+		list[count] = crawl_strdup(NULL, p);
 		if(!list[count])
 		{
 			policy_destroy_list_(list);
@@ -206,9 +206,9 @@ policy_destroy_list_(char **list)
 	
 	for(c = 0; list && list[c]; c++)
 	{
-		free(list[c]);
+		crawl_free(NULL, list[c]);
 	}
-	free(list);
+	crawl_free(NULL, list);
 	return 0;
 }
 
@@ -235,7 +235,7 @@ policy_checkpoint_(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata)
 	{
 		type = "";
 	}
-	s = strdup(type);
+	s = crawl_strdup(crawl, type);
 	if(!s)
 	{
 		return -1;
@@ -270,7 +270,7 @@ policy_checkpoint_(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata)
 		if(!n)
 		{
 			log_printf(LOG_DEBUG, "Policy: type '%s' not matched by whitelist\n", s);
-			free(s);
+			crawl_free(crawl, s);
 			*status = 406;
 			return 1;
 		}
@@ -282,12 +282,12 @@ policy_checkpoint_(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata)
 			if(!strcasecmp(types_blacklist[c], s))
 			{
 				log_printf(LOG_DEBUG, "Policy: type '%s' is blacklisted\n", s);
-				free(s);
+				crawl_free(crawl, s);
 				*status = 406;
 				return 1;
 			}
 		}
 	}
-	free(s);
+	crawl_free(crawl, s);
 	return 0;
 }

@@ -56,10 +56,10 @@ int
 thread_cleanup(void)
 {
 	pthread_mutex_destroy(&lock);
-	free(cache);
-	free(username);
-	free(password);
-	free(endpoint);
+	crawl_free(NULL, cache);
+	crawl_free(NULL, username);
+	crawl_free(NULL, password);
+	crawl_free(NULL, endpoint);
 	return 0;
 }
 
@@ -70,7 +70,7 @@ thread_run(void)
 
 	nthreads = crawl_cluster_inst_threads();
 	log_printf(LOG_DEBUG, "creating %d crawler threads\n", nthreads);
-	contexts = (CONTEXT **) calloc(nthreads, sizeof(CONTEXT *));
+	contexts = (CONTEXT **) crawl_alloc(NULL, nthreads * sizeof(CONTEXT *));
 	if(!contexts)
 	{
 		log_printf(LOG_CRIT, MSG_C_CRAWL_NOMEM ": failed to allocate memory for thread contexts\n");

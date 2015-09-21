@@ -259,7 +259,7 @@ start_daemon(const char *configkey, const char *pidfile)
 	}
 	else if(pidfile)
 	{
-		file = strdup(pidfile);
+		file = crawl_strdup(NULL, pidfile);
 		if(!file)
 		{
 			log_printf(LOG_CRIT, "failed to allocate memory: %s\n", strerror(errno));
@@ -274,7 +274,7 @@ start_daemon(const char *configkey, const char *pidfile)
 	if(child == -1)
 	{
 		log_printf(LOG_CRIT, MSG_C_CRAWL_FORK ": %s\n", strerror(errno));
-		free(file);
+		crawl_free(NULL, file);
 		return -1;
 	}
 	if(child > 0)
@@ -294,7 +294,7 @@ start_daemon(const char *configkey, const char *pidfile)
 		return child;
 	}
 	/* Child process */
-	free(file);
+	crawl_free(NULL, file);
 	umask(0);
 	log_reset();
 	if(setsid() < 0)

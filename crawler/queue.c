@@ -130,7 +130,7 @@ queue_add_uri(CRAWL *crawl, URI *uri)
 		log_printf(LOG_DEBUG, "Adding URI <%s> to crawler queue\n", uristr);
 		r = data->queue->api->add(data->queue, uri, uristr);
 	}
-	free(uristr);
+	crawl_free(crawl, uristr);
 	return r;	
 }
 

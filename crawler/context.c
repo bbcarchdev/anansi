@@ -76,22 +76,23 @@ context_create(int crawler_offset)
 {
 	CONTEXT *p;
 	int e;
-	
+	CRAWL *crawl;
+
+	crawl = crawl_create();
+	if(!crawl)
+	{
+		log_printf(LOG_CRIT, MSG_C_CRAWL_INSTANCE "\n");
+		return NULL;
+	}	
 	e = 0;
-	p = (CONTEXT *) calloc(1, sizeof(CONTEXT));
+	p = (CONTEXT *) crawl_alloc(crawl, sizeof(CONTEXT));
 	pthread_rwlock_init(&(p->lock), NULL);
 	p->api = &context_api;
 	p->refcount = 1;
 	p->thread_id = crawler_offset;
 	p->crawler_id = p->thread_offset + p->thread_base;
 	p->cache_id = p->crawler_id;
-	p->crawl = crawl_create();
-	if(!p->crawl)
-	{
-		log_printf(LOG_CRIT, MSG_C_CRAWL_INSTANCE "\n");
-		free(p);
-		return NULL;
-	}
+	p->crawl = crawl;
 	crawl_set_logger(p->crawl, log_vprintf);
 	crawl_set_userdata(p->crawl, p);
 	crawl_set_verbose(p->crawl, config_get_bool("crawler:verbose", 0));
@@ -114,7 +115,9 @@ static unsigned long
 context_release(CONTEXT *me)
 {
 	unsigned long r;
-	
+	CRAWL *crawl;
+
+	crawl = NULL;
 	pthread_rwlock_wrlock(&(me->lock));
 	me->refcount--;
 	r = me->refcount;
@@ -133,11 +136,16 @@ context_release(CONTEXT *me)
 	}
 	if(me->crawl)
 	{
-		crawl_destroy(me->crawl);
+		crawl = me->crawl;
+		me->crawl = NULL;
 	}
 	pthread_rwlock_destroy(&(me->lock));
-	free(me->cfgbuf);
-	free(me);
+	crawl_free(crawl, me->cfgbuf);
+	crawl_free(crawl, me);
+	if(crawl)
+	{
+		crawl_destroy(crawl);
+	}
 	return 0;
 }
 
@@ -206,7 +214,7 @@ context_config_get(CONTEXT *me, const char *key, const char *defval)
 	if(needed)
 	if(needed > me->cfgbuflen)
 	{
-		p = (char *) realloc(me->cfgbuf, needed);
+		p = (char *) crawl_realloc(me->crawl, me->cfgbuf, needed);
 		if(!p)
 		{
 			return NULL;
