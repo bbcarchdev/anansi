@@ -77,6 +77,10 @@
 # define CACHE_PAYLOAD_SUFFIX          ""
 # define CACHE_TMP_SUFFIX              ".tmp"
 
+/* Log messages - libcrawl */
+# define MSG_C_NOMEM                    "%ANANSI-C-1000: Memory allocation failure"
+# define MSG_N_NONEXT                   "%ANANSI-N-1001: crawl_perform(): no 'next resource' handler has been registered"
+
 struct crawl_struct
 {
 	void *userdata;

@@ -38,7 +38,7 @@ crawl_perform(CRAWL *crawl)
 		uri = NULL;
 		if(!crawl->next)
 		{
-			crawl_log_(crawl, LOG_NOTICE, "libcrawl: crawl_perform(): no 'next resource' handler has been registered\n");
+			crawl_log_(crawl, LOG_NOTICE, MSG_N_NONEXT);
 			errno = EINVAL;
 			return -1;
 		}
