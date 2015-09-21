@@ -26,6 +26,7 @@
 struct s3cache_data_struct
 {
 	S3BUCKET *bucket;
+	CRAWL *crawl;
 	/* Temporary state */
 	char *path;
 	size_t pathsize;
@@ -78,11 +79,12 @@ s3cache_init_(CRAWLCACHE *cache)
 	const char *t;
 	char *p;
 
-	data = (struct s3cache_data_struct *) calloc(1, sizeof(struct s3cache_data_struct));
+	data = (struct s3cache_data_struct *) crawl_alloc(cache->crawl, sizeof(struct s3cache_data_struct));
 	if(!data)
 	{
 		return 0;
 	}
+	data->crawl = cache->crawl;
 	if(!cache->crawl->uri->host)
 	{
 		return 0;
@@ -91,7 +93,7 @@ s3cache_init_(CRAWLCACHE *cache)
 	data->bucket = s3_create(cache->crawl->uri->host);
 	if(!data->bucket)
 	{
-		free(data);
+		crawl_free(cache->crawl, data);
 		return 0;
 	}
 	if(cache->crawl->uri->auth)
@@ -99,28 +101,28 @@ s3cache_init_(CRAWLCACHE *cache)
 		t = strchr(cache->crawl->uri->auth, ':');
 		if(t)
 		{
-			p = (char *) calloc(1, t - cache->crawl->uri->auth + 1);
+			p = (char *) crawl_alloc(cache->crawl, t - cache->crawl->uri->auth + 1);
 			if(!p)
 			{
 				s3_destroy(data->bucket);
-				free(data);
+				crawl_free(cache->crawl, data);
 				return 0;
 			}
 			urldecode(p, cache->crawl->uri->auth, t - cache->crawl->uri->auth);
 			p[t - cache->crawl->uri->auth] = 0;
 			s3_set_access(data->bucket, p);
-			free(p);			
+			crawl_free(cache->crawl, p);			
 			t++;
-			p = (char *) calloc(1, strlen(t) + 1);
+			p = (char *) crawl_alloc(cache->crawl, strlen(t) + 1);
 			if(!p)
 			{
 				s3_destroy(data->bucket);
-				free(data);
+				crawl_free(cache->crawl, data);
 				return 0;
 			}
 			urldecode(p, t, strlen(t));
 			s3_set_secret(data->bucket, p);
-			free(p);
+			crawl_free(cache->crawl, p);
 		}
 		else
 		{
@@ -147,9 +149,9 @@ s3cache_done_(CRAWLCACHE *cache)
 		{
 			s3_destroy(data->bucket);
 		}
-		free(data->path);
-		free(data->buf);
-		free(data);
+		crawl_free(cache->crawl, data->path);
+		crawl_free(cache->crawl, data->buf);
+		crawl_free(cache->crawl, data);
 		cache->data = NULL;
 	}
 	return 0;
@@ -262,20 +264,20 @@ s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *
 	t = crawl_obj_type(obj);
 	if(t)
 	{
-		buf = (char *) malloc(strlen(t) + 15);
+		buf = (char *) crawl_alloc(cache->crawl, strlen(t) + 15);
 		strcpy(buf, "Content-Type: ");
 		strcpy(&(buf[14]), t);
 		headers = curl_slist_append(headers, buf);
-		free(buf);
+		crawl_free(cache->crawl, buf);
 	}
 	t = crawl_obj_content_location(obj);
 	if(t)
 	{
-		buf = (char *) malloc(strlen(t) + 19);
+		buf = (char *) crawl_alloc(cache->crawl, strlen(t) + 19);
 		strcpy(buf, "Content-Location: ");
 		strcpy(&(buf[18]), t);
 		headers = curl_slist_append(headers, buf);
-		free(buf);
+		crawl_free(cache->crawl, buf);
 	}
 	s3_request_set_headers(req, headers);
 	if(!s3_request_perform(req))
@@ -414,7 +416,7 @@ static char *s3cache_uri_(CRAWLCACHE *cache, const CACHEKEY key)
 	}
 	/* s3://bucket/path/key */
 	needed = 5 + strlen(bucket) + (path ? strlen(path) : 0) + 2 + strlen(key) + 1;
-	uri = (char *) calloc(1, needed);
+	uri = (char *) crawl_alloc(cache->crawl, needed);
 	if(!uri)
 	{
 		return NULL;
@@ -494,7 +496,7 @@ s3cache_write_buf_(char *ptr, size_t size, size_t nmemb, void *userdata)
 	size *= nmemb;
 	if(data->pos + size >= data->size)
 	{
-		p = (char *) realloc(data->buf, data->pos + size + 1);
+		p = (char *) crawl_realloc(data->crawl, data->buf, data->pos + size + 1);
 		if(!p)
 		{
 			return 0;
@@ -522,7 +524,7 @@ s3cache_copy_path_(CRAWLCACHE *cache, const CACHEKEY key, const char *type)
 	needed = 1 + strlen(key) + 1 + strlen(type) + 1;
 	if(data->pathsize < needed)
 	{
-		p = (char *) realloc(data->path, needed);
+		p = (char *) crawl_realloc(data->crawl, data->path, needed);
 		if(!p)
 		{
 			return -1;

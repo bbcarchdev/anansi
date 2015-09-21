@@ -187,7 +187,7 @@ diskcache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 	bufsize = 0;
 	for(;;)
 	{
-		p = realloc(buf, bufsize + OBJ_READ_BLOCK + 1);
+		p = crawl_realloc(cache->crawl, buf, bufsize + OBJ_READ_BLOCK + 1);
 		if(!p)
 		{
 			fclose(f);
@@ -199,7 +199,7 @@ diskcache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 		if(count < 0)
 		{
 			fclose(f);
-			free(buf);
+			crawl_free(cache->crawl, buf);
 			return -1;
 		}
 		p[count] = 0;
@@ -212,7 +212,7 @@ diskcache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 	fclose(f);
 	jd_release(dict);
 	jd_from_jsons(dict, buf);
-	free(buf);
+	crawl_free(cache->crawl, buf);
 	return 0;
 }
 
@@ -341,14 +341,14 @@ diskcache_uri_(CRAWLCACHE *cache, const CACHEKEY key)
 	char *p;
 
 	needed = diskcache_filename_(cache->crawl, key, CACHE_PAYLOAD_SUFFIX, NULL, 0, 0);
-	p = (char *) calloc(1, needed);
+	p = (char *) crawl_alloc(cache->crawl, needed);
 	if(!p)
 	{
 		return NULL;
 	}
 	if(diskcache_filename_(cache->crawl, key, CACHE_PAYLOAD_SUFFIX, p, needed, 0) != needed)
 	{
-		free(p);
+		crawl_free(cache->crawl, p);
 		return NULL;
 	}
 	return p;
@@ -460,13 +460,13 @@ diskcache_copy_filename_(CRAWL *crawl, const CACHEKEY key, const char *type, int
 	needed = diskcache_filename_(crawl, key, type, NULL, 0, 1);
 	if(needed > crawl->cachefile_len)
 	{
-		p = (char *) realloc(crawl->cachefile, needed);
+		p = (char *) crawl_realloc(crawl, crawl->cachefile, needed);
 		if(!p)
 		{
 		    return -1;
 		}
 		crawl->cachefile = p;
-		p = (char *) realloc(crawl->cachetmp, needed);
+		p = (char *) crawl_realloc(crawl, crawl->cachetmp, needed);
 		if(!p)
 		{
 		    return -1;
