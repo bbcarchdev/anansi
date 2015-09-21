@@ -38,7 +38,7 @@ crawl_perform(CRAWL *crawl)
 		uri = NULL;
 		if(!crawl->next)
 		{
-			crawl_log_(crawl, LOG_NOTICE, MSG_N_NONEXT);
+			crawl_log_(crawl, LOG_NOTICE, MSG_N_NONEXT "\n");
 			errno = EINVAL;
 			return -1;
 		}
