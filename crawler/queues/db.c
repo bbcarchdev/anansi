@@ -599,6 +599,7 @@ db_uristr_key_root(QUEUE *me, const char *uristr, char **uri, char *urikey, uint
 	u_resource = uri_create_str(str, NULL);
 	if(!u_resource)
 	{
+		log_printf(LOG_ERR, MSG_E_DB_URIPARSE " <%s>\n", str);
 		free(str);
 		return -1;
 	}
@@ -625,6 +626,13 @@ db_uristr_key_root(QUEUE *me, const char *uristr, char **uri, char *urikey, uint
 	*shortkey = (uint32_t) strtoul(skey, NULL, 16);
 	
 	u_root = uri_create_str("/", u_resource);
+	if(!u_root)
+	{
+		log_printf(LOG_ERR, MSG_E_DB_URIROOT " <%s>\n", str);
+		uri_destroy(u_resource);
+		free(str);
+		return -1;
+	}
 	if(crawl_cache_key_uri(me->crawl, u_root, rootkey, 48))
 	{
 		uri_destroy(u_resource);

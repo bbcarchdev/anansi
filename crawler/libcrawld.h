@@ -117,6 +117,7 @@ struct processor_api_struct
 # define MSG_C_DB_SQL                   "%%ANSNSI-C-5005: SQL error"
 # define MSG_N_DB_MIGRATING             "%%ANANSI-N-5006: migrating database schema"
 # define MSG_C_DB_INVALIDROOT           "%%ANANSI-C-5007: invalid root key"
+# define MSG_E_DB_URIROOT               "%%ANANSI-E-5004: failed to derive root from URI"
 
 CONTEXT *context_create(int crawler_offset);
 

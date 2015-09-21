@@ -80,6 +80,7 @@
 /* Log messages - libcrawl */
 # define MSG_C_NOMEM                    "%%ANANSI-C-1000: Memory allocation failure"
 # define MSG_N_NONEXT                   "%%ANANSI-N-1001: crawl_perform(): no 'next resource' handler has been registered"
+# define MSG_E_PARSEURI                 "%%ANANSI-E-1002: failed to parse URI"
 
 /* disk cache */
 # define MSG_E_DISK_PAYLOADREAD         "%%ANANSI-E-4000: disk: failed to open payload for reading"

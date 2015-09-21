@@ -81,6 +81,11 @@ crawl_cache_key_uri(CRAWL *restrict crawl, URI *restrict uri, char *restrict buf
 	int r;
 	
 	needed = uri_str(uri, NULL, 0);
+	if(needed == (size_t) -1)
+	{
+		errno = EINVAL;
+		return -1;
+	}
 	uristr = NULL;
 	if(!needed ||
 	   (uristr = (char *) crawl_alloc(crawl, needed)) == NULL ||
