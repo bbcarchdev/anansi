@@ -20,11 +20,11 @@
 ACLOCAL_AMFLAGS = -I m4
 
 DIST_SUBDIRS = m4 \
-	libetcd libs3client libcrawl libsupport \
+	libs3client libcrawl libsupport \
 	util crawler init.d
 
 SUBDIRS = @subdirs@ \
-	libetcd libs3client libcrawl libsupport \
+	libs3client libcrawl libsupport \
 	util crawler init.d
 
 EXTRA_DIST = README.md LICENSE-2.0

@@ -68,7 +68,7 @@ thread_run(void)
 {
 	int c, nthreads;
 
-	nthreads = cluster_inst_threads();
+	nthreads = crawl_cluster_inst_threads();
 	log_printf(LOG_DEBUG, "creating %d crawler threads\n", nthreads);
 	contexts = (CONTEXT **) calloc(nthreads, sizeof(CONTEXT *));
 	if(!contexts)
@@ -107,7 +107,7 @@ thread_terminate(void)
 {
 	int nthreads, c, alive;
 
-	nthreads = cluster_inst_threads();
+	nthreads = crawl_cluster_inst_threads();
 	log_printf(LOG_NOTICE, "terminating crawler threads...\n");   
 	pthread_mutex_lock(&lock);
 	crawld_terminate = 1;
@@ -214,10 +214,10 @@ thread_handler_(void *arg)
 	 */
 	context = (CONTEXT *) arg;
 	crawler = context->api->crawler(context);
-	instid = cluster_inst_id();
-	threadcount = cluster_inst_threads();
-	crawlercount = cluster_threads();
-	env = cluster_env();
+	instid = crawl_cluster_inst_id();
+	threadcount = crawl_cluster_inst_threads();
+	crawlercount = crawl_cluster_threads();
+	env = crawl_cluster_env();
 	threadid = context->api->thread_id(context);
 	if(thread_setup_(context, crawler))
 	{
@@ -237,8 +237,8 @@ thread_handler_(void *arg)
 	pthread_mutex_unlock(&createlock);
 	while(!context->api->terminated(context))
 	{
-		newbase = cluster_inst_id();
-		newthreads = cluster_threads();
+		newbase = crawl_cluster_inst_id();
+		newthreads = crawl_cluster_threads();
 		if(newbase != instid || newthreads != crawlercount)
 		{
 			/* Cluster has re-balanced */
@@ -308,8 +308,8 @@ thread_setup_(CONTEXT *context, CRAWL *crawler)
 	{
 		return -1;
 	}
-	context->api->set_threads(context, cluster_threads());
-	context->api->set_base(context, cluster_inst_id());
+	context->api->set_threads(context, crawl_cluster_threads());
+	context->api->set_base(context, crawl_cluster_inst_id());
 	return 0;
 }
 

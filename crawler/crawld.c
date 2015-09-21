@@ -69,7 +69,7 @@ main(int argc, char **argv)
 	{
 		return 1;
 	}
-	if(cluster_init())
+	if(crawl_cluster_init())
 	{
 		return 1;
 	}
@@ -104,7 +104,7 @@ main(int argc, char **argv)
 			return 0;
 		}
 	}
-	if(cluster_detached())
+	if(crawl_cluster_detached())
 	{
 		return 1;
 	}

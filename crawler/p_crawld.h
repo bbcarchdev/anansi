@@ -42,7 +42,7 @@
 # include "libcrawld.h"
 # include "libsupport.h"
 # include "liburi.h"
-# include "libetcd.h"
+# include "libcluster.h"
 
 # define CRAWLER_APP_NAME               "crawler"
 
@@ -58,11 +58,11 @@ int thread_create(int crawler_offset);
 int thread_run(void);
 int thread_terminate(void);
 
-int cluster_init(void);
-int cluster_threads(void);
-int cluster_inst_id(void);
-int cluster_inst_threads(void);
-const char *cluster_env(void);
-int cluster_detached(void);
+int crawl_cluster_init(void);
+int crawl_cluster_threads(void);
+int crawl_cluster_inst_id(void);
+int crawl_cluster_inst_threads(void);
+const char *crawl_cluster_env(void);
+int crawl_cluster_detached(void);
 
 #endif /*!P_CRAWLD_H_*/
