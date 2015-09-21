@@ -235,6 +235,20 @@ CRAWLOBJ *crawl_locate_uri(CRAWL *crawl, URI *uri);
 int crawl_perform(CRAWL *crawl);
 
 /* Memory allocation helpers */
+
+/* These APIs are 'safe' wrappers around calloc(), strdup(), realloc() and
+ * free(). If allocation fails, they will log a message at LOG_CRIT (see
+ * MSG_C_NOMEM) and call abort().
+ *
+ * It is valid to pass NULL as the 'crawl' parameter to these functions;
+ * in that circumstance, any log messages will be delivered via syslog()
+ * rather than the crawl context's registered logging callback.
+ *
+ * crawl_alloc() will zero-initialise the returned buffer.
+ *
+ * crawl_realloc() will NOT zero-initialise any part of the buffer if the
+ * new buffer is larger than the original.
+ */
 void *crawl_alloc(CRAWL *restrict crawl, size_t nbytes);
 char *crawl_strdup(CRAWL *restrict crawl, const char *src);
 void *crawl_realloc(CRAWL *restrict crawl, void *restrict ptr, size_t nbytes);
