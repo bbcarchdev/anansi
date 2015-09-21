@@ -83,14 +83,14 @@ crawl_cache_key_uri(CRAWL *restrict crawl, URI *restrict uri, char *restrict buf
 	needed = uri_str(uri, NULL, 0);
 	uristr = NULL;
 	if(!needed ||
-		(uristr = (char *) malloc(needed)) == NULL ||
+	   (uristr = (char *) crawl_alloc(crawl, needed)) == NULL ||
 		uri_str(uri, uristr, needed) != needed)
 	{
 		free(uristr);
 		return -1;
 	}
 	r = crawl_cache_key(crawl, uristr, buf, buflen);
-	free(uristr);
+	crawl_free(crawl, uristr);
 	return r;
 }
 

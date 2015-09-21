@@ -30,9 +30,9 @@ crawl_create(void)
 {
 	CRAWL *p;
 
-	p = (CRAWL *) calloc(1, sizeof(CRAWL));
-	p->ua = strdup("User-Agent: Mozilla/5.0 (compatible; Anansi; libcrawl; +https://bbcarchdev.github.io/res/)");
-	p->accept = strdup("Accept: */*");
+	p = (CRAWL *) crawl_alloc(NULL, sizeof(CRAWL));
+	p->ua = crawl_strdup(p, "User-Agent: Mozilla/5.0 (compatible; Anansi; libcrawl; +https://bbcarchdev.github.io/res/)");
+	p->accept = crawl_strdup(p, "Accept: */*");
 	if(!p->ua || !p->accept)
 	{
 		crawl_destroy(p);
@@ -54,12 +54,12 @@ crawl_destroy(CRAWL *p)
 		{
 			uri_info_destroy(p->uri);
 		}
-		free(p->cachepath);
-		free(p->cachefile);
-		free(p->cachetmp);
-		free(p->accept);
-		free(p->ua);
-		free(p);
+		crawl_free(p, p->cachepath);
+		crawl_free(p, p->cachefile);
+		crawl_free(p, p->cachetmp);
+		crawl_free(p, p->accept);
+		crawl_free(p, p->ua);
+		crawl_free(NULL, p);
 	}
 }
 
@@ -120,13 +120,13 @@ crawl_set_accept(CRAWL *crawl, const char *accept)
 	char *p;
 	
 	/* Accept: ... - 9 + strlen(accept) */
-	p = (char *) malloc(9 + strlen(accept));
+	p = (char *) crawl_alloc(crawl, 9 + strlen(accept));
 	if(!p)
 	{
 		return -1;
 	}
 	sprintf(p, "Accept: %s", accept);
-	free(crawl->accept);
+	crawl_free(crawl, crawl->accept);
 	crawl->accept = p;
 	return 0;
 }
@@ -138,13 +138,13 @@ crawl_set_ua(CRAWL *crawl, const char *ua)
 	char *p;
 	
 	/* User-Agent: ... - 13 + strlen(ua) */
-	p = (char *) malloc(13 + strlen(ua));
+	p = (char *) crawl_alloc(crawl, 13 + strlen(ua));
 	if(!p)
 	{
 		return -1;
 	}
 	sprintf(p, "User-Agent: %s", ua);
-	free(crawl->ua);
+	crawl_free(crawl, crawl->ua);
 	crawl->ua = p;
 	return 0;
 }
@@ -199,7 +199,7 @@ crawl_set_cache_uri(CRAWL *crawl, URI *uri)
 		uri_destroy(p);
 		return -1;
 	}
-	s = strdup(info->path ? info->path : "");
+	s = crawl_strdup(crawl, info->path ? info->path : "");
 	if(!s)
 	{
 		uri_info_destroy(info);

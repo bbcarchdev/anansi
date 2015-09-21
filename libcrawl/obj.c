@@ -33,7 +33,7 @@ crawl_obj_create_(CRAWL *crawl, URI *uri)
 	CRAWLOBJ *p;
 	size_t needed;
 	
-	p = (CRAWLOBJ *) calloc(1, sizeof(CRAWLOBJ));
+	p = (CRAWLOBJ *) crawl_alloc(crawl, sizeof(CRAWLOBJ));
 	if(!p)
 	{
 		return NULL;
@@ -47,9 +47,9 @@ crawl_obj_create_(CRAWL *crawl, URI *uri)
 	}
 	needed = uri_str(p->uri, NULL, 0);
 	if(!needed ||
-		(p->uristr = (char *) malloc(needed)) == NULL ||
-		uri_str(p->uri, p->uristr, needed) != needed ||
-		crawl_cache_key_(crawl, p->key, p->uristr))
+	   (p->uristr = (char *) crawl_alloc(crawl, needed)) == NULL ||
+	   uri_str(p->uri, p->uristr, needed) != needed ||
+	   crawl_cache_key_(crawl, p->key, p->uristr))
 	{
 		crawl_obj_destroy(p);
 		return NULL;
@@ -91,10 +91,10 @@ crawl_obj_destroy(CRAWLOBJ *obj)
 		{
 			uri_destroy(obj->uri);
 		}
-		free(obj->uristr);
-		free(obj->payload);
+		crawl_free(obj->crawl, obj->uristr);
+		crawl_free(obj->crawl, obj->payload);
 		jd_release(&(obj->info));
-		free(obj);
+		crawl_free(obj->crawl, obj);
 	}
 	return 0;
 }
