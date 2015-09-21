@@ -45,8 +45,8 @@ processor_init(void)
 	 */
 	name = config_getptr_unlocked("processor:name", NULL);
 	if(!name)
-	{
-		log_printf(LOG_CRIT, "no 'processor' configuration option could be found in the [crawl] section\n");
+	{		
+		log_printf(LOG_CRIT, MSG_C_CRAWL_PROCESSORCONFIG "\n");
 		return -1;
 	}
 	if(!strcmp(name, "rdf"))
@@ -59,7 +59,7 @@ processor_init(void)
 	}
 	else
 	{
-		log_printf(LOG_CRIT, "processing engine '%s' is not registered\n", name);
+		log_printf(LOG_CRIT, MSG_C_CRAWL_PROCESSORUNKNOWN ": '%s'\n", name);
 		return -1;
 	}
 	return 0;
@@ -81,7 +81,7 @@ processor_init_context(CONTEXT *context)
 	context->processor = constructor(crawl);
 	if(!context->processor)
 	{
-		log_printf(LOG_CRIT, "failed to initialise processing engine\n");
+		log_printf(LOG_CRIT, MSG_C_CRAWL_PROCESSORINIT "\n");
 		return -1;
 	}
 	crawl_set_updated(crawl, processor_handler_);
@@ -114,7 +114,7 @@ processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 	{
 		if(!location)
 		{
-			log_printf(LOG_NOTICE, "<%s>: received a %d redirect with no location specified\n", uri, status);
+			log_printf(LOG_ERR, MSG_E_CRAWL_DEADREDIRECT " from <%s> (HTTP status %d)\n", uri, status);
 		}
 		else if(strcmp(location, uri))
 		{
@@ -131,7 +131,7 @@ processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 	}
 	else if(r > 0)
 	{
-		log_printf(LOG_INFO, "ACCEPTED <%s>\n", uri);
+		log_printf(LOG_INFO, MSG_I_CRAWL_ACCEPTED " <%s>\n", uri);
 		state = COS_ACCEPTED;
 		ttl = 86400;
 	}

@@ -73,7 +73,7 @@ thread_run(void)
 	contexts = (CONTEXT **) calloc(nthreads, sizeof(CONTEXT *));
 	if(!contexts)
 	{
-		log_printf(LOG_CRIT, "failed to allocate memory for context pointers\n");
+		log_printf(LOG_CRIT, MSG_C_CRAWL_NOMEM ": failed to allocate memory for thread contexts\n");
 		return -1;
 	}
 
@@ -81,8 +81,8 @@ thread_run(void)
 	{
 		log_printf(LOG_DEBUG, "launching thread %d\n", c + 1);
 		if(thread_create(c))
-		{
-			log_printf(LOG_CRIT, "failed to create thread %d\n", c + 1);
+		{			
+			log_printf(LOG_CRIT, MSG_C_CRAWL_THREADCREATE " (thread #%d)\n", c + 1);
 			return -1;
 		}
 	}
@@ -108,7 +108,7 @@ thread_terminate(void)
 	int nthreads, c, alive;
 
 	nthreads = crawl_cluster_inst_threads();
-	log_printf(LOG_NOTICE, "terminating crawler threads...\n");   
+	log_printf(LOG_NOTICE, MSG_N_CRAWL_TERMINATETHREADS "\n");   
 	pthread_mutex_lock(&lock);
 	crawld_terminate = 1;
 	for(c = 0; c < nthreads; c++)
@@ -119,7 +119,7 @@ thread_terminate(void)
 		}
 	}
 	pthread_mutex_unlock(&lock);
-	log_printf(LOG_INFO, "waiting for crawler threads to terminate...\n");
+	log_printf(LOG_INFO, MSG_I_CRAWL_TERMINATEWAIT "\n");
 	while(1)
 	{
 		alive = 0;
@@ -138,7 +138,7 @@ thread_terminate(void)
 		}
 		sleep(1);
 	}
-	log_printf(LOG_NOTICE, "all crawler threads have stopped\n");
+	log_printf(LOG_NOTICE, MSG_N_CRAWL_STOPPED "\n");
 	return 0;
 }
 
@@ -231,7 +231,7 @@ thread_handler_(void *arg)
 	activethreads++;
 	contexts[threadid] = context;
 	pthread_mutex_unlock(&lock);
-	log_printf(LOG_NOTICE, "[%s] crawler %d/%d (thread %d/%d), ready\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount);
+	log_printf(LOG_NOTICE, MSG_N_CRAWL_READY " [%s] crawler %d/%d (thread %d/%d)\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount);
 	pthread_mutex_lock(&createlock);
 	pthread_cond_signal(&createcond);
 	pthread_mutex_unlock(&createlock);
@@ -246,7 +246,7 @@ thread_handler_(void *arg)
 			context->api->set_base(context, newbase);
 			if(newbase == -1)
 			{
-				log_printf(LOG_NOTICE, "[%s] suspending crawl thread %d/%d/\n", env, threadid + 1, threadcount);
+				log_printf(LOG_NOTICE, MSG_N_CRAWL_SUSPENDED " [%s] crawler %d/%d (thread %d/%d)\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount);
 				instid = newbase;
 				crawlercount = newthreads;
 				sleep(SUSPEND_WAIT);
@@ -254,11 +254,11 @@ thread_handler_(void *arg)
 			}
 			if(instid == -1)
 			{
-				log_printf(LOG_NOTICE, "[%s] resuming suspended crawler %d/%d (thread %d/%d) is now %d/%d\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount, newbase + threadid + 1, newthreads);
+				log_printf(LOG_NOTICE, MSG_N_CRAWL_RESUMING " [%s] crawler %d/%d (thread %d/%d) is now %d/%d\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount, newbase + threadid + 1, newthreads);
 			}
 			else
 			{
-				log_printf(LOG_INFO, "[%s] re-balancing: crawler %d/%d (thread %d/%d) is now %d/%d\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount, newbase + threadid + 1, newthreads);
+				log_printf(LOG_INFO, MSG_I_CRAWL_THREADBALANCED " [%s] crawler %d/%d (thread %d/%d) is now %d/%d\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount, newbase + threadid + 1, newthreads);
 			}
 			crawlercount = newthreads;
 			instid = newbase;
@@ -266,7 +266,8 @@ thread_handler_(void *arg)
 		/* Fetch and process a single item from the queue */
 		if(crawl_perform(crawler))
 		{
-			log_printf(LOG_CRIT, "crawl perform operation failed: %s\n", strerror(errno));
+			
+			log_printf(LOG_CRIT, MSG_C_CRAWL_FAILED ": %s\n", strerror(errno));
 			break;
 		}
 		if(context->api->oneshot(context))
@@ -279,7 +280,7 @@ thread_handler_(void *arg)
 		}
 		sleep(1);
 	}
-	log_printf(LOG_NOTICE, "[%s] crawler %d/%d (thread %d/%d) is terminating\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount);
+	log_printf(LOG_NOTICE, MSG_N_CRAWL_TERMINATING " [%s] crawler %d/%d (thread %d/%d)\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount);
 	context->api->terminate(context);
 	pthread_mutex_lock(&lock);
 	contexts[threadid] = NULL;

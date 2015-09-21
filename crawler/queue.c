@@ -45,7 +45,7 @@ queue_init(void)
 	name = config_getptr_unlocked("queue:name", NULL);
 	if(!name)
 	{
-		log_printf(LOG_CRIT, "no queue name configuration option could be found\n");
+		log_printf(LOG_CRIT, MSG_C_CRAWL_QUEUECONFIG "\n");
 		return -1;
 	}
 	if(!strcmp(name, "db"))
@@ -54,7 +54,7 @@ queue_init(void)
 	}
 	else
 	{
-		log_printf(LOG_CRIT, "queue engine '%s' is not registered\n", name);
+		log_printf(LOG_CRIT, MSG_C_CRAWL_QUEUEUNKNOWN ": '%s'\n", name);
 		return -1;
 	}
 	return 0;
@@ -77,7 +77,7 @@ queue_init_context(CONTEXT *context)
 	context->queue = constructor(context);
 	if(!context->queue)
 	{
-		log_printf(LOG_CRIT, "failed to intialise queue\n");
+		log_printf(LOG_CRIT, MSG_C_CRAWL_QUEUEINIT "\n");
 		return -1;
 	}
 	crawl_set_next(crawl, queue_handler_);
@@ -96,7 +96,7 @@ queue_add_uristr(CRAWL *crawl, const char *uristr)
 	uri = uri_create_str(uristr, NULL);
 	if(!uri)
 	{
-		log_printf(LOG_ERR, "Failed to parse URI <%s>\n", uristr);
+		log_printf(LOG_ERR, MSG_E_CRAWL_URIPARSE " <%s>\n", uristr);
 		return -1;
 	}
 	r = policy_uri_(crawl, uri, uristr, (void *) data);
@@ -121,7 +121,7 @@ queue_add_uri(CRAWL *crawl, URI *uri)
 	uristr = uri_stralloc(uri);
 	if(!uristr)
 	{
-		log_printf(LOG_CRIT, "failed to unparse URI\n");
+		log_printf(LOG_CRIT, MSG_C_CRAWL_URIUNPARSE "\n");
 		return -1;
 	}
 	r = policy_uri_(crawl, uri, uristr, (void *) data);

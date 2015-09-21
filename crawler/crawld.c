@@ -273,7 +273,7 @@ start_daemon(const char *configkey, const char *pidfile)
 	child = fork();
 	if(child == -1)
 	{
-		log_printf(LOG_CRIT, "failed to fork child process: %s\n", strerror(errno));
+		log_printf(LOG_CRIT, MSG_C_CRAWL_FORK ": %s\n", strerror(errno));
 		free(file);
 		return -1;
 	}
@@ -285,7 +285,7 @@ start_daemon(const char *configkey, const char *pidfile)
 			f = fopen(file, "w");
 			if(!f)
 			{
-				log_printf(LOG_CRIT, "failed to open PID file %s: %s\n", file, strerror(errno));
+				log_printf(LOG_CRIT, MSG_C_CRAWL_PIDWRITE ": %s: %s\n", file, strerror(errno));
 				return child;
 			}
 			fprintf(f, "%ld\n", (long int) child);
@@ -299,12 +299,12 @@ start_daemon(const char *configkey, const char *pidfile)
 	log_reset();
 	if(setsid() < 0)
 	{
-		log_printf(LOG_CRIT, "failed to create new process group: %s\n", strerror(errno));
+		log_printf(LOG_CRIT, MSG_C_CRAWL_SETSID ": %s\n", strerror(errno));
 		return -1;
 	}
 	if(chdir("/"))
 	{
-		log_printf(LOG_CRIT, "failed to change working directory: %s\n", strerror(errno));
+		log_printf(LOG_CRIT, MSG_C_CRAWL_CWD ": %s\n", strerror(errno));
 		return -1;
 	}
     close(STDIN_FILENO);
@@ -317,7 +317,7 @@ start_daemon(const char *configkey, const char *pidfile)
 	while(fd == -1 && errno == EINTR);
 	if(fd == -1)
 	{
-		log_printf(LOG_CRIT, "failed to open /dev/null: %s\n", strerror(errno));
+		log_printf(LOG_CRIT, MSG_C_CRAWL_DEVNULL ": %s\n", strerror(errno));
 		return -1;
 	}
 	if(fd != 0)
@@ -338,9 +338,7 @@ start_daemon(const char *configkey, const char *pidfile)
 static void
 signal_handler(int signo)
 {
-	(void) signo;
-
-	log_printf(LOG_NOTICE, "received request to terminate\n");
+	log_printf(LOG_NOTICE, MSG_N_CRAWL_TERMINATE " (signal %d)\n", signo);
 	crawld_terminate = 1;
 }
 

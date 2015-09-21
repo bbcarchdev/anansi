@@ -50,7 +50,7 @@ crawl_cluster_init(void)
 	}
 	if(config_get_bool("crawler:oneshot", 0) || config_getptr_unlocked("crawler:test-uri", NULL))
 	{
-		log_printf(LOG_NOTICE, "test mode enabled - ignoring cluster configuration\n");
+		log_printf(LOG_NOTICE, MSG_N_CRAWL_TESTMODE "\n");
 		cluster_set_workers(cluster, 1);
 		cluster_static_set_index(cluster, 0);
 		cluster_static_set_total(cluster, 1);		
@@ -131,7 +131,7 @@ crawl_cluster_balancer_(CLUSTER *cluster, CLUSTERSTATE *state)
 {
 	(void) cluster;
 
-	log_printf(LOG_NOTICE, "cluster has re-balanced: instance thread indices %d..%d from a cluster size %d\n", state->index, state->workers, state->total);
+	log_printf(LOG_NOTICE, MSG_N_CRAWL_REBALANCED ": instance thread indices %d..%d from a cluster size %d\n", state->index, state->workers, state->total);
 	pthread_rwlock_wrlock(&lock);
 	inst_id = state->index;
 	inst_threads = state->workers;

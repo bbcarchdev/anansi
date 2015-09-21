@@ -88,7 +88,7 @@ context_create(int crawler_offset)
 	p->crawl = crawl_create();
 	if(!p->crawl)
 	{
-		log_printf(LOG_CRIT, "failed to create crawler instance\n");
+		log_printf(LOG_CRIT, MSG_C_CRAWL_INSTANCE "\n");
 		free(p);
 		return NULL;
 	}

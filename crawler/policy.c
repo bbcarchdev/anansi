@@ -97,7 +97,7 @@ policy_uri_(CRAWL *crawl, URI *uri, const char *uristr, void *userdata)
 		}
 		if(!n)
 		{
-			log_printf(LOG_NOTICE, "Policy: URI '%s' has a scheme (%s) which is not whitelisted\n", uristr, scheme);
+			log_printf(LOG_INFO, MSG_I_CRAWL_SCHEMENOTWHITE ": <%s> (%s)\n", uristr, scheme);
 			return 0;
 		}
 	}
@@ -107,7 +107,7 @@ policy_uri_(CRAWL *crawl, URI *uri, const char *uristr, void *userdata)
 		{
 			if(!strcasecmp(schemes_blacklist[c], scheme))
 			{
-				log_printf(LOG_NOTICE, "Policy: URI '%s' has a scheme (%s) which is blacklisted\n", uristr, scheme);
+				log_printf(LOG_INFO, MSG_I_CRAWL_SCHEMEBLACK ": <%s> (%s)\n", uristr, scheme);
 				return 0;
 			}
 		}
