@@ -92,6 +92,10 @@
 # define MSG_E_DISK_MKDIR               "%ANANSI-E-4007: disk: failed to create cache directory"
 # define MSG_E_DISK_DIRSTAT             "%ANANSI-E-4008: disk: failed to stat cache directory"
 
+/* S3 cache */
+# define MSG_E_S3_TMPFILE               "%ANANSI-E-4100: S3: failed to create temporary file"
+# define MSG_E_S3_HTTP                  "%ANANSI-E-4101: S3: failed to retrieve object from cache"
+
 struct crawl_struct
 {
 	void *userdata;

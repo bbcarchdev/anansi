@@ -177,7 +177,7 @@ s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
 	f = tmpfile();
 	if(!f)
 	{
-		crawl_log_(cache->crawl, LOG_CRIT, "S3: failed to create temporary file\n");
+		crawl_log_(cache->crawl, LOG_ERR, MSG_E_S3_TMPFILE ": %s\n", strerror(errno));
 		return NULL;
 	}
 	e = 0;
@@ -197,7 +197,7 @@ s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
 		curl_easy_getinfo(ch, CURLINFO_RESPONSE_CODE, &status);
 		if(status != 200)
 		{
-			crawl_log_(cache->crawl, LOG_ERR, "failed to retrieve <%s> from cache with HTTP status %d\n", data->path, status);
+			crawl_log_(cache->crawl, LOG_ERR, MSG_E_S3_HTTP ": <%s>: HTTP status %d\n", data->path, status);
 			e = -1;
 		}			
 	}
