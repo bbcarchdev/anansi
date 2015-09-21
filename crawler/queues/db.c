@@ -113,10 +113,12 @@ QUEUE *
 db_create(CONTEXT *ctx)
 {
 	QUEUE *p;
+	CRAWL *crawl;
 	char *t;
 	const char *dburi;
 
-	p = (QUEUE *) calloc(1, sizeof(QUEUE));
+	crawl = ctx->api->crawler(ctx);
+	p = (QUEUE *) crawl_alloc(crawl, sizeof(QUEUE));
 	if(!p)
 	{
 		return NULL;
@@ -124,7 +126,7 @@ db_create(CONTEXT *ctx)
 	p->api = &db_api;
 	p->refcount = 1;
 	p->ctx = ctx;
-	p->crawl = ctx->api->crawler(ctx);
+	p->crawl = crawl;
 	p->crawler_id = ctx->api->crawler_id(ctx);
 	p->cache_id = ctx->api->cache_id(ctx);
 	p->ncrawlers = ctx->api->threads(ctx);
@@ -134,7 +136,7 @@ db_create(CONTEXT *ctx)
 	if(!p->db)
 	{
 		log_printf(LOG_CRIT, MSG_C_DB_CONNECT " <%s>\n", dburi);
-		free(p);
+		crawl_free(crawl, p);
 		return NULL;
 	}
 	if(config_get_bool("queue:debug-queries", 0))
@@ -150,7 +152,7 @@ db_create(CONTEXT *ctx)
 	{
 		log_printf(LOG_CRIT, MSG_C_DB_MIGRATE "\n");
 		sql_disconnect(p->db);
-		free(p);
+		crawl_free(crawl, p);
 		return NULL;
 	}
 	if(config_get_bool("crawler:schema-update", 0))
@@ -170,14 +172,14 @@ db_create(CONTEXT *ctx)
 			{
 				log_printf(LOG_CRIT, MSG_C_DB_URIPARSE " <%s>\n", t);
 				sql_disconnect(p->db);
-				free(p);
-				free(t);
+				crawl_free(crawl, p);
+				crawl_free(crawl, t);
 				return NULL;
 			}
 			p->oneshot = 1;
 			db_force_add(p, p->testuri, t);
 		}
-		free(t);
+		crawl_free(crawl, t);
 	}
 	return p;
 }
@@ -467,17 +469,20 @@ db_addref(QUEUE *me)
 static unsigned long
 db_release(QUEUE *me)
 {
+	CRAWL *crawl;
+
 	me->refcount--;
 	if(me->refcount)
 	{
 		return me->refcount;
 	}
+	crawl = me->crawl;
 	if(me->db)
 	{
 		sql_disconnect(me->db);
 	}
-	free(me->buf);
-	free(me);
+	crawl_free(crawl, me->buf);
+	crawl_free(crawl, me);
 	return 0;
 }
 
@@ -555,7 +560,7 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 	needed = sql_stmt_value(rs, 0, NULL, 0);
 	if(needed > me->buflen)
 	{
-		p = (char *) realloc(me->buf, needed + 1);
+		p = (char *) crawl_realloc(me->crawl, me->buf, needed + 1);
 		if(!p)
 		{
 			sql_stmt_destroy(rs);
@@ -585,10 +590,10 @@ db_uristr_key_root(QUEUE *me, const char *uristr, char **uri, char *urikey, uint
 	char *str, *t;
 	char skey[9];
 
-	str = strdup(uristr);
+	str = crawl_strdup(me->crawl, uristr);
 	if(!str)
 	{
-		free(str);
+		crawl_free(me->crawl, str);
 		return -1;
 	}
 	t = strchr(str, '#');
@@ -600,11 +605,11 @@ db_uristr_key_root(QUEUE *me, const char *uristr, char **uri, char *urikey, uint
 	if(!u_resource)
 	{
 		log_printf(LOG_ERR, MSG_E_DB_URIPARSE " <%s>\n", str);
-		free(str);
+		crawl_free(me->crawl, str);
 		return -1;
 	}
 	/* Ensure we have the canonical form of the URI */
-	free(str);
+	crawl_free(me->crawl, str);
 	str = uri_stralloc(u_resource);
 	if(!str)
 	{
@@ -618,7 +623,7 @@ db_uristr_key_root(QUEUE *me, const char *uristr, char **uri, char *urikey, uint
 	if(crawl_cache_key(me->crawl, str, urikey, 48))
 	{
 		uri_destroy(u_resource);
-		free(str);
+		crawl_free(me->crawl, str);
 		return -1;
 	}
 	strncpy(skey, urikey, 8);
@@ -630,14 +635,14 @@ db_uristr_key_root(QUEUE *me, const char *uristr, char **uri, char *urikey, uint
 	{
 		log_printf(LOG_ERR, MSG_E_DB_URIROOT " <%s>\n", str);
 		uri_destroy(u_resource);
-		free(str);
+		crawl_free(me->crawl, str);
 		return -1;
 	}
 	if(crawl_cache_key_uri(me->crawl, u_root, rootkey, 48))
 	{
 		uri_destroy(u_resource);
 		uri_destroy(u_root);
-		free(str);
+		crawl_free(me->crawl, str);
 		return -1;		
 	}
 	if(root)
@@ -646,7 +651,7 @@ db_uristr_key_root(QUEUE *me, const char *uristr, char **uri, char *urikey, uint
 	}
 	if(!uri)
 	{
-		free(str);
+		crawl_free(me->crawl, str);
 	}
 	uri_destroy(u_resource);
 	uri_destroy(u_root);
@@ -670,8 +675,8 @@ db_add(QUEUE *me, URI *uri, const char *uristr)
 	db_insert_resource(me, cachekey, shortkey, canonical, rootkey, 0);
 	db_insert_root(me, rootkey, root);
 	
-	free(root);
-	free(canonical);
+	crawl_free(me->crawl, root);
+	crawl_free(me->crawl, canonical);
 	return 0;	
 }
 
@@ -692,8 +697,8 @@ db_force_add(QUEUE *me, URI *uri, const char *uristr)
 	db_insert_resource(me, cachekey, shortkey, canonical, rootkey, 1);
 	db_insert_root(me, rootkey, root);
 	
-	free(root);
-	free(canonical);
+	crawl_free(me->crawl, root);
+	crawl_free(me->crawl, canonical);
 	return 0;	
 }
 
@@ -710,7 +715,7 @@ db_updated_uri(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int st
 		return -1;
 	}
 	r = db_updated_uristr(me, uristr, updated, last_modified, status, ttl, state);
-	free(uristr);
+	crawl_free(me->crawl, uristr);
 	return r;
 }
 
@@ -821,8 +826,8 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 			exit(1);
 		}	
 	}	
-	free(root);
-	free(canonical);
+	crawl_free(me->crawl, root);
+	crawl_free(me->crawl, canonical);
 	return 0;
 }
 
@@ -838,7 +843,7 @@ db_unchanged_uri(QUEUE *me, URI *uri, int error)
 		return -1;
 	}
 	r = db_unchanged_uristr(me, uristr, error);
-	free(uristr);
+	crawl_free(me->crawl, uristr);
 	return r;
 }
 
