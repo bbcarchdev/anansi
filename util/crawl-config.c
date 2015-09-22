@@ -40,6 +40,9 @@ static int show_item(int show, int flag, const char *name, const char *value);
 int
 main(int argc, char **argv)
 {
+	(void) argc;
+	(void) argv;
+	
 	if(!show_options)
 	{
 		show_options = SHOW_ALL;
