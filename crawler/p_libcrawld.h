@@ -16,10 +16,7 @@
  */
 
 #ifndef P_LIBCRAWLD_H_
-# define P_LIBCRAWLD_H_                 1
-
-# define _BSD_SOURCE                   1
-# define _FILE_OFFSET_BITS             64
+# define P_LIBCRAWLD_H_                1
 
 # include <stdio.h>
 # include <stdlib.h>
@@ -30,6 +27,7 @@
 # include <sys/stat.h>
 # include <fcntl.h>
 # include <unistd.h>
+# include <stdarg.h>
 # include <syslog.h>
 # include <signal.h>
 # include <pthread.h>

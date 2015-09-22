@@ -16,10 +16,7 @@
  */
 
 #ifndef P_PROCESSORS_H_
-# define P_PROCESSORS_H_                1
-
-# define _BSD_SOURCE                   1
-# define _FILE_OFFSET_BITS             64
+# define P_PROCESSORS_H_               1
 
 # include <stdio.h>
 # include <stdlib.h>
@@ -29,7 +26,7 @@
 # include <unistd.h>
 # include <syslog.h>
 
-# define PROCESSOR_STRUCT_DEFINED       1
+# define PROCESSOR_STRUCT_DEFINED      1
 
 # include "libsupport.h"
 # include "libcrawld.h"
