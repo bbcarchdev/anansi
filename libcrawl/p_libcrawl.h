@@ -20,10 +20,7 @@
  */
 
 #ifndef P_LIBCRAWL_H_
-# define P_LIBCRAWL_H_                  1
-
-# define _BSD_SOURCE                    1
-# define _FILE_OFFSET_BITS              64
+# define P_LIBCRAWL_H_                 1
 
 # include <stdio.h>
 # include <stdlib.h>
@@ -37,7 +34,13 @@
 # include <syslog.h>
 
 # include <curl/curl.h>
-# include <openssl/sha.h>
+
+# ifdef WITH_COMMONCRYPTO
+#  define COMMON_DIGEST_FOR_OPENSSL   1
+#  include <CommonCrypto/CommonDigest.h>
+# else
+#  include <openssl/sha.h>
+# endif
 
 # include "libcrawl.h"
 

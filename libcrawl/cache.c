@@ -116,7 +116,11 @@ crawl_cache_key_(CRAWL *crawl, CACHEKEY dest, const char *uri)
 	{
 		c = t - uri;
 	}
+#ifdef WITH_COMMONCRYPTO
+	CC_SHA256((const unsigned char *) uri, c, buf);
+#else
 	SHA256((const unsigned char *) uri, c, buf);
+#endif
 	for(c = 0; c < (CACHE_KEY_LEN / 2); c++)
 	{
 		dest += sprintf(dest, "%02x", buf[c] & 0xff);
