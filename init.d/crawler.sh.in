@@ -26,7 +26,7 @@ START=no
 
 [ -x "$DAEMON" ] || exit 0
 
-[ -r /etc/default/$ME ] && . /etc/default/$ME
+[ -r "@SYSCONFDIR@/default/$ME" ] && . "@SYSCONFDIR@/default/$ME"
 
 [ -d /lib/init ] && [ -r /lib/init/vars.sh ] && . /lib/init/vars.sh
 
