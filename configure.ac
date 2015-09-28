@@ -61,6 +61,25 @@ LIBS="$save_LIBS"
 extra_libs="$OPENSSL_INSTALLED_LIBS $LIBCURL_INSTALLED_LIBS $LIBURI_INSTALLED_LIBS $LIBJSONDATA_INSTALLED_LIBS"
 BT_DEFINE_PATH([LIBCRAWL_EXTRA_LIBS],[extra_libs],[Define to the additional libraries depended upon by an installed libcrawl])
 
+use_docbook_html5=yes
+BT_BUILD_DOCS
+
+XML2HTMLFLAGS="--param \"html.linksfile\" \"'file://\$(abs_top_srcdir)/docbook-html5/res-links.xml'\" \
+  --param \"html.navfile\" \"'file://\$(abs_top_srcdir)/docbook-html5/res-nav.xml'\" \
+  --param \"html.ie78css\" \"'//bbcarchdev.github.io/painting-by-numbers/ie78.css'\""
+AC_SUBST([XML2HTMLFLAGS])
+
+LINKS='${top_srcdir}/docbook-html5/res-links.xml'
+AC_SUBST([LINKS])
+
+NAV='${top_srcdir}/docbook-html5/res-nav.xml'
+AC_SUBST([NAV])
+
+anansihtdocdir='${docdir}'
+AC_SUBST([anansihtdocdir])
+
+BT_DEFINE_PREFIX
+
 AC_CONFIG_FILES([
 Makefile
 libsupport/Makefile
@@ -73,6 +92,8 @@ crawler/queues/Makefile
 crawler/processors/Makefile
 init.d/Makefile
 m4/Makefile
+docs/Makefile
+docbook-html5/Makefile
 ])
 
 AC_CONFIG_FILES([init.d/crawler:init.d/crawler.sh.in],[chmod +x init.d/crawler])
