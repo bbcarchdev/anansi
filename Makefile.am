@@ -28,3 +28,17 @@ SUBDIRS = @subdirs@ \
 	util crawler init.d
 
 EXTRA_DIST = README.md LICENSE-2.0
+
+BRANCH ?= develop
+
+DEVELOP_SUBMODULES = m4 jsondata libs3client libsupport
+
+checkout:
+	@for submod in $(DEVELOP_SUBMODULES) ; do \
+		echo "+++ Checking out the latest version of $$submod on $(BRANCH)" >&2 ; \
+		cd $$submod && \
+		git checkout $(BRANCH) && \
+		git pull && \
+		$(MAKE) checkout BRANCH=$(BRANCH) || exit $? && \
+		cd .. ; \
+	done
