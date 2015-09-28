@@ -224,7 +224,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 	if(newversion == 0)
 	{
 		/* Return target version */
-		return 5;
+		return 6;
 	}
 	log_printf(LOG_NOTICE, MSG_N_DB_MIGRATING " to version %d\n", newversion);
 	if(newversion == 1)
@@ -451,6 +451,18 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 			return 0;
 		}
 		if(sql_execute(sql, ddl))
+		{
+			return -1;
+		}
+		return 0;
+	}
+	if(newversion == 6)
+	{
+		if(sql_execute(sql, "ALTER TABLE \"crawl_resource\" ALTER COLUMN \"uri\" TYPE text"))
+		{
+			return -1;
+		}
+		if(sql_execute(sql, "ALTER TABLE \"crawl_root\" ALTER COLUMN \"uri\" TYPE text"))
 		{
 			return -1;
 		}
