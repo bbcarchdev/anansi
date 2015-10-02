@@ -18,7 +18,6 @@
 ##
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ \
-	-I $(top_builddir)/libs3client -I $(top_srcdir)/libs3client \
 	-I $(top_builddir)/libcrawl -I $(top_srcdir)/libcrawl
 
 noinst_LTLIBRARIES = libcaches.la
@@ -28,4 +27,4 @@ libcaches_la_SOURCES = disk.c s3.c
 libcaches_la_LDFLAGS = -avoid-version
 
 libcaches_la_LIBADD = \
-	$(top_builddir)/libs3client/libs3client.la
+	$(LIBAWSCLIENT_LOCAL_LIBS) $(LIBAWSCLIENT_LIBS)

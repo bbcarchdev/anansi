@@ -14,3 +14,4 @@ project.
 * [libsql](https://github.com/bbcarchdev/libsql)
 * [libcluster](https://github.com/bbcarchdev/libcluster)
 * [jsondata](https://github.com/bbcarchdev/jsondata) (bundled)
+* [libawsclient](https://github.com/bbcarchdev/libawsclient)

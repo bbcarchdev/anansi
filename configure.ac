@@ -52,6 +52,7 @@ BT_REQUIRE_LIBXML2
 
 dnl Always check for possibly-included libraries last to prevent link failures
 dnl (due to not-yet-built libraries) breaking tests
+BT_REQUIRE_LIBAWSCLIENT_INCLUDED
 BT_REQUIRE_LIBURI_INCLUDED
 BT_REQUIRE_LIBJSONDATA_INCLUDED
 BT_REQUIRE_LIBSQL_INCLUDED
@@ -83,7 +84,6 @@ BT_DEFINE_PREFIX
 AC_CONFIG_FILES([
 Makefile
 libsupport/Makefile
-libs3client/Makefile
 libcrawl/Makefile
 libcrawl/caches/Makefile
 util/Makefile
