@@ -21,11 +21,11 @@
 
 #include "p_libcrawl.h"
 
-#include "libs3client.h"
+#include "libawsclient.h"
 
 struct s3cache_data_struct
 {
-	S3BUCKET *bucket;
+	AWSS3BUCKET *bucket;
 	CRAWL *crawl;
 	/* Temporary state */
 	char *path;
@@ -90,7 +90,7 @@ s3cache_init_(CRAWLCACHE *cache)
 		return 0;
 	}
 	crawl_log_(cache->crawl, LOG_DEBUG, "S3: initialising cache at <s3://%s>\n", cache->crawl->uri->host);
-	data->bucket = s3_create(cache->crawl->uri->host);
+	data->bucket = aws_s3_create(cache->crawl->uri->host);
 	if(!data->bucket)
 	{
 		crawl_free(cache->crawl, data);
@@ -104,34 +104,34 @@ s3cache_init_(CRAWLCACHE *cache)
 			p = (char *) crawl_alloc(cache->crawl, t - cache->crawl->uri->auth + 1);
 			if(!p)
 			{
-				s3_destroy(data->bucket);
+				aws_s3_destroy(data->bucket);
 				crawl_free(cache->crawl, data);
 				return 0;
 			}
 			urldecode(p, cache->crawl->uri->auth, t - cache->crawl->uri->auth);
 			p[t - cache->crawl->uri->auth] = 0;
-			s3_set_access(data->bucket, p);
+			aws_s3_set_access(data->bucket, p);
 			crawl_free(cache->crawl, p);			
 			t++;
 			p = (char *) crawl_alloc(cache->crawl, strlen(t) + 1);
 			if(!p)
 			{
-				s3_destroy(data->bucket);
+				aws_s3_destroy(data->bucket);
 				crawl_free(cache->crawl, data);
 				return 0;
 			}
 			urldecode(p, t, strlen(t));
-			s3_set_secret(data->bucket, p);
+			aws_s3_set_secret(data->bucket, p);
 			crawl_free(cache->crawl, p);
 		}
 		else
 		{
-			s3_set_access(data->bucket, cache->crawl->uri->auth);
+			aws_s3_set_access(data->bucket, cache->crawl->uri->auth);
 		}
 	}
 	if(cache->crawl->uri->path)
 	{
-		s3_set_basepath(data->bucket, cache->crawl->uri->path);
+		aws_s3_set_basepath(data->bucket, cache->crawl->uri->path);
 	}
 	cache->data = data;
 	return 1;
@@ -147,7 +147,7 @@ s3cache_done_(CRAWLCACHE *cache)
 	{
 		if(data->bucket)
 		{
-			s3_destroy(data->bucket);
+			aws_s3_destroy(data->bucket);
 		}
 		crawl_free(cache->crawl, data->path);
 		crawl_free(cache->crawl, data->buf);
@@ -169,7 +169,7 @@ s3cache_open_write_(CRAWLCACHE *cache, const CACHEKEY key)
 static FILE *
 s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
 {
-	S3REQUEST *req;
+	AWSREQUEST *req;
 	FILE *f;
 	struct s3cache_data_struct *data;
 	int e;
@@ -186,14 +186,14 @@ s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
 	data = (struct s3cache_data_struct *) cache->data;
 	status = 0;
 	s3cache_copy_path_(cache, key, CACHE_PAYLOAD_SUFFIX);
-	req = s3_request_create(data->bucket, data->path, "GET");
+	req = aws_s3_request_create(data->bucket, data->path, "GET");
 	crawl_log_(cache->crawl, LOG_DEBUG, "S3: fetching <%s>\n", data->path);
-	ch = s3_request_curl(req);
+	ch = aws_request_curl(req);
 	curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1);
 	curl_easy_setopt(ch, CURLOPT_WRITEDATA, f);
 	curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, NULL);
 	curl_easy_setopt(ch, CURLOPT_VERBOSE, cache->crawl->verbose);
-	if(!s3_request_perform(req))
+	if(!aws_request_perform(req))
 	{
 		status = 0;
 		curl_easy_getinfo(ch, CURLINFO_RESPONSE_CODE, &status);
@@ -207,7 +207,7 @@ s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key)
 	{
 		e = -1;
 	}
-	s3_request_destroy(req);
+	aws_request_destroy(req);
 	if(e)
 	{
 		fclose(f);
@@ -230,7 +230,7 @@ s3cache_close_rollback_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f)
 static int
 s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *obj)
 {
-	S3REQUEST *req;
+	AWSREQUEST *req;
 	struct s3cache_data_struct *data;
 	int e;
 	CURL *ch;
@@ -251,16 +251,16 @@ s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *
 	data = (struct s3cache_data_struct *) cache->data;
 	status = 0;
 	s3cache_copy_path_(cache, key, CACHE_PAYLOAD_SUFFIX);
-	req = s3_request_create(data->bucket, data->path, "PUT");
+	req = aws_s3_request_create(data->bucket, data->path, "PUT");
 	crawl_log_(cache->crawl, LOG_DEBUG, "Uploading payload to <%s>\n", data->path);
-	ch = s3_request_curl(req);
+	ch = aws_request_curl(req);
 	curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1);
 	curl_easy_setopt(ch, CURLOPT_READDATA, f);
 	curl_easy_setopt(ch, CURLOPT_INFILESIZE_LARGE, (curl_off_t) offset);
 	curl_easy_setopt(ch, CURLOPT_VERBOSE, cache->crawl->verbose);
 	curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, s3cache_write_null_);
 	curl_easy_setopt(ch, CURLOPT_UPLOAD, 1);
-    headers = curl_slist_append(s3_request_headers(req), "Expect: 100-continue");
+    headers = curl_slist_append(aws_request_headers(req), "Expect: 100-continue");
 	t = crawl_obj_type(obj);
 	if(t)
 	{
@@ -279,8 +279,8 @@ s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *
 		headers = curl_slist_append(headers, buf);
 		crawl_free(cache->crawl, buf);
 	}
-	s3_request_set_headers(req, headers);
-	if(!s3_request_perform(req))
+	aws_request_set_headers(req, headers);
+	if(!aws_request_perform(req))
 	{
 		status = 0;
 		curl_easy_getinfo(ch, CURLINFO_RESPONSE_CODE, &status);
@@ -293,7 +293,7 @@ s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *
 	{
 		e = -1;
 	}
-	s3_request_destroy(req);
+	aws_request_destroy(req);
 	fclose(f);
 	return e;
 }
@@ -301,7 +301,7 @@ s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *
 static int
 s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 {
-	S3REQUEST *req;
+	AWSREQUEST *req;
 	struct s3cache_data_struct *data;
 	CURL *ch;
 	long status;
@@ -310,15 +310,15 @@ s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 	status = 0;
 	data->pos = 0;
 	s3cache_copy_path_(cache, key, CACHE_INFO_SUFFIX);
-	req = s3_request_create(data->bucket, data->path, "GET");
-	ch = s3_request_curl(req);
+	req = aws_s3_request_create(data->bucket, data->path, "GET");
+	ch = aws_request_curl(req);
 	curl_easy_setopt(ch, CURLOPT_VERBOSE, cache->crawl->verbose);
 	curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1);
 	curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, s3cache_write_buf_);
 	curl_easy_setopt(ch, CURLOPT_WRITEDATA, (void *) data);
-	if(s3_request_perform(req) || !data->buf)
+	if(aws_request_perform(req) || !data->buf)
 	{
-		s3_request_destroy(req);
+		aws_request_destroy(req);
 		return -1;
 	}
 	curl_easy_getinfo(ch, CURLINFO_RESPONSE_CODE, &status);
@@ -327,7 +327,7 @@ s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 		curl_easy_cleanup(ch);
 		return -1;
 	}
-	s3_request_destroy(req);
+	aws_request_destroy(req);
 	JD_SCOPE
 	{
 		jd_release(dict);
@@ -339,7 +339,7 @@ s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 static int
 s3cache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 {
-	S3REQUEST *req;
+	AWSREQUEST *req;
 	jd_var json = JD_INIT;
 	const char *p;
 	size_t len;
@@ -360,17 +360,17 @@ s3cache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 		len--;
 		if(p)
 		{
-			req = s3_request_create(data->bucket, data->path, "PUT");
-			ch = s3_request_curl(req);
+			req = aws_s3_request_create(data->bucket, data->path, "PUT");
+			ch = aws_request_curl(req);
 			curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1);
 			curl_easy_setopt(ch, CURLOPT_POSTFIELDS, p);
 			curl_easy_setopt(ch, CURLOPT_POSTFIELDSIZE, len);
 			curl_easy_setopt(ch, CURLOPT_VERBOSE, cache->crawl->verbose);
 			curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, s3cache_write_null_);
-			headers = s3_request_headers(req);
+			headers = aws_request_headers(req);
 			headers = curl_slist_append(headers, "Content-Type: application/json");
-			s3_request_set_headers(req, headers);
-			if(!s3_request_perform(req))
+			aws_request_set_headers(req, headers);
+			if(!aws_request_perform(req))
 			{
 				status = 0;
 				curl_easy_getinfo(ch, CURLINFO_RESPONSE_CODE, &status);
@@ -383,7 +383,7 @@ s3cache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 			{
 				e = -1;
 			}
-			s3_request_destroy(req);
+			aws_request_destroy(req);
 		}
 		else
 		{
@@ -454,7 +454,7 @@ s3cache_set_username_(CRAWLCACHE *cache, const char *username)
 		errno = EPERM;
 		return -1;
 	}
-	return s3_set_access(data->bucket, username);
+	return aws_s3_set_access(data->bucket, username);
 }
 
 static int 
@@ -468,7 +468,7 @@ s3cache_set_password_(CRAWLCACHE *cache, const char *password)
 		errno = EPERM;
 		return -1;
 	}
-	return s3_set_secret(data->bucket, password);
+	return aws_s3_set_secret(data->bucket, password);
 }
 
 static int 
@@ -482,7 +482,7 @@ s3cache_set_endpoint_(CRAWLCACHE *cache, const char *endpoint)
 		errno = EPERM;
 		return -1;
 	}
-	return s3_set_endpoint(data->bucket, endpoint);
+	return aws_s3_set_endpoint(data->bucket, endpoint);
 }
 
 /* Callback invoked by cURL when data is received */
