@@ -201,7 +201,7 @@
 	
 	<para>
 	  <link xlink:href="http://curl.haxx.se/libcurl/"><citerefentry><refentrytitle>libcurl</refentrytitle><manvolnum>3</manvolnum></citerefentry></link>,
-	  <link xlink:href="http://xmlsoft.org/html/index.html"><citerefentry><refentrytitle>libxml2</refentrytitle><manvolnum>3</manvolnum></citerefentry></link>,
+
 	  <link xlink:href="https://bbcarchdev.github.io/liburi/"><citerefentry><refentrytitle>liburi</refentrytitle><manvolnum>3</manvolnum></citerefentry></link>,
 	  <link xlink:href="http://www.digip.org/jansson/"><citerefentry><refentrytitle>libjansson</refentrytitle><manvolnum>3</manvolnum></citerefentry></link>.
 	</para>
