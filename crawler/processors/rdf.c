@@ -49,7 +49,7 @@ rdf_create(CRAWL *crawler)
 {
 	PROCESSOR *p;
 	
-	p = (PROCESSOR *) calloc(1, sizeof(PROCESSOR));
+	p = (PROCESSOR *) crawl_alloc(crawler, sizeof(PROCESSOR));
 	if(!p)
 	{
 		return NULL;
@@ -62,7 +62,7 @@ rdf_create(CRAWL *crawler)
 	if(!p->storage)
 	{
 		librdf_free_world(p->world);
-		free(p);
+		crawl_free(crawler, p);
 		return NULL;
 	}
 	crawl_set_accept(crawler, "application/rdf+xml;q=1.0, text/rdf;q=0.6, application/n-triples;q=1.0, text/plain;q=0.1, text/turtle;q=1.0, application/x-turtle;q=1.0, application/turtle;q=1.0, text/n3;q=0.3, text/rdf+n3;q=0.3, application/rdf+n3;q=0.3, application/x-trig;q=1.0, text/x-nquads;q=1.0, */*;q=0.1");
@@ -92,28 +92,28 @@ rdf_release(PROCESSOR *me)
 		{
 			for(c = 0; me->license_predicates[c]; c++)
 			{
-				free(me->license_predicates[c]);
+				crawl_free(me->crawl, me->license_predicates[c]);
 			}
-			free(me->license_predicates);
+			crawl_free(me->crawl, me->license_predicates);
 		}
 		if(me->license_whitelist)
 		{
 			for(c = 0; me->license_whitelist[c]; c++)
 			{
-				free(me->license_whitelist[c]);
+				crawl_free(me->crawl, me->license_whitelist[c]);
 			}
-			free(me->license_whitelist);
+			crawl_free(me->crawl, me->license_whitelist);
 		}
 		if(me->license_blacklist)
 		{
 			for(c = 0; me->license_blacklist[c]; c++)
 			{
-				free(me->license_blacklist[c]);
+				crawl_free(me->crawl, me->license_blacklist[c]);
 			}
-			free(me->license_blacklist);
+			crawl_free(me->crawl, me->license_blacklist);
 		}
-		free(me->content_type);
-		free(me);
+		crawl_free(me->crawl, me->content_type);		
+		crawl_free(me->crawl, me);
 		return 0;
 	}
 	return me->refcount;
@@ -172,7 +172,7 @@ rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conten
 		errno = EINVAL;
 		return -1;
 	}
-	me->content_type = strdup(content_type);
+	me->content_type = crawl_strdup(me->crawl, content_type);
 	t = strchr(me->content_type, ';');
 	if(t)
 	{
@@ -255,7 +255,7 @@ rdf_postprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conte
 		librdf_free_model(me->model);
 		me->model = NULL;
 	}
-	free(me->content_type);
+	crawl_free(me->crawl, me->content_type);
 	me->content_type = NULL;
 	return 0;
 }
@@ -409,7 +409,7 @@ rdf_process_link(PROCESSOR *me, CRAWLOBJ *obj, const char *value, librdf_uri *re
 			log_printf(LOG_INFO, MSG_I_RDF_MALFORMEDLINK " ('%s')\n", value);
 			return -1;
 		}
-		uristr = (char *) malloc(t - value + 1);
+		uristr = (char *) crawl_alloc(me->crawl, t - value + 1);
 		if(!uristr)
 		{
 			log_printf(LOG_ERR, "RDF: failed to allocate memory for Link URI\n");
@@ -496,7 +496,7 @@ rdf_process_link(PROCESSOR *me, CRAWLOBJ *obj, const char *value, librdf_uri *re
 				 * create one by concatenating it to relbase; otherwise,
 				 * just parse the relation as a URI.
 				 */
-				relstr = (char *) malloc(t - vstart + strlen(relbase) + 1);
+				relstr = (char *) crawl_alloc(me->crawl, t - vstart + strlen(relbase) + 1);
 				p = relstr;
 				abs = 0;
 				for(s = vstart; s < t; s++)
@@ -525,7 +525,7 @@ rdf_process_link(PROCESSOR *me, CRAWLOBJ *obj, const char *value, librdf_uri *re
 			}
 			else if(!anchorstr && pend - value == 6 && !strncmp(value, "anchor", 6))
 			{
-				anchorstr = (char *) malloc(t - vstart + 1);
+				anchorstr = (char *) crawl_alloc(me->crawl, t - vstart + 1);
 				p = anchorstr;
 				for(s = vstart; s < t; s++)
 				{
@@ -582,11 +582,11 @@ rdf_process_link(PROCESSOR *me, CRAWLOBJ *obj, const char *value, librdf_uri *re
 		{
 			librdf_free_uri(anchor);
 		}
-		free(anchorstr);
+		crawl_free(me->crawl, anchorstr);
 		anchorstr = NULL;
-		free(relstr);
+		crawl_free(me->crawl, relstr);
 		relstr = NULL;
-		free(uristr);
+		crawl_free(me->crawl, uristr);
 		uristr = NULL;
 		
 		if(*value)

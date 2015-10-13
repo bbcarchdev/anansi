@@ -98,9 +98,9 @@ lod_init_list(PROCESSOR *me, char ***list, const char *section, const char *key)
 	{
 		for(c = 0; c < data.count; c++)
 		{
-			free(data.list[c]);
+			crawl_free(me->crawl, data.list[c]);
 		}
-		free(data.list);
+		crawl_free(me->crawl, data.list);
 		return -1;
 	}
 	*list = data.list;
@@ -118,7 +118,7 @@ lod_list_cb(const char *key, const char *value, void *userdata)
 	data = (struct list_data_struct *) userdata;
 	if(data->count + 1 >= data->size)
 	{
-		p = (char **) realloc(data->list, sizeof(char *) * (data->size + 8));
+		p = (char **) crawl_realloc(data->me->crawl, data->list, sizeof(char *) * (data->size + 8));
 		if(!p)
 		{
 			return -1;
@@ -127,7 +127,7 @@ lod_list_cb(const char *key, const char *value, void *userdata)
 		data->size += 8;
 		memset(&(data->list[data->count]), 0, sizeof(char *) * (data->size - data->count));
 	}
-	data->list[data->count] = strdup(value);
+	data->list[data->count] = crawl_strdup(data->me->crawl, value);
 	if(!data->list[data->count])
 	{
 		return -1;
