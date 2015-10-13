@@ -35,8 +35,8 @@ static FILE *diskcache_open_write_(CRAWLCACHE *cache, const CACHEKEY key);
 static FILE *diskcache_open_read_(CRAWLCACHE *cache, const CACHEKEY key);
 static int diskcache_close_rollback_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
 static int diskcache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *obj);
-static int diskcache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *info);
-static int diskcache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *info);
+static int diskcache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, json_t **info);
+static int diskcache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, const json_t *info);
 static FILE *diskcache_open_info_write_(CRAWLCACHE *cache, const CACHEKEY key);
 static FILE *diskcache_open_info_read_(CRAWLCACHE *cache, const CACHEKEY key);
 static char *diskcache_uri_(CRAWLCACHE *cache, const CACHEKEY key);
@@ -170,59 +170,34 @@ diskcache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ
 }
 
 static int
-diskcache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
+diskcache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, json_t **dict)
 {
 	FILE *f;
-	char *buf, *p;
-	size_t bufsize;
-	ssize_t count;
-	
+	json_t *json;
+
 	f = diskcache_open_info_read_(cache, key);
 	if(!f)
 	{
 		return -1;
 	}
-	/* Read JSON */
-	buf = 0;
-	bufsize = 0;
-	for(;;)
-	{
-		p = crawl_realloc(cache->crawl, buf, bufsize + OBJ_READ_BLOCK + 1);
-		if(!p)
-		{
-			fclose(f);
-			return -1;
-		}
-		buf = p;
-		p = &(buf[bufsize]);
-		count = fread(p, 1, OBJ_READ_BLOCK, f);
-		if(count < 0)
-		{
-			fclose(f);
-			crawl_free(cache->crawl, buf);
-			return -1;
-		}
-		p[count] = 0;
-		bufsize += count;
-		if(count == 0)
-		{
-			break;
-		}
-	}	
+	json = json_loadf(f, 0, NULL);
 	fclose(f);
-	jd_release(dict);
-	jd_from_jsons(dict, buf);
-	crawl_free(cache->crawl, buf);
+	if(!json)
+	{
+		return -1;
+	}
+	if(*dict)
+	{
+		json_decref(*dict);
+	}
+	*dict = json;
 	return 0;
 }
 
 static int
-diskcache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
+diskcache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, const json_t *dict)
 {
 	FILE *f;
-	jd_var json = JD_INIT;
-	const char *p;
-	size_t len;
 	int e;
 
 	f = diskcache_open_info_write_(cache, key);
@@ -230,17 +205,7 @@ diskcache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 	{
 		return -1;
 	}
-	e = 0;
-	JD_SCOPE
-	{
-		jd_to_json(&json, dict);
-		p = jd_bytes(&json, &len);
-		len--;				
-		if(!p || (fwrite(p, len, 1, f) != 1))		
-		{
-			e = -1;
-		}
-	}
+	e = json_dumpf(dict, f, JSON_PRESERVE_ORDER);
 	if(e)
 	{
 		diskcache_close_info_rollback_(cache, key, f);

@@ -321,9 +321,9 @@ rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conte
 static int
 rdf_process_headers(PROCESSOR *me, CRAWLOBJ *obj)
 {
-	jd_var headers = JD_INIT, keys = JD_INIT, *ks, *array, *str;
-	size_t c, d, num, anum;
-	const char *value, *loc;
+	json_t *headers, *values, *header;
+	size_t d;
+	const char *value, *loc, *key;
 	librdf_uri *resource;
 
 	loc = crawl_obj_content_location(obj);
@@ -332,40 +332,23 @@ rdf_process_headers(PROCESSOR *me, CRAWLOBJ *obj)
 		loc = crawl_obj_uristr(obj);
 	}
 	log_printf(LOG_DEBUG, "RDF: Content-Location is <%s>\n", loc);
-	resource = librdf_new_uri(me->world, (const unsigned char *) loc);
-	
-	JD_SCOPE
+	resource = librdf_new_uri(me->world, (const unsigned char *) loc);	
+	headers = crawl_obj_headers(obj, 0);	
+	json_object_foreach(headers, key, values)
 	{
-		crawl_obj_headers(obj, &headers, 0);
-				jd_keys(&keys, &headers);
-		num = jd_count(&keys);
-		for(c = 0; c < num; c++)
+		if(!strcmp(key, "link"))
 		{
-			ks = jd_get_idx(&keys, c);
-			if(!ks || ks->type != STRING)
+			json_array_foreach(values, d, header)
 			{
-				continue;
-			}
-			if(!strcasecmp(jd_bytes(ks, NULL), "link"))
-			{
-				array = jd_get_key(&headers, ks, 0);
-				if(array && array->type == ARRAY)
+				value = json_string_value(header);
+				if(value)
 				{
-					anum = jd_count(array);
-					for(d = 0; d < anum; d++)
-					{
-						str = jd_get_idx(array, d);
-						if(!str || str->type != STRING)
-						{
-							continue;
-						}
-						value = jd_bytes(str, NULL);
-						rdf_process_link(me, obj, value, resource);
-					}
+					rdf_process_link(me, obj, value, resource);
 				}
 			}
 		}
 	}
+	json_decref(headers);
 	librdf_free_uri(resource);
 	return 0;
 }

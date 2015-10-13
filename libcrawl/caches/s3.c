@@ -47,8 +47,8 @@ static FILE *s3cache_open_write_(CRAWLCACHE *cache, const CACHEKEY key);
 static FILE *s3cache_open_read_(CRAWLCACHE *cache, const CACHEKEY key);
 static int s3cache_close_rollback_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
 static int s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *obj);
-static int s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *info);
-static int s3cache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *info);
+static int s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, json_t **info);
+static int s3cache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, const json_t *info);
 static char *s3cache_uri_(CRAWLCACHE *cache, const CACHEKEY key);
 static int s3cache_set_username_(CRAWLCACHE *cache, const char *username);
 static int s3cache_set_password_(CRAWLCACHE *cache, const char *password);
@@ -299,12 +299,13 @@ s3cache_close_commit_(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *
 }
 
 static int
-s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
+s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, json_t **dict)
 {
 	AWSREQUEST *req;
 	struct s3cache_data_struct *data;
 	CURL *ch;
 	long status;
+	json_t *json;
 
 	data = (struct s3cache_data_struct *) cache->data;
 	status = 0;
@@ -328,20 +329,24 @@ s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 		return -1;
 	}
 	aws_request_destroy(req);
-	JD_SCOPE
+	json = json_loads(data->buf, 0, NULL);
+	if(!json)
 	{
-		jd_release(dict);
-		jd_from_jsons(dict, data->buf);
+		return -1;
 	}
+	if(*dict)
+	{
+		json_decref(*dict);
+	}
+	*dict = json;
 	return 0;
 }
 
 static int
-s3cache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
+s3cache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, const json_t *dict)
 {
 	AWSREQUEST *req;
-	jd_var json = JD_INIT;
-	const char *p;
+	char *p;
 	size_t len;
 	volatile int e;
 	long status;
@@ -353,43 +358,37 @@ s3cache_info_write_(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict)
 	data = (struct s3cache_data_struct *) cache->data;
 	s3cache_copy_path_(cache, key, CACHE_INFO_SUFFIX);
 	
-	JD_SCOPE
+	p = json_dumps(dict, JSON_PRESERVE_ORDER);
+	if(!p)
 	{
-		jd_to_json(&json, dict);
-		p = jd_bytes(&json, &len);
-		len--;
-		if(p)
-		{
-			req = aws_s3_request_create(data->bucket, data->path, "PUT");
-			ch = aws_request_curl(req);
-			curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1);
-			curl_easy_setopt(ch, CURLOPT_POSTFIELDS, p);
-			curl_easy_setopt(ch, CURLOPT_POSTFIELDSIZE, len);
-			curl_easy_setopt(ch, CURLOPT_VERBOSE, cache->crawl->verbose);
-			curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, s3cache_write_null_);
-			headers = aws_request_headers(req);
-			headers = curl_slist_append(headers, "Content-Type: application/json");
-			aws_request_set_headers(req, headers);
-			if(!aws_request_perform(req))
-			{
-				status = 0;
-				curl_easy_getinfo(ch, CURLINFO_RESPONSE_CODE, &status);
-				if(status != 200)
-				{
-					e = -1;
-				}			
-			}
-			else
-			{
-				e = -1;
-			}
-			aws_request_destroy(req);
-		}
-		else
+		return -1;
+	}
+	len = strlen(p);
+	req = aws_s3_request_create(data->bucket, data->path, "PUT");
+	ch = aws_request_curl(req);
+	curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1);
+	curl_easy_setopt(ch, CURLOPT_POSTFIELDS, p);
+	curl_easy_setopt(ch, CURLOPT_POSTFIELDSIZE, len);
+	curl_easy_setopt(ch, CURLOPT_VERBOSE, cache->crawl->verbose);
+	curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, s3cache_write_null_);
+	headers = aws_request_headers(req);
+	headers = curl_slist_append(headers, "Content-Type: application/json");
+	aws_request_set_headers(req, headers);
+	if(!aws_request_perform(req))
+	{
+		status = 0;
+		curl_easy_getinfo(ch, CURLINFO_RESPONSE_CODE, &status);
+		if(status != 200)
 		{
 			e = -1;
-		}
+		}			
 	}
+	else
+	{
+		e = -1;
+	}
+	crawl_free(cache->crawl, p);
+	aws_request_destroy(req);
 	return e;
 }
 

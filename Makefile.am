@@ -31,7 +31,7 @@ EXTRA_DIST = README.md LICENSE-2.0
 BRANCH ?= develop
 DOCS_BRANCH ?= gh-pages
 
-DEVELOP_SUBMODULES = m4 jsondata libsupport
+DEVELOP_SUBMODULES = m4 libsupport
 DOCS_SUBMODULES = docbook-html5 docs
 
 checkout:

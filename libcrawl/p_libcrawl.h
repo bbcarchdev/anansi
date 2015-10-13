@@ -131,7 +131,7 @@ struct crawl_object_struct
 	int fresh;
 	time_t updated;
 	int status;
-	jd_var info;
+	json_t *info;
 	URI *uri;
 	char *uristr;
 	char *payload;
@@ -162,7 +162,7 @@ void crawl_log_(CRAWL *obj, int priority, const char *format, ...);
 
 CRAWLOBJ *crawl_obj_create_(CRAWL *crawl, URI *uri);
 int crawl_obj_locate_(CRAWLOBJ *obj);
-int crawl_obj_replace_(CRAWLOBJ *obj, jd_var *dict);
+int crawl_obj_replace_(CRAWLOBJ *obj, const json_t *dict);
 
 int crawl_cache_init_(CRAWL *crawl);
 int crawl_cache_key_(CRAWL *crawl, CACHEKEY dest, const char *uri);
@@ -171,7 +171,7 @@ FILE *cache_open_payload_write_(CRAWL *crawl, const CACHEKEY key);
 int cache_close_payload_rollback_(CRAWL *crawl, const CACHEKEY key, FILE *f);
 int cache_close_payload_commit_(CRAWL *crawl, const CACHEKEY key, FILE *f, CRAWLOBJ *obj);
 
-int cache_info_read_(CRAWL *crawl, const CACHEKEY key, jd_var *dict);
-int cache_info_write_(CRAWL *crawl, const CACHEKEY key, jd_var *dict);
+int cache_info_read_(CRAWL *crawl, const CACHEKEY key, json_t **dict);
+int cache_info_write_(CRAWL *crawl, const CACHEKEY key, const json_t *dict);
 
 #endif /*!P_LIBCRAWL_H_*/

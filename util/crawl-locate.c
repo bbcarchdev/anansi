@@ -27,7 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <jsondata.h>
+#include <jansson.h>
 #include <syslog.h>
 
 #include "libcrawl.h"
@@ -42,7 +42,7 @@ main(int argc, char **argv)
 {
 	CRAWL *crawl;
 	CRAWLOBJ *obj;
-	jd_var headers = JD_INIT;
+	json_t *headers;
 
 	if((progname = strrchr(argv[0], '/')))
 	{
@@ -71,9 +71,13 @@ main(int argc, char **argv)
 	printf("key: %s\n", crawl_obj_key(obj));
 	printf("payload path: %s\n", crawl_obj_payload(obj));
 	printf("payload size: %llu\n", (unsigned long long) crawl_obj_size(obj));
-	if(!crawl_obj_headers(obj, &headers, 0))
-	{
-		jd_printf("headers: %lJ\n", &headers);
+	headers = crawl_obj_headers(obj, 0);
+	if(headers)
+	{		
+		printf("headers: ");
+		json_dumpf(headers, stdout, 0);
+		printf("\n");
+		json_decref(headers);
 	}
 	crawl_obj_destroy(obj);
 	crawl_destroy(crawl);

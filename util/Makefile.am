@@ -27,6 +27,6 @@ bin_PROGRAMS = crawl-fetch crawl-locate crawl-mirror libcrawl-config
 
 libcrawl_config_SOURCES = crawl-config.c
 
-crawl_fetch_LDADD = $(LIBJSONDATA_LOCAL_LIBS) $(LIBJSONDATA_LIBS)
-crawl_locate_LDADD = $(LIBJSONDATA_LOCAL_LIBS) $(LIBJSONDATA_LIBS)
+crawl_fetch_LDADD = $(LIBJANSSON_LOCAL_LIBS) $(LIBJANSSON_LIBS)
+crawl_locate_LDADD = $(LIBJANSSON_LOCAL_LIBS) $(LIBJANSSON_LIBS)
 crawl_mirror_LDADD = $(LIBXML2_LOCAL_LIBS) $(LIBXML2_LIBS) $(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS)

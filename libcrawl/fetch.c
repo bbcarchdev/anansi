@@ -30,7 +30,7 @@
 static size_t crawl_fetch_header_(char *ptr, size_t size, size_t nmemb, void *userdata);
 static size_t crawl_fetch_payload_(char *ptr, size_t size, size_t nmemb, void *userdata);
 static int crawl_update_info_(struct crawl_fetch_data_struct *data);
-static int crawl_generate_info_(struct crawl_fetch_data_struct *data, jd_var *dict);
+static int crawl_generate_info_(struct crawl_fetch_data_struct *data, json_t *dict);
 
 CRAWLOBJ *
 crawl_fetch(CRAWL *crawl, const char *uristr, CRAWLSTATE state)
@@ -55,12 +55,12 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri, CRAWLSTATE state)
 	struct tm tp;
 	char modified[64];
 	int error;
-	jd_var dict = JD_INIT;
+	json_t *dict;
 	struct curl_slist *headers;
 	
 	memset(&data, 0, sizeof(data));
 	headers = NULL;
-
+	dict = NULL;
 	data.now = time(NULL);
 	data.crawl = crawl;
 	data.obj = crawl_obj_create_(crawl, uri);
@@ -85,7 +85,7 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri, CRAWLSTATE state)
 		/* Store a copy of the object dictionary to allow rolling it back without
 		 * re-reading from disk.
 		 */
-		jd_clone(&dict, &(data.obj->info), 1);
+		dict = json_deep_copy(data.obj->info);
 		/* Send an If-Modified-Since header */
 		if(state != COS_FORCE)
 		{
@@ -131,7 +131,7 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri, CRAWLSTATE state)
 	data.payload = cache_open_payload_write_(crawl, data.obj->key);
 	if(!data.payload)
 	{
-		jd_release(&dict);
+		json_decref(dict);		
 		crawl_obj_destroy(data.obj);
 		return NULL;
 	}
@@ -169,33 +169,31 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri, CRAWLSTATE state)
 	}
 	if(!data.rollback)
 	{
-		JD_SCOPE
+		if(crawl_update_info_(&data))
 		{
-			if(crawl_update_info_(&data))
+			data.rollback = 1;
+			error = -1;
+		}
+		else
+		{
+			if(cache_info_write_(crawl, data.obj->key, data.obj->info))
 			{
 				data.rollback = 1;
 				error = -1;
 			}
 			else
 			{
-				if(cache_info_write_(crawl, data.obj->key, &(data.obj->info)))
-				{
-					data.rollback = 1;
-					error = -1;
-				}
-				else
-				{
-					data.obj->fresh = 1;
-				}
+				data.obj->fresh = 1;
 			}
-			if(data.rollback)
-			{
-				crawl_obj_replace_(data.obj, &dict);
-			}
+		}
+		if(data.rollback)
+		{
+			crawl_obj_replace_(data.obj, dict);
 		}
 	}
 	free(data.headers);
-	jd_release(&dict);
+	json_decref(dict);
+	dict = NULL;
 	if(data.rollback)
 	{
 		cache_close_payload_rollback_(crawl, data.obj->key, data.payload);
@@ -302,33 +300,28 @@ crawl_fetch_payload_(char *ptr, size_t size, size_t nmemb, void *userdata)
 static int
 crawl_update_info_(struct crawl_fetch_data_struct *data)
 {
-	jd_var infoblock = JD_INIT;
-	jd_var *key, *value;
+	json_t *infoblock;
 	int status;
 	
-	JD_SCOPE
+	if(!data->generated_info)
 	{
-		if(!data->generated_info)
-		{
-			curl_easy_getinfo(data->ch, CURLINFO_RESPONSE_CODE, &(data->status));			
-			crawl_generate_info_(data, &infoblock);
-			crawl_obj_replace_(data->obj, &infoblock);
-			jd_release(&infoblock);
-			data->generated_info = 1;
-		}
-		if(data->obj->status != data->status)
-		{
-			key = jd_get_ks(&(data->obj->info), "status", 1);
-			value = jd_niv(data->status);
-			data->obj->status = data->status;
-		}
-		if(data->have_size)
-		{
-			key = jd_get_ks(&(data->obj->info), "size", 1);
-			value = jd_niv(data->size);
-			jd_assign(key, value);
-			data->obj->size = data->size;
-		}
+		infoblock = json_object();
+
+		curl_easy_getinfo(data->ch, CURLINFO_RESPONSE_CODE, &(data->status));
+		crawl_generate_info_(data, infoblock);
+		crawl_obj_replace_(data->obj, infoblock);
+		json_decref(infoblock);
+		data->generated_info = 1;
+	}
+	if(data->obj->status != data->status)
+	{
+		json_object_set_new(data->obj->info, "status", json_integer(data->status));
+		data->obj->status = data->status;
+	}
+	if(data->have_size)
+	{
+		json_object_set_new(data->obj->info, "size", json_integer(data->size));
+		data->obj->size = data->size;
 	}
 	if(!data->checkpoint_invoked && data->crawl->checkpoint)
 	{
@@ -389,8 +382,11 @@ is_same_origin(URI_INFO *a, URI_INFO *b)
 	return 1;
 }
 
+/* Add the canonical form of a URL (provided as a string) to a JSON object,
+ * possibly applying a same-origin check
+ */
 static int
-set_dict_url(CRAWLOBJ *obj, jd_var *dict, const char *key, const char *location, int same_origin)
+set_dict_url(CRAWLOBJ *obj, json_t *dict, const char *key, const char *location, int same_origin)
 {
 	URI *uri;
 	URI_INFO *a, *b;
@@ -416,109 +412,95 @@ set_dict_url(CRAWLOBJ *obj, jd_var *dict, const char *key, const char *location,
 		}
 	}
 	p = uri_stralloc(uri);
-	jd_assign(jd_get_ks(dict, key, 1), jd_nsv(p));
+	json_object_set_new(dict, key, json_string(p));
 	free(p);
 	uri_destroy(uri);
 	return 0;
 }
 
+/* Populate a JSON object contaning information about the request
+ * that was preformed.
+ */
 static int
-crawl_generate_info_(struct crawl_fetch_data_struct *data, jd_var *dict)
+crawl_generate_info_(struct crawl_fetch_data_struct *data, json_t *dict)
 {
-	jd_var *key, *value, *headers;
+	json_t *headers, *values;
 	char *ptr, *s, *p;
-	
-	jd_set_hash(dict, 8);
-	JD_SCOPE
+		
+	json_object_set_new(dict, "status", json_integer(data->status));
+	if(data->have_size)
 	{
-		jd_retain(dict);
-		key = jd_get_ks(dict, "status", 1);
-		value = jd_niv(data->status);		
-		jd_assign(key, value);
-		if(data->have_size)
-		{
-			key = jd_get_ks(dict, "size", 1);
-			value = jd_niv(data->size);
-			jd_assign(key, value);
-		}
-		key = jd_get_ks(dict, "updated", 1);
-		value = jd_niv(data->now);
-		jd_assign(key, value);
-		ptr = NULL;
-		curl_easy_getinfo(data->ch, CURLINFO_EFFECTIVE_URL, &ptr);
-		if(ptr)
-		{
-			key = jd_get_ks(dict, "location", 1);
-			value = jd_nsv(ptr);
-			jd_assign(key, value);
-			key = jd_get_ks(dict, "content_location", 1);
-			value = jd_nsv(ptr);
-			jd_assign(key, value);
-		}
-		ptr = NULL;
-		curl_easy_getinfo(data->ch, CURLINFO_CONTENT_TYPE, &ptr);
-		if(ptr)
-		{
-			key = jd_get_ks(dict, "type", 1);
-			value = jd_nsv(ptr);
-			jd_assign(key, value);	
-		}
-		headers = jd_nhv(32);
-		for(s = data->headers; s; )
-		{
-			p = strchr(s, '\n');
-			if(!p)
-			{
-				break;
-			}
-			if(s == p)
-			{
-				s = p + 1;
-				continue;
-			}
-			*p = 0;
-			p--;
-			if(*p == '\r')
-			{
-				*p = 0;
-			}
-			if(s == data->headers)
-			{
-				jd_assign(jd_get_ks(headers, ":", 1), jd_nsv(s));
-				s = p + 2;
-				continue;
-			}
-			ptr = strchr(s, ':');
-			if(!ptr)
-			{
-				s = p + 2;
-				continue;
-			}			
-			*ptr = 0;
-			ptr++;
-			if(isspace(*ptr))
-			{
-				ptr++;
-			}
-			if(!strcasecmp(s, "location"))
-			{
-				set_dict_url(data->obj, dict, "redirect", ptr, 0);
-			}
-			if(!strcasecmp(s, "content-location"))
-			{
-				set_dict_url(data->obj, dict, "content_location", ptr, 1);
-			}
-			key = jd_get_ks(headers, s, 1);
-			if(key->type == VOID)
-			{
-				jd_assign(key, jd_nav(1));
-			}
-			value = jd_push(key, 1);
-			jd_assign(value, jd_nsv(ptr));
-			s = p + 2;
-		}
-		key = jd_get_ks(dict, "headers", 1);
-		jd_assign(key, headers);
+		json_object_set_new(dict, "status", json_integer(data->size));
 	}
+	json_object_set_new(dict, "updated", json_integer(data->now));
+	ptr = NULL;
+	curl_easy_getinfo(data->ch, CURLINFO_EFFECTIVE_URL, &ptr);
+	if(ptr)
+	{
+		json_object_set_new(dict, "location", json_string(ptr));
+		json_object_set_new(dict, "content_location", json_string(ptr));
+	}
+	ptr = NULL;
+	curl_easy_getinfo(data->ch, CURLINFO_CONTENT_TYPE, &ptr);
+	if(ptr)
+	{
+		json_object_set_new(dict, "type", json_string(ptr));
+	}
+	headers = json_object();
+	for(s = data->headers; s; )
+	{
+		p = strchr(s, '\n');
+		if(!p)
+		{
+			break;
+		}
+		if(s == p)
+		{
+			s = p + 1;
+			continue;
+		}
+		*p = 0;
+		p--;
+		if(*p == '\r')
+		{
+			*p = 0;
+		}
+		if(s == data->headers)
+		{
+			/* The special key ':' is used for the HTTP status line */
+			json_object_set_new(headers, ":", json_string(s));
+			s = p + 2;
+			continue;
+		}
+		ptr = strchr(s, ':');
+		if(!ptr)
+		{
+			s = p + 2;
+			continue;
+		}			
+		*ptr = 0;
+		ptr++;
+		if(isspace(*ptr))
+		{
+			ptr++;
+		}
+		if(!strcasecmp(s, "location"))
+		{			
+			set_dict_url(data->obj, dict, "redirect", ptr, 0);
+		}
+		if(!strcasecmp(s, "content-location"))
+		{
+			set_dict_url(data->obj, dict, "content_location", ptr, 1);
+		}
+		values = json_object_get(headers, s);
+		if(!values)
+		{
+			values = json_array();
+			json_object_set_new(headers, s, values);
+		}
+		json_array_append_new(values, json_string(ptr));
+		s = p + 2;
+	}
+	json_object_set_new(dict, "headers", headers);
 	return 0;
 }

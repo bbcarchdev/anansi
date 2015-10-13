@@ -24,7 +24,7 @@
 
 # include <stdint.h>
 # include <time.h>
-# include <jsondata.h>
+# include <jansson.h>
 # include <liburi.h>
 
 /* Crawl object states */
@@ -81,8 +81,8 @@ struct crawl_cache_impl_struct
 	FILE *(*payload_open_read)(CRAWLCACHE *cache, const CACHEKEY key);
 	int (*payload_close_rollback)(CRAWLCACHE *cache, const CACHEKEY key, FILE *f);
 	int (*payload_close_commit)(CRAWLCACHE *cache, const CACHEKEY key, FILE *f, CRAWLOBJ *obj);
-	int (*info_read)(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict);
-	int (*info_write)(CRAWLCACHE *cache, const CACHEKEY key, jd_var *dict);
+	int (*info_read)(CRAWLCACHE *cache, const CACHEKEY key, json_t **dict);
+	int (*info_write)(CRAWLCACHE *cache, const CACHEKEY key, const json_t *dict);
 	char *(*uri)(CRAWLCACHE *cache, const CACHEKEY key);
 	int (*set_username)(CRAWLCACHE *cache, const char *username);
 	int (*set_password)(CRAWLCACHE *cache, const char *password);
@@ -197,8 +197,8 @@ const char *crawl_obj_key(CRAWLOBJ *obj);
 int crawl_obj_status(CRAWLOBJ *obj);
 /* Obtain the storage timestamp for a crawl object */
 time_t crawl_obj_updated(CRAWLOBJ *obj);
-/* Obtain the headers for a crawl object */
-int crawl_obj_headers(CRAWLOBJ *obj, jd_var *out, int clone);
+/* Obtain the headers for a crawl object - caller must use json_decref() */
+json_t *crawl_obj_headers(CRAWLOBJ *obj, int clone);
 /* Obtain the path to the payload for the crawl object */
 const char *crawl_obj_payload(CRAWLOBJ *obj);
 /* Obtain the size of the payload */

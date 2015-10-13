@@ -181,7 +181,7 @@ cache_close_payload_commit_(CRAWL *crawl, const CACHEKEY key, FILE *f, CRAWLOBJ 
 }
 
 int
-cache_info_read_(CRAWL *crawl, const CACHEKEY key, jd_var *dict)
+cache_info_read_(CRAWL *crawl, const CACHEKEY key, json_t **dict)
 {
 	if(!crawl->cache.impl)
 	{
@@ -194,7 +194,7 @@ cache_info_read_(CRAWL *crawl, const CACHEKEY key, jd_var *dict)
 }
 
 int
-cache_info_write_(CRAWL *crawl, const CACHEKEY key, jd_var *dict)
+cache_info_write_(CRAWL *crawl, const CACHEKEY key, const json_t *dict)
 {
 	if(!crawl->cache.impl)
 	{

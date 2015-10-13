@@ -93,7 +93,10 @@ crawl_obj_destroy(CRAWLOBJ *obj)
 		}
 		crawl_free(obj->crawl, obj->uristr);
 		crawl_free(obj->crawl, obj->payload);
-		jd_release(&(obj->info));
+		if(obj->info)
+		{
+			json_decref(obj->info);
+		}
 		crawl_free(obj->crawl, obj);
 	}
 	return 0;
@@ -129,34 +132,30 @@ crawl_obj_size(CRAWLOBJ *obj)
 	return obj->size;
 }
 
-int
-crawl_obj_headers(CRAWLOBJ *obj, jd_var *out, int clone)
+/* Return either a reference to the headers in the crawl object, or a deep
+ * copy of them -- in either case, the caller must json_decref() once it's
+ * finished with the returned dictionary.
+ */
+json_t *
+crawl_obj_headers(CRAWLOBJ *obj, int clone)
 {
-	jd_var *key;
-	int r;
+	json_t *headers;
 	
-	if(obj->info.type == VOID)
+	if(!obj->info)
 	{
-		return -1;
+		return NULL;
 	}
-	r = 0;
-	JD_SCOPE
+	headers = json_object_get(obj->info, "headers");
+	if(!headers)
 	{
-		key = jd_get_ks(&(obj->info), "headers", 1);
-		if(key->type == VOID)
-		{
-			r = -1;
-		}
-		else if(clone)
-		{
-			jd_clone(out, key, 1);
-		}
-		else
-		{
-			jd_assign(out, key);
-		}
+		return NULL;
 	}
-	return r;
+	if(clone)
+	{
+		return json_deep_copy(headers);
+	}
+	json_incref(headers);
+	return headers;
 }
 
 /* Obtain the crawl object URI */
@@ -176,67 +175,52 @@ crawl_obj_uristr(CRAWLOBJ *obj)
 const char *
 crawl_obj_type(CRAWLOBJ *obj)
 {
-	jd_var *key;
-	const char *str;
+	json_t *str;
 	
-	if(obj->info.type == VOID)
+	if(!obj->info)
 	{
 		return NULL;
 	}
-	JD_SCOPE
+	str = json_object_get(obj->info, "type");
+	if(str)
 	{
-		str = NULL;
-		key = jd_get_ks(&(obj->info), "type", 1);
-		if(key->type == STRING)
-		{
-			str = jd_bytes(key, NULL);
-		}
+		return json_string_value(str);
 	}
-	return str;
+	return NULL;
 }
 
 const char *
 crawl_obj_redirect(CRAWLOBJ *obj)
 {
-	jd_var *key;
-	const char *str;
+	json_t *str;
 	
-	if(obj->info.type == VOID)
+	if(!obj->info)
 	{
 		return NULL;
 	}
-	JD_SCOPE
+	str = json_object_get(obj->info, "redirect");
+	if(str)
 	{
-		str = NULL;
-		key = jd_get_ks(&(obj->info), "redirect", 1);
-		if(key->type == STRING)
-		{
-			str = jd_bytes(key, NULL);
-		}
+		return json_string_value(str);
 	}
-	return str;
+	return NULL;
 }
 
 const char *
 crawl_obj_content_location(CRAWLOBJ *obj)
 {
-	jd_var *key;
-	const char *str;
+	json_t *str;
 	
-	if(obj->info.type == VOID)
+	if(!obj->info)
 	{
 		return NULL;
 	}
-	JD_SCOPE
+	str = json_object_get(obj->info, "content_location");
+	if(str)
 	{
-		str = NULL;
-		key = jd_get_ks(&(obj->info), "content_location", 1);
-		if(key->type == STRING)
-		{
-			str = jd_bytes(key, NULL);
-		}
+		return json_string_value(str);
 	}
-	return str;
+	return NULL;
 }
 
 /* Has this object been freshly-fetched? */
@@ -246,12 +230,24 @@ crawl_obj_fresh(CRAWLOBJ *obj)
 	return obj->fresh;
 }
 
-/* Replace the information in a crawl object with a new dictionary */
+/* Replace the information in a crawl object with data from a new JSON
+ * object
+ */
 int
-crawl_obj_replace_(CRAWLOBJ *obj, jd_var *dict)
+crawl_obj_replace_(CRAWLOBJ *obj, const json_t *dict)
 {
-	jd_release(&(obj->info));
-	jd_clone(&(obj->info), dict, 1);
+	json_t *p;
+
+	p = json_deep_copy(dict);
+	if(!p)
+	{
+		return -1;
+	}
+	if(obj->info)
+	{
+		json_decref(obj->info);
+	}
+	obj->info = p;
 	return crawl_obj_update_(obj);
 }
 
@@ -259,30 +255,27 @@ crawl_obj_replace_(CRAWLOBJ *obj, jd_var *dict)
 static int
 crawl_obj_update_(CRAWLOBJ *obj)
 {
-	jd_var *key;
+	json_t *p;
 	
 	obj->updated = 0;
-	if(obj->info.type == VOID)
+	if(!obj->info)
 	{
 		return -1;
 	}
-	JD_SCOPE
+	p = json_object_get(obj->info, "updated");
+	if(p)
 	{
-		key = jd_get_ks(&(obj->info), "updated", 1);
-		if(key->type != VOID)
-		{
-			obj->updated = jd_get_int(key);
-		}
-		key = jd_get_ks(&(obj->info), "status", 1);
-		if(key->type != VOID)
-		{
-			obj->status = jd_get_int(key);
-		}
-		key = jd_get_ks(&(obj->info), "size", 1);
-		if(key->type != VOID)
-		{
-			obj->size = jd_get_int(key);
-		}
+		obj->updated = json_integer_value(p);
+	}
+	p = json_object_get(obj->info, "status");
+	if(p)
+	{
+		obj->status = json_integer_value(p);
+	}
+	p = json_object_get(obj->info, "size");
+	if(p)
+	{
+		obj->size = json_integer_value(p);
 	}
 	return 0;
 }
