@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8"?>
+<refentry version="5.0" xml:lang="en" xml:id="libcrawl-3" xmlns="http://docbook.org/ns" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <info>
+	<authorgroup>
+	  <author>
+		<personname>
+		  <firstname>Mo</firstname>
+		  <surname>McRoberts</surname>
+		</personname>
+		<affiliation>
+		  <org>
+			<orgname>BBC</orgname>
+			<orgdiv>Archive Development</orgdiv>
+			<uri>http://www.bbc.co.uk/archive/</uri>
+		  </org>
+		</affiliation>
+	  </author>
+	</authorgroup>
+	<copyright>
+	  <year>2014</year>
+	  <holder>BBC</holder>
+	</copyright>
+  </info>
+  
+  <refmeta>
+	<refentrytitle>libcrawl</refentrytitle>
+	<manvolnum>3</manvolnum>
+	<refmiscinfo class="source">Web crawling framework</refmiscinfo>
+	<refmiscinfo class="manual">Library functions</refmiscinfo>
+  </refmeta>
+  
+  <refnamediv>
+	<refname>liblod</refname>
+	<refpurpose>Web crawling framework</refpurpose>
+  </refnamediv>
+  
+  <refsynopsisdiv>
+	<cmdsynopsis>
+	  <command>cc</command>
+	  <arg choice="opt"><option><replaceable>flag</replaceable></option></arg>
+	  <arg choice="plain"><replaceable>file …</replaceable></arg>
+	  <arg choice="plain">-lcrawl</arg>
+	  <arg choice="opt"><option><replaceable>library …</replaceable></option></arg>
+	</cmdsynopsis>
+	<funcsynopsis>
+	  <funcsynopsisinfo>#include &lt;libcrawl.h&gt;</funcsynopsisinfo>
+	</funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+	<title>Description</title>
+	<para>
+	  <package>libcrawl</package> is a library for constructing web
+	  crawlers by implementing the basic logic flow using an
+	  application-provided queue implementation and providing hook
+	  points at different stages of the crawl process.
+	</para>
+  </refsect1>
+  
+  <refsect1>
+	<title>Interfaces</title>
+	<para>
+	  <package>libcrawl</package> provides the public interfaces listed
+	  below.
+	</para>
+
+	<segmentedlist>
+	  <segtitle>Function</segtitle>
+	  <segtitle>Description</segtitle>
+	  
+	  <!--
+	  <seglistitem>
+		<seg><link xlink:href="crawl_create.3"><function>crawl_create</function></link></seg>
+		<seg>Create a new crawling context</seg>
+	  </seglistitem>
+	  -->
+	  
+	  <seglistitem>
+	  	<seg><function>crawl_create</function></seg>
+	  	<seg>Create a crawling context</seg>
+	  </seglistitem>
+	  
+	  <seglistitem>
+	  	<seg><function>crawl_destroy</function></seg>
+	  	<seg>Destroy a crawling context</seg>
+	  </seglistitem>
+	  
+	  <seglistitem>
+		<seg><function>crawl_cache_scheme</function></seg>
+		<seg>Obtain a registered cache implementation for a given URI scheme</seg>
+	  </seglistitem>
+	  
+	  <seglistitem>
+		<seg><function>crawl_set_cache</function></seg>
+		<seg>Set the cache implementation which will be used by a crawling context</seg>
+	  </seglistitem>
+	  
+	  <seglistitem>
+		<seg><function>crawl_set_accept</function></seg>
+		<seg>Specify the <literal>Accept</literal> header to be used in future requests</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_ua</function></seg>
+		<seg>Specify the <literal>User-Agent</literal> header to be used in future requests</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_userdata</function></seg>
+		<seg>Set an application-specific data pointer in a crawling context</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_verbose</function></seg>
+		<seg>Specify whether network requests will happen verbosely</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_cache_path</function></seg>
+		<seg>Set the cache filesystem path or URI string</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_cache_uri</function></seg>
+		<seg>Set the cache URI</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_userdata</function></seg>
+		<seg>Obtain the application-specific data pointer</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_username</function></seg>
+		<seg>Set the username (or access key) to be used by the cache implementation</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_password</function></seg>
+		<seg>Set the password (or secret) to be used by the cache implementation</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_endpoint</function></seg>
+		<seg>Set the endpoint to be used by the cache implementation</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_uri_policy</function></seg>
+		<seg>Set the URI policy callback</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_updated</function></seg>
+		<seg>Set the resource-updated callback</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_failed</function></seg>
+		<seg>Set the request-failed callback</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_next</function></seg>
+		<seg>Set the queue-next callback</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_checkpoint</function></seg>
+		<seg>Set the checkpoint callback</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_unchanged</function></seg>
+		<seg>Set the resource-unchanged callback</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_prefetch</function></seg>
+		<seg>Set the prefetch callback</seg>
+	  </seglistitem>
+
+	  <seglistitem>
+		<seg><function>crawl_set_logger</function></seg>
+		<seg>Set the logging callback</seg>
+	  </seglistitem>
+
+	</segmentedlist>
+  </refsect1>
+
+  <refsect1>
+	<title>Dependencies</title>
+	<para>
+	  <package>libcrawl</package> depends upon <package>libcurl</package>,
+	  <package>Jansson</package>, and <package>liburi</package>.
+	</para>
+  </refsect1>
+
+  <refsect1>
+	<title>See also</title>
+	
+	<para>
+	  <link xlink:href="http://curl.haxx.se/libcurl/"><citerefentry><refentrytitle>libcurl</refentrytitle><manvolnum>3</manvolnum></citerefentry></link>,
+	  <link xlink:href="http://xmlsoft.org/html/index.html"><citerefentry><refentrytitle>libxml2</refentrytitle><manvolnum>3</manvolnum></citerefentry></link>,
+	  <link xlink:href="https://bbcarchdev.github.io/liburi/"><citerefentry><refentrytitle>liburi</refentrytitle><manvolnum>3</manvolnum></citerefentry></link>,
+	  <link xlink:href="http://www.digip.org/jansson/"><citerefentry><refentrytitle>libjansson</refentrytitle><manvolnum>3</manvolnum></citerefentry></link>.
+	</para>
+  </refsect1>
+  
+</refentry>

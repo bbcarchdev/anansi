@@ -15,9 +15,12 @@
 ##  limitations under the License.
 
 dist_noinst_DATA = \
-	anansi.xml
+	anansi.xml libcrawl.3.xml
 
-dist_anansihtdoc_DATA = index.html local.css
+dist_anansihtdoc_DATA = index.html libcrawl.3.html local.css
 
 index.html: $(srcdir)/anansi.xml $(XSLTFILES) $(NAV) $(LINKS)
+	$(XML2HTML) $<
+
+libcrawl.3.html: $(srcdir)/libcrawl.3.xml $(XSLTFILES) $(NAV) $(LINKS)
 	$(XML2HTML) $<

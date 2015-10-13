@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+	<head>
+
+			<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+			<meta charset="utf-8" />
+			<!--[if lt IE 9]><script>document.createElement('header');document.createElement('nav');document.createElement('section');document.createElement('article');document.createElement('aside');document.createElement('footer');</script><![endif]-->
+		<title>libcrawl</title><link rel="stylesheet" type="text/css" href="//bbcarchdev.github.io/painting-by-numbers/style.css"/><link rel="stylesheet" type="text/css" href="//bbcarchdev.github.io/painting-by-numbers/print.css" media="print"/><link rel="stylesheet" type="text/css" href="//cloud.typography.com/6699852/732262/css/fonts.css"/><link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Roboto:300,500,300italic,500italic|Inconsolata|Arapey"/><link rel="stylesheet" type="text/css" href="local.css"/><meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1"/><!--[if lt IE 9]><link rel="stylesheet" type="text/css" href="//bbcarchdev.github.io/painting-by-numbers/ie78.css" /><![endif]-->
+	</head>
+<body class="refentry"><header><nav class="global"><div class="inner"><ul>
+		<li class="logo"><a href="https://bbcarchdev.github.io/res/"><abbr title="Research &amp; Education Space">RES</abbr></a></li>
+		<li><a href="https://bbcarchdev.github.io/res/guides">Guides</a></li>
+		<li><a href="http://acropolis.org.uk">Developer API</a></li>
+		<li><a href="https://bbcarchdev.github.io/res/tools">Tools</a></li>
+		<li><a href="https://bbcarchdev.github.io/res/code">Source code</a></li>
+	</ul></div></nav>
+		<div class="masthead"></div>
+		<h1>libcrawl</h1><h2>Web crawling framework</h2></header><article>
+  
+  
+  
+  
+  
+  
+  <section class="refsynopsisdiv"><h1>Synopsis</h1>
+	<p class="cmdsynopsis"><code>
+	  <kbd class="command">cc</kbd>
+	  flag
+	  file …
+	  -lcrawl
+	  library …
+	</code></p>
+	<div class="funcsynopsis">
+	  <p class="funcsynopsisinfo"><code>#include &lt;libcrawl.h&gt;</code></p>
+	</div>
+  </section>
+
+  <section class="refsect1"><h1>Description</h1>
+	
+	<p>
+	  libcrawl is a library for constructing web
+	  crawlers by implementing the basic logic flow using an
+	  application-provided queue implementation and providing hook
+	  points at different stages of the crawl process.
+	</p>
+  </section>
+  
+  <section class="refsect1"><h1>Interfaces</h1>
+	
+	<p>
+	  libcrawl provides the public interfaces listed
+	  below.
+	</p>
+
+	<div class="table"><table><thead><tr><th scope="col">Function</th><th scope="col">Description</th></tr></thead><tbody><tr><td><code class="function">crawl_create</code></td><td>Create a crawling context</td></tr><tr><td><code class="function">crawl_destroy</code></td><td>Destroy a crawling context</td></tr><tr><td><code class="function">crawl_cache_scheme</code></td><td>Obtain a registered cache implementation for a given URI scheme</td></tr><tr><td><code class="function">crawl_set_cache</code></td><td>Set the cache implementation which will be used by a crawling context</td></tr><tr><td><code class="function">crawl_set_accept</code></td><td>Specify the <code class="literal">Accept</code> header to be used in future requests</td></tr><tr><td><code class="function">crawl_set_ua</code></td><td>Specify the <code class="literal">User-Agent</code> header to be used in future requests</td></tr><tr><td><code class="function">crawl_set_userdata</code></td><td>Set an application-specific data pointer in a crawling context</td></tr><tr><td><code class="function">crawl_set_verbose</code></td><td>Specify whether network requests will happen verbosely</td></tr><tr><td><code class="function">crawl_set_cache_path</code></td><td>Set the cache filesystem path or URI string</td></tr><tr><td><code class="function">crawl_set_cache_uri</code></td><td>Set the cache URI</td></tr><tr><td><code class="function">crawl_userdata</code></td><td>Obtain the application-specific data pointer</td></tr><tr><td><code class="function">crawl_set_username</code></td><td>Set the username (or access key) to be used by the cache implementation</td></tr><tr><td><code class="function">crawl_set_password</code></td><td>Set the password (or secret) to be used by the cache implementation</td></tr><tr><td><code class="function">crawl_set_endpoint</code></td><td>Set the endpoint to be used by the cache implementation</td></tr><tr><td><code class="function">crawl_set_uri_policy</code></td><td>Set the URI policy callback</td></tr><tr><td><code class="function">crawl_set_updated</code></td><td>Set the resource-updated callback</td></tr><tr><td><code class="function">crawl_set_failed</code></td><td>Set the request-failed callback</td></tr><tr><td><code class="function">crawl_set_next</code></td><td>Set the queue-next callback</td></tr><tr><td><code class="function">crawl_set_checkpoint</code></td><td>Set the checkpoint callback</td></tr><tr><td><code class="function">crawl_set_unchanged</code></td><td>Set the resource-unchanged callback</td></tr><tr><td><code class="function">crawl_set_prefetch</code></td><td>Set the prefetch callback</td></tr><tr><td><code class="function">crawl_set_logger</code></td><td>Set the logging callback</td></tr></tbody></table></div>
+  </section>
+
+  <section class="refsect1"><h1>Dependencies</h1>
+	
+	<p>
+	  libcrawl depends upon libcurl,
+	  Jansson, and liburi.
+	</p>
+  </section>
+
+  <section class="refsect1"><h1>See also</h1>
+	
+	
+	<p>
+	  <a href="http://curl.haxx.se/libcurl/">libcurl</a>,
+	  <a href="http://xmlsoft.org/html/index.html">libxml2</a>,
+	  <a href="https://bbcarchdev.github.io/liburi/">liburi</a>,
+	  <a href="http://www.digip.org/jansson/">libjansson</a>.
+	</p>
+  </section>
+  
+</article></body>
+</html>
