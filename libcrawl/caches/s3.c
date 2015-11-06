@@ -323,12 +323,11 @@ s3cache_info_read_(CRAWLCACHE *cache, const CACHEKEY key, json_t **dict)
 		return -1;
 	}
 	curl_easy_getinfo(ch, CURLINFO_RESPONSE_CODE, &status);
+	aws_request_destroy(req);
 	if(status != 200)
 	{
-		curl_easy_cleanup(ch);
 		return -1;
 	}
-	aws_request_destroy(req);
 	json = json_loads(data->buf, 0, NULL);
 	if(!json)
 	{
