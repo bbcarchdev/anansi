@@ -10,8 +10,8 @@ project.
 * libxml2
 * Redland (librdf)
 * libuuid
+* [Jansson](http://www.digip.org/jansson/)
 * [liburi](https://github.com/bbcarchdev/liburi)
 * [libsql](https://github.com/bbcarchdev/libsql)
 * [libcluster](https://github.com/bbcarchdev/libcluster)
-* [jsondata](https://github.com/bbcarchdev/jsondata) (bundled)
 * [libawsclient](https://github.com/bbcarchdev/libawsclient)
