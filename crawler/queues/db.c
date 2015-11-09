@@ -224,7 +224,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 	if(newversion == 0)
 	{
 		/* Return target version */
-		return 6;
+		return 7;
 	}
 	log_printf(LOG_NOTICE, MSG_N_DB_MIGRATING " to version %d\n", newversion);
 	if(newversion == 1)
@@ -463,6 +463,36 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 			return -1;
 		}
 		if(sql_execute(sql, "ALTER TABLE \"crawl_root\" ALTER COLUMN \"uri\" TYPE text"))
+		{
+			return -1;
+		}
+		return 0;
+	}
+	if(newversion == 7)
+	{
+		switch(variant)
+		{
+		case SQL_VARIANT_MYSQL:
+			ddl = "ALTER TABLE \"crawl_resource\" "
+				"MODIFY COLUMN \"state\" ENUM('NEW', 'FAILED', 'REJECTED', 'ACCEPTED', 'COMPLETE', 'FORCE', 'SKIPPED') NOT NULL DEFAULT 'NEW'";
+			break;
+		case SQL_VARIANT_POSTGRES:
+			/* This is pretty hacky */
+			if(sql_commit(sql))
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "ALTER TYPE \"crawl_resource_state\" ADD VALUE 'SKIPPED'"))
+			{
+				return -1;
+			}
+			if(sql_begin(sql, SQL_TXN_CONSISTENT))
+			{
+				return -1;
+			}
+			return 0;
+		}
+		if(sql_execute(sql, ddl))
 		{
 			return -1;
 		}
