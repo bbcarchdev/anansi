@@ -80,10 +80,10 @@ lod_rdf_filter(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *mode
 	if(!found)
 	{
 		log_printf(LOG_INFO, MSG_I_LOD_REJECTED " <%s>: (LOD: no suitable licensing triple)\n", uri);
-		return 0;
+		return COS_REJECTED;
 	}
 	log_printf(LOG_DEBUG, "LOD: suitable licensing triple located\n");
-	return 1;
+	return COS_ACCEPTED;
 }
 
 static int

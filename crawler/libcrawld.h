@@ -93,7 +93,7 @@ struct processor_api_struct
 	void *reserved;
 	unsigned long (*addref)(PROCESSOR *me);
 	unsigned long (*release)(PROCESSOR *me);
-	int (*process)(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
+	CRAWLSTATE (*process)(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
 };
 
 /* Log messages */
@@ -114,8 +114,8 @@ struct processor_api_struct
 # define MSG_N_CRAWL_TESTMODE           "%%ANANSI-N-2010: test mode enabled: ignoring cluster configuration"
 # define MSG_N_CRAWL_REBALANCED         "%%ANANSI-N-2011: cluster has re-balanced"
 # define MSG_C_CRAWL_INSTANCE           "%%ANANSI-N-2012: failed to create crawler instance"
-# define MSG_I_CRAWL_SCHEMENOTWHITE     "%%ANANSI-I-2013: URI has a schema which is not whitelisted"
-# define MSG_I_CRAWL_SCHEMEBLACK        "%%ANANSI-I-2014: URI has a schema which is blacklisted"
+# define MSG_I_CRAWL_SCHEMENOTWHITE     "%%ANANSI-I-2013: URI has a scheme which is not whitelisted"
+# define MSG_I_CRAWL_SCHEMEBLACK        "%%ANANSI-I-2014: URI has a scheme which is blacklisted"
 # define MSG_C_CRAWL_PROCESSORCONFIG    "%%ANANSI-C-2015: the [processor] configuration section is missing a 'name' option"
 # define MSG_C_CRAWL_PROCESSORUNKNOWN   "%%ANANSI-C-2016: the specified processing engine is not registered"
 # define MSG_C_CRAWL_PROCESSORINIT      "%%ANANSI-C-2017: failed to initialise the processing engine"

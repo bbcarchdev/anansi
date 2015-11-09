@@ -90,6 +90,7 @@ queue_add_uristr(CRAWL *crawl, const char *uristr)
 {
 	CONTEXT *data;
 	URI *uri;
+	CRAWLSTATE state;
 	int r;
 
 	data = crawl_userdata(crawl);
@@ -99,11 +100,19 @@ queue_add_uristr(CRAWL *crawl, const char *uristr)
 		log_printf(LOG_ERR, MSG_E_CRAWL_URIPARSE " <%s>\n", uristr);
 		return -1;
 	}
-	r = policy_uri_(crawl, uri, uristr, (void *) data);
-	if(r == 1)
+	state = policy_uri_(crawl, uri, uristr, (void *) data);
+	if(state == COS_ACCEPTED)
 	{
 		log_printf(LOG_DEBUG, "Adding URI <%s> to crawler queue\n", uristr);
 		r = data->queue->api->add(data->queue, uri, uristr);
+	}
+	else if(state == COS_ERR)
+	{
+		r = -1;
+	}
+	else
+	{
+		r = 0;
 	}
 	uri_destroy(uri);
 	return r;
@@ -115,6 +124,7 @@ queue_add_uri(CRAWL *crawl, URI *uri)
 {
 	CONTEXT *data;
 	char *uristr;
+	CRAWLSTATE state;
 	int r;
 		
 	data = crawl_userdata(crawl);
@@ -124,11 +134,19 @@ queue_add_uri(CRAWL *crawl, URI *uri)
 		log_printf(LOG_CRIT, MSG_C_CRAWL_URIUNPARSE "\n");
 		return -1;
 	}
-	r = policy_uri_(crawl, uri, uristr, (void *) data);
-	if(r == 1)
+	state = policy_uri_(crawl, uri, uristr, (void *) data);
+	if(state == COS_ACCEPTED)
 	{
 		log_printf(LOG_DEBUG, "Adding URI <%s> to crawler queue\n", uristr);
 		r = data->queue->api->add(data->queue, uri, uristr);
+	}
+	else if(state == COS_ERR)
+	{
+		r = -1;
+	}
+	else
+	{
+		r = 0;
 	}
 	crawl_free(crawl, uristr);
 	return r;	

@@ -73,7 +73,22 @@ policy_init_context(CONTEXT *context)
 	return 0;
 }
 
-int
+/* policy_uri_() is installed as the CRAWL object's uri_policy callback by
+ * policy_init_context(), above.
+ *
+ * The uri_policy callback is invoked before a network fetch is attempted
+ * by libcrawl. This function is also invoked directly by the libcrawld
+ * queue logic to avoid adding URIs to the queue which do not meet the
+ * policy.
+ *
+ * It should return a valid CRAWLSTATE value based upon its determination.
+ * A state of COS_ACCEPTED will cause processing to proceed, any other value
+ * will cause failure.
+ *
+ * As a special case, COS_NEW (not generally a valid return value) will
+ * be coerced to COS_FAILED.
+ */
+CRAWLSTATE
 policy_uri_(CRAWL *crawl, URI *uri, const char *uristr, void *userdata)
 {
 	char scheme[64];
@@ -98,7 +113,7 @@ policy_uri_(CRAWL *crawl, URI *uri, const char *uristr, void *userdata)
 		if(!n)
 		{
 			log_printf(LOG_INFO, MSG_I_CRAWL_SCHEMENOTWHITE ": <%s> (%s)\n", uristr, scheme);
-			return 0;
+			return COS_SKIPPED;
 		}
 	}
 	if(schemes_blacklist)
@@ -108,11 +123,11 @@ policy_uri_(CRAWL *crawl, URI *uri, const char *uristr, void *userdata)
 			if(!strcasecmp(schemes_blacklist[c], scheme))
 			{
 				log_printf(LOG_INFO, MSG_I_CRAWL_SCHEMEBLACK ": <%s> (%s)\n", uristr, scheme);
-				return 0;
+				return COS_REJECTED;
 			}
 		}
 	}
-	return 1;
+	return COS_ACCEPTED;
 }
 
 static char **
@@ -212,11 +227,21 @@ policy_destroy_list_(char **list)
 	return 0;
 }
 
-/* The checkpoint callback is invoked during the fetch in order to confirm
+/* policy_uri_() is installed as the CRAWL object's checkpoint callback by
+ * policy_init_context(), above.
+ *
+ * The checkpoint callback is invoked during the fetch in order to confirm
  * that it should proceed before any (signifcant amounts of) data are
  * downloaded.
+ *
+ * It should return a valid CRAWLSTATE value based upon its determination.
+ * A state of COS_ACCEPTED will cause processing to proceed, any other value
+ * will cause failure.
+ *
+ * As a special case, COS_NEW (not generally a valid return value) will
+ * be coerced to COS_FAILED.
  */
-static int
+static CRAWLSTATE
 policy_checkpoint_(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata)
 {
 	int n, c;
@@ -228,7 +253,7 @@ policy_checkpoint_(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata)
 	
 	if(*status >= 300 && *status < 400)
 	{
-		return 0;
+		return COS_SKIPPED;
 	}
 	type = crawl_obj_type(obj);
 	if(!type)
@@ -238,7 +263,7 @@ policy_checkpoint_(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata)
 	s = crawl_strdup(crawl, type);
 	if(!s)
 	{
-		return -1;
+		return COS_ERR;
 	}
 	t = strchr(s, ';');
 	if(t)
@@ -272,7 +297,7 @@ policy_checkpoint_(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata)
 			log_printf(LOG_DEBUG, "Policy: type '%s' not matched by whitelist\n", s);
 			crawl_free(crawl, s);
 			*status = 406;
-			return 1;
+			return COS_SKIPPED;
 		}
 	}
 	if(types_blacklist)
@@ -284,10 +309,11 @@ policy_checkpoint_(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata)
 				log_printf(LOG_DEBUG, "Policy: type '%s' is blacklisted\n", s);
 				crawl_free(crawl, s);
 				*status = 406;
-				return 1;
+				return COS_REJECTED;
 			}
 		}
 	}
 	crawl_free(crawl, s);
-	return 0;
+	log_printf(LOG_DEBUG, "Policy: checkpoint complete\n");
+	return COS_ACCEPTED;
 }

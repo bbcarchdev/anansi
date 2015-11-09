@@ -60,7 +60,7 @@ struct context_struct
 	int oneshot;
 };
 
-int policy_uri_(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
+CRAWLSTATE policy_uri_(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
 
 /* Processor constructors */
 PROCESSOR *rdf_create(CRAWL *crawler);

@@ -51,7 +51,7 @@
 # define MSG_I_LOD_REJECTED             "%%ANANSI-I-3100: REJECTED"
 
 
-typedef int (*rdf_filter_cb)(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *model);
+typedef CRAWLSTATE (*rdf_filter_cb)(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, librdf_model *model);
 
 struct processor_struct
 {

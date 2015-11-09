@@ -599,6 +599,10 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 	{
 		*state = COS_FORCE;
 	}
+	else if(!strcmp(statebuf, "SKIPPED"))
+	{
+		*state = COS_SKIPPED;
+	}
 	needed = sql_stmt_value(rs, 0, NULL, 0);
 	if(needed > me->buflen)
 	{
@@ -801,6 +805,7 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 	case COS_NEW:
 		statestr = "NEW";
 		break;
+	case COS_ERR:
 	case COS_FAILED:
 		statestr = "FAILED";
 		break;
@@ -815,6 +820,9 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 		break;
 	case COS_FORCE:
 		statestr = "FORCE";
+		break;
+	case COS_SKIPPED:
+		statestr = "SKIPPED";
 		break;
 	}
 	if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"updated\" = %Q, \"last_modified\" = %Q, \"status\" = %d, \"crawl_instance\" = NULL, \"state\" = %Q WHERE \"hash\" = %Q",

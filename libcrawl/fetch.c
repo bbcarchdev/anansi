@@ -96,11 +96,12 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri, CRAWLSTATE state)
 	}
 	if(crawl->uri_policy)
 	{
-		if(crawl->uri_policy(crawl, data.obj->uri, data.obj->uristr, crawl->userdata) < 1)
+		state = crawl->uri_policy(crawl, data.obj->uri, data.obj->uristr, crawl->userdata);
+		if(state != COS_ACCEPTED)
 		{
 			if(crawl->failed)
 			{
-				crawl->failed(crawl, data.obj, data.cachetime, crawl->userdata);
+				crawl->failed(crawl, data.obj, data.cachetime, crawl->userdata, state);
 			}		
 			crawl_obj_destroy(data.obj);
 			return NULL;
@@ -139,12 +140,14 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri, CRAWLSTATE state)
 	{
 		crawl->prefetch(crawl, data.obj->uri, data.obj->uristr, crawl->userdata);
 	}
+	data.obj->state = COS_NEW;
 	if(curl_easy_perform(data.ch))
 	{
 		if(!data.status)
 		{
 			/* Use 504 to indicate a low-level fetch error */
 			data.status = 504;
+			data.obj->state = COS_FAILED;
 		}
 	}
 	else
@@ -173,6 +176,7 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri, CRAWLSTATE state)
 		{
 			data.rollback = 1;
 			error = -1;
+			data.obj->state = COS_FAILED;
 		}
 		else
 		{
@@ -180,6 +184,7 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri, CRAWLSTATE state)
 			{
 				data.rollback = 1;
 				error = -1;
+				data.obj->state = COS_FAILED;
 			}
 			else
 			{
@@ -200,6 +205,7 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri, CRAWLSTATE state)
 	}
 	else
 	{
+		data.obj->state = COS_ACCEPTED;
 		cache_close_payload_commit_(crawl, data.obj->key, data.payload, data.obj);
 	}	
 	curl_slist_free_all(headers);
@@ -209,12 +215,17 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri, CRAWLSTATE state)
 	if(data.rollback && !data.cachetime)
 	{
 		error = -1;
+		data.obj->state = COS_FAILED;
 	}
 	if(error)
 	{
-		if(crawl->failed)
+		if(data.obj->state == COS_NEW)
 		{
-			crawl->failed(crawl, data.obj, data.cachetime, crawl->userdata);
+			data.obj->state = COS_FAILED;
+		}
+		if(crawl->failed)
+		{			
+			crawl->failed(crawl, data.obj, data.cachetime, crawl->userdata, data.obj->state);
 		}
 		crawl_obj_destroy(data.obj);
 		return NULL;
@@ -302,7 +313,8 @@ crawl_update_info_(struct crawl_fetch_data_struct *data)
 {
 	json_t *infoblock;
 	int status;
-	
+	CRAWLSTATE state;
+
 	if(!data->generated_info)
 	{
 		infoblock = json_object();
@@ -327,13 +339,14 @@ crawl_update_info_(struct crawl_fetch_data_struct *data)
 	{
 		data->checkpoint_invoked = 1;
 		status = data->status;		
-		if(data->crawl->checkpoint(data->crawl, data->obj, &status, data->crawl->userdata))
+		state = data->crawl->checkpoint(data->crawl, data->obj, &status, data->crawl->userdata);
+		if(state != COS_ACCEPTED)
 		{
 			data->status = data->obj->status = status;
+			data->obj->state = state;
 			data->rollback = 1;
 			return 0;
-		}
-		
+		}	   
 	}
 	return 0;
 }

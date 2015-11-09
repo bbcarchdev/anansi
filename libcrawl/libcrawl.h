@@ -30,8 +30,10 @@
 /* Crawl object states */
 typedef enum
 {
+	/* An internal error occurred */
+	COS_ERR = -1,
 	/* Has not yet been crawled */
-	COS_NEW,
+	COS_NEW = 0,
 	/* Crawling failed */
 	COS_FAILED,
 	/* The processor or policy rejected the resource */
@@ -41,7 +43,11 @@ typedef enum
 	/* Never set by crawld itself: external processing has completed */
 	COS_COMPLETE,
 	/* The next fetch should ignore the cache */
-	COS_FORCE
+	COS_FORCE,
+	/* The resource was rejected in line with expectations (e.g., the payload
+	 * of a redirect was ignored)
+	 */
+	COS_SKIPPED
 } CRAWLSTATE;
 
 /* A crawl context.
@@ -104,22 +110,22 @@ struct crawl_cache_struct
 /* URI policy callback: invoked before a URI is fetched; returns 1 to proceed,
  * 0 to skip, -1 on error.
  */
-typedef int (*crawl_uri_policy_cb)(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
+typedef CRAWLSTATE (*crawl_uri_policy_cb)(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
 
 /* Pre-fetch callback: invoked immediately before a URI is fetched (and after
  * the policy callback, if any).
  */
-typedef int (*crawl_prefetch_cb)(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
+typedef CRAWLSTATE (*crawl_prefetch_cb)(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
 
 /* Updated callback: invoked after a resource has been fetched and stored in
  * the cache.
  */
 typedef int (*crawl_updated_cb)(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata);
 
-/* Failed callback: invoked after a resource fetch was attempted but was aborted
- * due to a hard error.
+/* Failed callback: invoked after a resource fetch was attempted but was
+ * aborted due to a hard error.
  */
-typedef int (*crawl_failed_cb)(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata);
+typedef int (*crawl_failed_cb)(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata, CRAWLSTATE state);
 
 /* Unchanged callback: invoked after a resource was rolled back because there is no
  * newer version of the resource.
@@ -132,10 +138,10 @@ typedef int (*crawl_unchanged_cb)(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, 
 typedef int (*crawl_next_cb)(CRAWL *crawl, URI **next, CRAWLSTATE *state, void *userdata);
 
 /* Checkpoint callback: invoked after the response headers have been received
- * but before the payload has been. If the callback returns a nonzero result,
- * the fetch will be aborted.
+ * but before the payload has been. If the callback returns a result other than
+ * COS_ACCEPTED, the fetch will be aborted.
  */
-typedef int (*crawl_checkpoint_cb)(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata);
+typedef CRAWLSTATE (*crawl_checkpoint_cb)(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata);
 
 /* libcrawl-provided cache implementations */
 

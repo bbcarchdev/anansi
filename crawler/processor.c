@@ -31,7 +31,7 @@
 
 static int processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata);
 static int processor_unchanged_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata);
-static int processor_failed_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata);
+static int processor_failed_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata, CRAWLSTATE state);
 
 static PROCESSOR *(*constructor)(CRAWL *crawler);
 
@@ -90,6 +90,19 @@ processor_init_context(CONTEXT *context)
 	return 0;
 }
 
+/* processor_handler_() is installed as the 'updated' callback on the CRAWL
+ * object by processor_init_context() above. It's invoked when libcrawl
+ * determines that an object has been successfully crawled and is either new or
+ * has been updated since the last time it was fetched.
+ *
+ * A CRAWLSTATE isn't passed as a parameter, because the state must be the
+ * equivalent of COS_ACCEPTED in order for this callback to be invoked.
+ *
+ * A CRAWLSTATE isn't returned by this callback, as it's our responsibility
+ * to update the queue accordingly.
+ *
+ * Return zero on success or -1 on failure.
+ */
 static int
 processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 {
@@ -127,17 +140,23 @@ processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 	if(r < 0)
 	{
 		state = COS_FAILED;
-		ttl = 86400;
 	}
 	else if(r > 0)
 	{
-		log_printf(LOG_INFO, MSG_I_CRAWL_ACCEPTED " <%s>\n", uri);
-		state = COS_ACCEPTED;
-		ttl = 86400;
+		state = (CRAWLSTATE) r;		
 	}
 	else
 	{
 		state = COS_REJECTED;
+	}
+
+	if(state == COS_ACCEPTED)
+	{
+		log_printf(LOG_INFO, MSG_I_CRAWL_ACCEPTED " <%s>\n", uri);
+		ttl = 86400;
+	}
+	else
+	{
 		ttl = 604800;
 	}
 	queue_updated_uristr(crawl, uri, crawl_obj_updated(obj), crawl_obj_updated(obj), crawl_obj_status(obj), ttl, state);
@@ -159,14 +178,23 @@ processor_unchanged_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void 
 	return queue_unchanged_uristr(crawl, uri, 0);
 }
 
+/* processor_failed_handler_() is installed as the CRAWL object's 'failed'
+ * handler and is invoked when a fetch does not complete successfully, either
+ * because of an underlying fetch failure, or because a policy callback
+ * prevented it.
+ */
 static int
-processor_failed_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
+processor_failed_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata, CRAWLSTATE state)
 {
 	const char *uri;
 	
 	(void) prevtime;
 	(void) userdata;
 
+	if(state != COS_FAILED && state != COS_REJECTED && state != COS_SKIPPED)
+	{
+		state = COS_FAILED;
+	}
 	uri = crawl_obj_uristr(obj);
-	return queue_updated_uristr(crawl, uri, crawl_obj_updated(obj), crawl_obj_updated(obj), crawl_obj_status(obj), 86400, COS_FAILED);
+	return queue_updated_uristr(crawl, uri, crawl_obj_updated(obj), crawl_obj_updated(obj), crawl_obj_status(obj), 86400, state);
 }

@@ -136,6 +136,7 @@ struct crawl_object_struct
 	char *uristr;
 	char *payload;
 	uint64_t size;
+	CRAWLSTATE state;
 };
 
 struct crawl_fetch_data_struct

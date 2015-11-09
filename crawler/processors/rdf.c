@@ -29,12 +29,12 @@
 
 static unsigned long rdf_addref(PROCESSOR *me);
 static unsigned long rdf_release(PROCESSOR *me);
-static int rdf_process(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
+static CRAWLSTATE rdf_process(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
 static int rdf_process_headers(PROCESSOR *me, CRAWLOBJ *obj);
 static int rdf_process_link(PROCESSOR *me, CRAWLOBJ *obj, const char *value, librdf_uri *resource);
-static int rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
+static CRAWLSTATE rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
 static int rdf_postprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
-static int rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type, struct curl_slist **subjects);
+static CRAWLSTATE rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type, struct curl_slist **subjects);
 static int rdf_process_node(PROCESSOR *me, CRAWLOBJ *obj, librdf_node *node, struct curl_slist **subjects);
 
 static struct processor_api_struct rdf_api = {
@@ -119,18 +119,18 @@ rdf_release(PROCESSOR *me)
 	return me->refcount;
 }
 
-static int
+static CRAWLSTATE
 rdf_process(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type)
 {
-	int r;
+	CRAWLSTATE r;
 	struct curl_slist *subjects, *p;
 	
 	subjects = NULL;
 	r = rdf_preprocess(me, obj, uri, content_type);
-	if(r > 0)
+	if(r == COS_ACCEPTED)
 	{
 		r = rdf_process_obj(me, obj, uri, content_type, &subjects);
-		if(r > 0)
+		if(r == COS_ACCEPTED)
 		{
 			for(p = subjects; p; p = p->next)
 			{
@@ -143,7 +143,7 @@ rdf_process(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_t
 	return r;
 }
 
-static int
+static CRAWLSTATE
 rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type)
 {
 	int status;
@@ -156,21 +156,21 @@ rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conten
 	{
 		/* Don't process the payload of redirects */
 		log_printf(LOG_INFO, MSG_I_RDF_SKIPPED_REDIRECT " <%s> (RDF: HTTP status %d)\n", uri, status);
-		return 0;
+		return COS_SKIPPED;
 	}
 	if(status < 200 || status > 299)
 	{
 		/* Don't bother processing failed responses */
 		errno = EINVAL;
 		log_printf(LOG_INFO, MSG_I_RDF_FAILED_HTTP " <%s> (RDF: HTTP status %d)\n", uri, status);
-		return -1;
+		return COS_SKIPPED;
 	}
 	if(!content_type)
 	{
 		/* We can't parse if we don't know what it is */
 		log_printf(LOG_INFO, MSG_I_RDF_FAILED_NOTYPE " <%s>\n", uri);
 		errno = EINVAL;
-		return -1;
+		return COS_SKIPPED;
 	}
 	me->content_type = crawl_strdup(me->crawl, content_type);
 	t = strchr(me->content_type, ';');
@@ -191,12 +191,12 @@ rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conten
 	me->model = librdf_new_model(me->world, me->storage, NULL);
 	if(!me->model)
 	{
-		return -1;
+		return COS_ERR;
 	}
 	me->uri = librdf_new_uri(me->world, (const unsigned char *) uri);
 	if(!me->uri)
 	{
-		return -1;
+		return COS_ERR;
 	}
 	me->parser_type = NULL;
 	if(!strcmp(me->content_type, "text/turtle"))
@@ -228,9 +228,9 @@ rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conten
 	{
 		
 		log_printf(LOG_INFO, MSG_I_RDF_REJECTED_TYPE " <%s> (RDF: no parser found for '%s')\n", uri, me->content_type);
-		return 0;
+		return COS_SKIPPED;
 	}
-	return 1;
+	return COS_ACCEPTED;
 }
 
 static int
@@ -260,13 +260,14 @@ rdf_postprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conte
 	return 0;
 }
 
-static int
+static CRAWLSTATE
 rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type, struct curl_slist **subjects)
 {
 	librdf_parser *parser;
 	librdf_stream *stream;
 	librdf_statement *st;
-	
+	CRAWLSTATE r;
+
 	(void) uri;
 	(void) content_type;
 
@@ -274,35 +275,36 @@ rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conte
 	parser = librdf_new_parser(me->world, me->parser_type, NULL, NULL);
 	if(!parser)
 	{
-		return -1;
+		return COS_ERR;
 	}
 	me->fobj = crawl_obj_open(obj);
 	if(!me->fobj)
 	{
 		log_printf(LOG_ERR, MSG_E_RDF_ERROR_PAYLOAD " <%s>\n", uri);
 		librdf_free_parser(parser);
-		return -1;
+		return COS_ERR;
 	}
 	if(librdf_parser_parse_file_handle_into_model(parser, me->fobj, 0, me->uri, me->model))
 	{
 		log_printf(LOG_INFO, MSG_I_RDF_FAILED_PARSE " <%s> (RDF: failed to parse '%s' as '%s')\n", uri, content_type, me->parser_type);
 		librdf_free_parser(parser);
-		return -1;		
+		return COS_ERR;
 	}
 	librdf_free_parser(parser);
 	rdf_process_headers(me, obj);
 	if(me->filter)
 	{
-		if(!me->filter(me, obj, uri, me->model))
+		r = me->filter(me, obj, uri, me->model);
+		if(r != COS_ACCEPTED)
 		{
 			log_printf(LOG_DEBUG, "RDF: filter declined further processing of this resource\n");
-			return 0;
+			return r;
 		}
 	}
 	stream = librdf_model_as_stream(me->model);
 	if(!stream)
 	{
-		return -1;
+		return COS_ERR;
 	}
 	while(!librdf_stream_end(stream))
 	{
@@ -315,7 +317,7 @@ rdf_process_obj(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conte
 		librdf_stream_next(stream);
 	}
 	librdf_free_stream(stream);
-	return 1;
+	return COS_ACCEPTED;
 }
 
 /* Debian Wheezy ships with libjansson 2.3, which doesn't include
