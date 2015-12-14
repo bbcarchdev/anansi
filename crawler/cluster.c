@@ -131,7 +131,14 @@ crawl_cluster_balancer_(CLUSTER *cluster, CLUSTERSTATE *state)
 {
 	(void) cluster;
 
-	log_printf(LOG_NOTICE, MSG_N_CRAWL_REBALANCED ": instance thread indices %d..%d from a cluster size %d\n", state->index, state->workers, state->total);
+	if(state->workers == 1)
+	{
+		log_printf(LOG_NOTICE, MSG_N_CRAWL_REBALANCED ": instance thread index %d from a cluster size %d\n", state->index, state->total);
+	}
+	else
+	{
+		log_printf(LOG_NOTICE, MSG_N_CRAWL_REBALANCED ": instance thread indices %d..%d from a cluster size %d\n", state->index, state->index + state->workers - 1, state->total);
+	}
 	pthread_rwlock_wrlock(&lock);
 	inst_id = state->index;
 	inst_threads = state->workers;
