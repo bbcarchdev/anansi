@@ -131,16 +131,24 @@ crawl_cluster_balancer_(CLUSTER *cluster, CLUSTERSTATE *state)
 {
 	(void) cluster;
 
-	if(state->workers == 1)
+	if(state->index == -1 || !state->total)
 	{
-		log_printf(LOG_NOTICE, MSG_N_CRAWL_REBALANCED ": instance thread index %d from a cluster size %d\n", state->index, state->total);
+		log_printf(LOG_NOTICE, MSG_N_CRAWL_REBALANCED ": instance %s has left cluster %s/%s\n", cluster_instance(cluster), cluster_key(cluster), cluster_env(cluster));
+	}
+	else if(state->workers == 1)
+	{
+		log_printf(LOG_NOTICE, MSG_N_CRAWL_REBALANCED ": instance %s single-thread index %d from cluster %s/%s of %d threads\n", cluster_instance(cluster), state->index + 1, cluster_key(cluster), cluster_env(cluster), state->total);
 	}
 	else
 	{
-		log_printf(LOG_NOTICE, MSG_N_CRAWL_REBALANCED ": instance thread indices %d..%d from a cluster size %d\n", state->index, state->index + state->workers - 1, state->total);
+		log_printf(LOG_NOTICE, MSG_N_CRAWL_REBALANCED ": instance %s thread indices %d..%d from cluster %s/%s of %d threads\n", cluster_instance(cluster), state->index + 1, state->index + state->workers, cluster_key(cluster), cluster_env(cluster), state->total);
 	}
 	pthread_rwlock_wrlock(&lock);
 	inst_id = state->index;
+	if(!state->total)
+	{
+		inst_id = -1;
+	}
 	inst_threads = state->workers;
 	clusterthreads = state->total;
 	pthread_rwlock_unlock(&lock);
