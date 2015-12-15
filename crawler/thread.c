@@ -244,7 +244,7 @@ thread_handler_(void *arg)
 			/* Cluster has re-balanced */
 			context->api->set_threads(context, newthreads);
 			context->api->set_base(context, newbase);
-			if(newbase == -1)
+			if(newbase == -1 || !newthreads)
 			{
 				log_printf(LOG_NOTICE, MSG_N_CRAWL_SUSPENDED " [%s] crawler %d/%d (thread %d/%d)\n", env, instid + threadid + 1, crawlercount, threadid + 1, threadcount);
 				instid = newbase;
