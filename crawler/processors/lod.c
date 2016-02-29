@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014-2015 BBC
+ * Copyright 2014-2016 BBC
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ lod_init_list(PROCESSOR *me, char ***list, const char *section, const char *key)
 
 	memset(&data, 0, sizeof(data));
 	data.me = me;
-	if(config_get_all(section, key, lod_list_cb, &data))
+	if(config_get_all(section, key, lod_list_cb, &data) < 0)
 	{
 		for(c = 0; c < data.count; c++)
 		{
