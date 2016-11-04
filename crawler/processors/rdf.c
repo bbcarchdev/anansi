@@ -343,11 +343,12 @@ rdf_process_headers(PROCESSOR *me, CRAWLOBJ *obj)
 	}
 	log_printf(LOG_DEBUG, "RDF: Content-Location is <%s>\n", loc);
 	resource = librdf_new_uri(me->world, (const unsigned char *) loc);	
-	headers = crawl_obj_headers(obj, 0);	
+	headers = crawl_obj_headers(obj, 0);
 	json_object_foreach(headers, key, values)
 	{
-		if(!strcmp(key, "link"))
+		if(!strcmp(key, "Link"))
 		{
+			log_printf(LOG_DEBUG, "RDF: Found header \"%s\"\n", key);
 			json_array_foreach(values, d, header)
 			{
 				value = json_string_value(header);
