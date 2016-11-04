@@ -111,7 +111,7 @@ s3cache_init_(CRAWLCACHE *cache)
 			urldecode(p, cache->crawl->uri->auth, t - cache->crawl->uri->auth);
 			p[t - cache->crawl->uri->auth] = 0;
 			aws_s3_set_access(data->bucket, p);
-			crawl_free(cache->crawl, p);			
+			crawl_free(cache->crawl, p);
 			t++;
 			p = (char *) crawl_alloc(cache->crawl, strlen(t) + 1);
 			if(!p)
