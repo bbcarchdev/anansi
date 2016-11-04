@@ -71,7 +71,7 @@
  *  "updated":1371997296
  * }
  *
- * Accompanying the .json file is a .payload file containing the recieved body, if any.
+ * Accompanying the .json file is a .payload file containing the received body, if any.
  */
 
 # define HEADER_ALLOC_BLOCK            128
