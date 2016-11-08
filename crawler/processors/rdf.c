@@ -346,7 +346,7 @@ rdf_process_headers(PROCESSOR *me, CRAWLOBJ *obj)
 	headers = crawl_obj_headers(obj, 0);
 	json_object_foreach(headers, key, values)
 	{
-		if(!strcmp(key, "Link"))
+		if(!strcasecmp(key, "link"))
 		{
 			log_printf(LOG_DEBUG, "RDF: Found header \"%s\"\n", key);
 			json_array_foreach(values, d, header)
