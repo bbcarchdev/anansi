@@ -38,6 +38,11 @@ crawl_create(void)
 		crawl_destroy(p);
 		return NULL;
 	}
+
+	// Init the callbacks
+	p->callbacks = NULL;
+	p->cbcount = 0;
+
 	return p;
 }
 
@@ -59,6 +64,7 @@ crawl_destroy(CRAWL *p)
 		crawl_free(p, p->cachetmp);
 		crawl_free(p, p->accept);
 		crawl_free(p, p->ua);
+		crawl_free(p, p->callbacks);
 		crawl_free(NULL, p);
 	}
 }

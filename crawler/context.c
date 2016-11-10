@@ -93,6 +93,7 @@ context_create(int crawler_offset)
 	p->crawler_id = p->thread_offset + p->thread_base;
 	p->cache_id = p->crawler_id;
 	p->crawl = crawl;
+
 	crawl_set_logger(p->crawl, log_vprintf);
 	crawl_set_userdata(p->crawl, p);
 	crawl_set_verbose(p->crawl, config_get_bool("crawler:verbose", 0));

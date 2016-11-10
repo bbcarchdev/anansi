@@ -50,6 +50,19 @@ typedef enum
 	COS_SKIPPED
 } CRAWLSTATE;
 
+/* Plug-in entry-point: invoked when a plug-in is loaded or un-loaded */
+typedef enum
+{
+	CRAWL_ATTACHED,
+	CRAWL_DETACHED
+} CRAWLPLUGINENTRYTYPE;
+
+
+typedef enum
+{
+	QUEUE_URI_ADDED = 1
+} CRAWLSIGNALNAME;
+
 /* A crawl context.
  *
  * Note that while libcrawl is thread-safe, a single crawl context cannot be
@@ -58,6 +71,19 @@ typedef enum
  * libcrawl methods.
  */
 typedef struct crawl_struct CRAWL;
+
+typedef int (*CRAWLPLUGINENTRYFN)(CRAWL *context, CRAWLPLUGINENTRYTYPE type, void *handle);
+
+/* This function must be provided by plug-ins themselves - it is not an API
+ * which can be invoked as part of libcrawl
+ */
+int crawl_plugin_entry(CRAWL *restrict context, CRAWLPLUGINENTRYTYPE type, void *restrict handle);
+
+/* Callback called when a URI is added to the queue or removed from it
+ */
+typedef int (*CRAWLSIGNALCBFN)(CRAWL *restrict context, const char *restrict uristr, void *userdata);
+
+
 
 /* A cache implementation.
  *
@@ -259,5 +285,10 @@ void *crawl_alloc(CRAWL *restrict crawl, size_t nbytes);
 char *crawl_strdup(CRAWL *restrict crawl, const char *src);
 void *crawl_realloc(CRAWL *restrict crawl, void *restrict ptr, size_t nbytes);
 void crawl_free(CRAWL *restrict crawl, void *restrict ptr);
+
+/* Plug-ins */
+int crawl_plugin_load_cb(const char *plugin, const char *pathname, void *context);
+int crawl_plugin_attach_signal(CRAWL *crawl, CRAWLSIGNALNAME signal, const char *description, CRAWLSIGNALCBFN fn, void *userdata);
+int crawl_plugin_signal(CRAWL *crawl, CRAWLSIGNALNAME signal, const char *uristr);
 
 #endif /*!LIBCRAWL_H_*/

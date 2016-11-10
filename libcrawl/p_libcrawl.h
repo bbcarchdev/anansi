@@ -32,6 +32,7 @@
 # include <fcntl.h>
 # include <unistd.h>
 # include <syslog.h>
+# include <dlfcn.h>
 
 # include <curl/curl.h>
 
@@ -100,6 +101,14 @@
 # define MSG_E_S3_TMPFILE               "%%ANANSI-E-4100: S3: failed to create temporary file"
 # define MSG_E_S3_HTTP                  "%%ANANSI-E-4101: S3: failed to retrieve object from cache"
 
+struct plugin_callback_struct
+{
+	CRAWLSIGNALNAME signal;
+	CRAWLSIGNALCBFN fn;
+	void *data;
+	char *desc;
+};
+
 struct crawl_struct
 {
 	void *userdata;
@@ -122,6 +131,8 @@ struct crawl_struct
 	crawl_unchanged_cb unchanged;
 	crawl_prefetch_cb prefetch;
 	void (*logger)(int priority, const char *format, va_list ap);
+	struct plugin_callback_struct *callbacks;
+	size_t cbcount;
 };
 
 struct crawl_object_struct

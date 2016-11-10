@@ -40,6 +40,9 @@
 # include "libsupport.h"
 # include "liburi.h"
 
+typedef int (*crawl_plugin_init_fn)(void);
+typedef int (*crawl_plugin_cleanup_fn)(void);
+
 struct context_struct
 {
 	struct context_api_struct *api;
@@ -59,6 +62,7 @@ struct context_struct
 	int terminate;
 	int oneshot;
 };
+
 
 CRAWLSTATE policy_uri_(CRAWL *crawl, URI *uri, const char *uristr, void *userdata);
 

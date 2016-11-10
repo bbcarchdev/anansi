@@ -94,6 +94,8 @@ init.d/Makefile
 m4/Makefile
 docs/Makefile
 docbook-html5/Makefile
+crawler/plug-ins/Makefile
+crawler/plug-ins/logger/Makefile
 ])
 
 AC_CONFIG_FILES([init.d/crawler:init.d/crawler.sh.in],[chmod +x init.d/crawler])

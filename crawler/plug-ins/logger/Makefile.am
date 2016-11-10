@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2014-2015 BBC
+## Copyright 2016 BBC
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -17,26 +17,15 @@
 ##  limitations under the License.
 ##
 
-SUBDIRS = caches .
-
-EXTRA_DIST = README.md
-
-lib_LTLIBRARIES = libcrawl.la
-
-include_HEADERS = libcrawl.h
-
 AM_CPPFLAGS = @AM_CPPFLAGS@ \
-	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport
+		-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl \
+		-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport 
 
-libcrawl_la_SOURCES = p_libcrawl.h \
-	context.c cache.c fetch.c obj.c crawler.c alloc.c plugin.c
+LIBS = $(top_builddir)/libcrawl/libcrawl.la
 
-libcrawl_la_LDFLAGS = -avoid-version
+moduledir = $(libdir)/anansi
 
-libcrawl_la_LIBADD = \
-	caches/libcaches.la \
-	$(top_builddir)/libsupport/libsupport.la \
-	$(LIBJANSSON_LOCAL_LIBS) $(LIBJANSSON_LIBS) \
-	$(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS) \
-	$(LIBCURL_LOCAL_LIBS) $(LIBCURL_LIBS) \
-	$(OPENSSL_LOCAL_LIBS) $(OPENSSL_LIBS)
+module_LTLIBRARIES = logger.la
+
+logger_la_SOURCES = logger.c
+logger_la_LDFLAGS = -no-undefined -module -avoid-version
