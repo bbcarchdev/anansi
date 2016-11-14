@@ -63,7 +63,10 @@ crawl_plugin_load_cb(const char *plugin, const char *pathname, void *context)
 		return -1;
 	}
 	entry = (CRAWLPLUGINENTRYFN) dlsym(handle, "anansi_entry");
-	r = entry(context, CRAWL_ATTACHED, handle);
+	if (entry)
+	{
+		r = entry(context, CRAWL_ATTACHED, handle);
+	}
 	if(r)
 	{
 		log_printf(LOG_ERR, "initialisation of plug-in %s failed\n", pathname);
