@@ -19,11 +19,11 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-DIST_SUBDIRS = m4 libcrawl libsupport \
+DIST_SUBDIRS = m4 libsupport libcrawl \
 	util crawler init.d docbook-html5 docs
 
 SUBDIRS = @subdirs@ \
-	libcrawl libsupport \
+	libsupport libcrawl  \
 	util crawler init.d docs
 
 EXTRA_DIST = README.md LICENSE-2.0
