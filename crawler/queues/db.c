@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014-2015 BBC
+ * Copyright 2014-2016 BBC
  */
 
 /*
@@ -19,7 +19,29 @@
  *  limitations under the License.
  */
 
-/* crawld module for using a SQL database as a queue */
+/* libcrawl defines the interface that applications (such as crawld) must
+ * use in order to provide a queue of items for the crawling application to
+ * fetch.
+ *
+ * This implementation of that interface uses a SQL database (via libsql)
+ * to persistently track resources which have or need to be fetched by nodes
+ * in the cluster.
+ *
+ * In addition, to allow for per-domain rate-limiting and blocking, each
+ * resource is associated with exactly one 'root', which corresponds to the
+ * host-root URL of the resource (e.g., http://www.bbc.co.uk/iplayer/ will
+ * be associated with the root for http://www.bbc.co.uk/).
+ *
+ * When a dequeue occurs, the query is constrained by both
+ * crawl_resource.next_fetch AND crawl_root.earliest_update. If either is
+ * the future, then the resource will not be dequeued.
+ *
+ * Once a fetch has been completed, crawl_resource.state will be set to
+ * one of FAILED, REJECTED, SKIPPED, or ACCEPTED. Other applications can use
+ * this status to feed fetched resources into other processing tools, and are
+ * free to use the COMPLETE status to indicate that their own processing on
+ * a queued resource has concluded.
+ */
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -55,6 +77,7 @@ static int db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey
 static int db_insert_root(QUEUE *me, const char *rootkey, const char *uri);
 static int db_insert_resource_txn(SQL *db, void *userdata);
 static int db_insert_root_txn(SQL *db, void *userdata);
+static int db_next_txn(SQL *db, void *userdata);
 static int db_log_query(SQL *restrict db, const char *restrict statement);
 static int db_log_error(SQL *restrict db, const char *restrict sqlstate, const char *restrict message);
 
@@ -108,6 +131,14 @@ struct root_insert
 	const char *rootkey;
 	const char *uri;
 };
+
+struct db_next_data_struct
+{
+	QUEUE *me;
+	char *uristr;
+	CRAWLSTATE state;
+};
+
 
 QUEUE *
 db_create(CONTEXT *ctx)
@@ -531,11 +562,8 @@ db_release(QUEUE *me)
 static int
 db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 {
-	SQL_STATEMENT *rs;
-	size_t needed;
-	char *p;
-	char statebuf[32];
-
+	struct db_next_data_struct data;
+	
 	*state = COS_NEW;
 	*next = NULL;
 
@@ -550,8 +578,53 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 	{
 		return 0;
 	}
-	rs = sql_queryf(me->db,
-					"SELECT \"res\".\"uri\", \"res\".\"state\" "
+	memset(&data, 0, sizeof(data));
+	data.me = me;
+	if(sql_perform(me->db, db_next_txn, &data, TXN_MAX_RETRIES, SQL_TXN_DEFAULT))
+	{
+		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
+		return -1;
+	}
+	if(!data.uristr)
+	{
+/*		log_printf(LOG_DEBUG, "db_next: queue query returned no results\n"); */
+		return 0;
+	}
+	*state = data.state;
+	*next = uri_create_str(data.uristr, NULL);	
+	if(!*next)
+	{
+		log_printf(LOG_CRIT, MSG_C_DB_SQL ": failed to parse URI <%s> in dequeue: %s\n",
+				   data.uristr, strerror(errno));
+		return -1;
+	}
+	return 0;
+}
+
+static int
+db_next_txn(SQL *db, void *userdata)
+{
+	struct db_next_data_struct *data;
+	QUEUE *me;
+	SQL_STATEMENT *rs;
+	size_t needed;
+	char *p;
+	char statebuf[32];
+	char root_hash[36];
+	char timestr[32];
+	int root_rate;
+	time_t now;
+	struct tm tm;
+
+	data = (struct db_next_data_struct *) userdata;
+	me = data->me;
+	data->uristr = NULL;
+
+	/* Query for the next valid resource, fetching its URI, state, and
+	 * associated root hash and fetch rate
+	 */
+	rs = sql_queryf(db,
+					"SELECT \"res\".\"uri\", \"res\".\"state\", \"root\".\"hash\", \"root\".\"rate\" "
 					" FROM "
 					" \"crawl_resource\" \"res\", \"crawl_root\" \"root\" "
 					" WHERE "
@@ -565,7 +638,11 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 	if(!rs)
 	{
 		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
-		exit(EXIT_FAILURE);
+		return SQL_TXN_ABORT;
+	}
+	if(sql_stmt_eof(rs))
+	{
+		return SQL_TXN_ROLLBACK;
 	}
 	if(sql_stmt_eof(rs))
 	{
@@ -577,31 +654,31 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 	sql_stmt_value(rs, 1, statebuf, sizeof(statebuf));
 	if(!strcmp(statebuf, "NEW"))
 	{
-		*state = COS_NEW;
+		data->state = COS_NEW;
 	}
 	else if(!strcmp(statebuf, "FAILED"))
 	{
-		*state = COS_FAILED;
+		data->state = COS_FAILED;
 	}
 	else if(!strcmp(statebuf, "REJECTED"))
 	{
-		*state = COS_REJECTED;
+		data->state = COS_REJECTED;
 	}
 	else if(!strcmp(statebuf, "ACCEPTED"))
 	{
-		*state = COS_ACCEPTED;
+		data->state = COS_ACCEPTED;
 	}
 	else if(!strcmp(statebuf, "COMPLETE"))
 	{
-		*state = COS_COMPLETE;
+		data->state = COS_COMPLETE;
 	}
 	else if(!strcmp(statebuf, "FORCE"))
 	{
-		*state = COS_FORCE;
+		data->state = COS_FORCE;
 	}
 	else if(!strcmp(statebuf, "SKIPPED"))
 	{
-		*state = COS_SKIPPED;
+		data->state = COS_SKIPPED;
 	}
 	needed = sql_stmt_value(rs, 0, NULL, 0);
 	if(needed > me->buflen)
@@ -610,7 +687,7 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 		if(!p)
 		{
 			sql_stmt_destroy(rs);
-			return -1;
+			return SQL_TXN_ABORT;
 		}
 		me->buf = p;
 		me->buflen = needed + 1;
@@ -618,15 +695,30 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 	if(sql_stmt_value(rs, 0, me->buf, me->buflen) != needed)
 	{
 		sql_stmt_destroy(rs);
-		return -1;
+		return SQL_TXN_ABORT;
 	}
-	*next = uri_create_str(me->buf, NULL);
+	data->uristr = me->buf;
+	sql_stmt_value(rs, 2, root_hash, sizeof(root_hash));
+	root_rate = (int) sql_stmt_long(rs, 3);	
 	sql_stmt_destroy(rs);
-	if(!*next)
+	/* To prevent race-conditions (#41), update crawl_root.earliest_update
+	 * immediately
+	 */
+
+	root_rate /= 1000;
+	if(root_rate < 1)
 	{
-		return -1;
+		root_rate = 1;
 	}
-	return 0;
+	now = time(NULL) + root_rate;
+	gmtime_r(&now, &tm);
+	strftime(timestr, 32, "%Y-%m-%d %H:%M:%S", &tm);
+	if(sql_executef(db, "UPDATE \"crawl_root\" SET \"earliest_update\" = %Q WHERE \"hash\" = %Q AND \"earliest_update\" < %Q",
+					timestr, root_hash, timestr) < 0)
+	{
+		return SQL_TXN_RETRY;
+	}
+	return SQL_TXN_COMMIT;
 }
 
 static int
