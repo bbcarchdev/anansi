@@ -439,7 +439,8 @@ crawl_generate_info_(struct crawl_fetch_data_struct *data, json_t *dict)
 {
 	json_t *headers, *values;
 	char *ptr, *s, *p;
-		
+	const char *t;
+
 	json_object_set_new(dict, "status", json_integer(data->status));
 	if(data->have_size)
 	{
@@ -457,8 +458,8 @@ crawl_generate_info_(struct crawl_fetch_data_struct *data, json_t *dict)
 			 * (because fragments are a facet of user-agent behaviour, they
 			 * don't make any sense in Location or Content-Location headers)
 			 */
-			json_object_set_new(dict, "location", json_string(ptr), t - ptr);
-			json_object_set_new(dict, "content_location", json_string(ptr), t - ptr);
+			json_object_set_new(dict, "location", json_stringn(ptr, t - ptr));
+			json_object_set_new(dict, "content_location", json_stringn(ptr, t - ptr));
 		}
 		else
 		{		   
