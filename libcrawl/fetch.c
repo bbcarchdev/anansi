@@ -454,12 +454,16 @@ crawl_generate_info_(struct crawl_fetch_data_struct *data, json_t *dict)
 		t = strchr(ptr, '#');
 		if(t)
 		{
+			/* Older versions of libjansson don't include json_stringn() */
+			s = strdup(ptr);
+			s[t - ptr] = 0;
 			/* If there's a fragment, store only the characters prior to it
 			 * (because fragments are a facet of user-agent behaviour, they
 			 * don't make any sense in Location or Content-Location headers)
 			 */
-			json_object_set_new(dict, "location", json_stringn(ptr, t - ptr));
-			json_object_set_new(dict, "content_location", json_stringn(ptr, t - ptr));
+			json_object_set_new(dict, "location", json_string(s));
+			json_object_set_new(dict, "content_location", json_string(s));
+			free(s);
 		}
 		else
 		{		   
