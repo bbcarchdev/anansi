@@ -450,8 +450,21 @@ crawl_generate_info_(struct crawl_fetch_data_struct *data, json_t *dict)
 	curl_easy_getinfo(data->ch, CURLINFO_EFFECTIVE_URL, &ptr);
 	if(ptr)
 	{
-		json_object_set_new(dict, "location", json_string(ptr));
-		json_object_set_new(dict, "content_location", json_string(ptr));
+		t = strchr(ptr, '#');
+		if(t)
+		{
+			/* If there's a fragment, store only the characters prior to it
+			 * (because fragments are a facet of user-agent behaviour, they
+			 * don't make any sense in Location or Content-Location headers)
+			 */
+			json_object_set_new(dict, "location", json_string(ptr), t - ptr);
+			json_object_set_new(dict, "content_location", json_string(ptr), t - ptr);
+		}
+		else
+		{		   
+			json_object_set_new(dict, "location", json_string(ptr));
+			json_object_set_new(dict, "content_location", json_string(ptr));
+		}
 	}
 	ptr = NULL;
 	curl_easy_getinfo(data->ch, CURLINFO_CONTENT_TYPE, &ptr);
