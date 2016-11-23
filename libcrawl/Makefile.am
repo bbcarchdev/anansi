@@ -25,17 +25,13 @@ lib_LTLIBRARIES = libcrawl.la
 
 include_HEADERS = libcrawl.h
 
-AM_CPPFLAGS = @AM_CPPFLAGS@ \
-	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport
-
 libcrawl_la_SOURCES = p_libcrawl.h \
-	context.c cache.c fetch.c obj.c crawler.c alloc.c plugin.c
+	context.c cache.c fetch.c obj.c crawler.c alloc.c
 
 libcrawl_la_LDFLAGS = -avoid-version
 
 libcrawl_la_LIBADD = \
 	caches/libcaches.la \
-	$(top_builddir)/libsupport/libsupport.la \
 	$(LIBJANSSON_LOCAL_LIBS) $(LIBJANSSON_LIBS) \
 	$(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS) \
 	$(LIBCURL_LOCAL_LIBS) $(LIBCURL_LIBS) \

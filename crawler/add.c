@@ -128,14 +128,10 @@ main(int argc, char **argv)
 			if(force)
 			{
 				r = queue->api->force_add(queue, uri, uribuf);
-				// Send a signal to all the plugins watching on this event
-				crawl_plugin_signal(crawler, QUEUE_URI_ADDED, uristr);
 			}
 			else
 			{
 				r = queue->api->add(queue, uri, uribuf);
-				// Send a signal to all the plugins watching on this event
-				crawl_plugin_signal(crawler, QUEUE_URI_ADDED, uristr);
 			}
 			if(r)
 			{
@@ -163,14 +159,10 @@ main(int argc, char **argv)
 		if(force)
 		{
 			r = queue->api->force_add(queue, uri, uristr);
-			// Send a signal to all the plugins watching on this event
-			crawl_plugin_signal(crawler, QUEUE_URI_ADDED, uristr);
 		}
 		else
 		{
 			r = queue->api->add(queue, uri, uristr);
-			// Send a signal to all the plugins watching on this event
-			crawl_plugin_signal(crawler, QUEUE_URI_ADDED, uristr);
 		}
 		if(r)
 		{

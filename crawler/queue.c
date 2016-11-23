@@ -25,7 +25,6 @@
 
 #include "p_libcrawld.h"
 
-
 /* Implement a libcrawl queue handler which interfaces with crawld queue
  * modules.
  */
@@ -58,7 +57,6 @@ queue_init(void)
 		log_printf(LOG_CRIT, MSG_C_CRAWL_QUEUEUNKNOWN ": '%s'\n", name);
 		return -1;
 	}
-
 	return 0;
 }
 
@@ -83,10 +81,6 @@ queue_init_context(CONTEXT *context)
 		return -1;
 	}
 	crawl_set_next(crawl, queue_handler_);
-
-	// Load all the plugins
-	config_get_all("queue", "plugin", crawl_plugin_load_cb, crawl);
-
 	return 0;
 }
 
@@ -94,13 +88,33 @@ queue_init_context(CONTEXT *context)
 int
 queue_add_uristr(CRAWL *crawl, const char *uristr)
 {
+	CONTEXT *data;
 	URI *uri;
+	CRAWLSTATE state;
 	int r;
 
+	data = crawl_userdata(crawl);
 	uri = uri_create_str(uristr, NULL);
-	r = queue_add_uri(crawl, uri);
+	if(!uri)
+	{
+		log_printf(LOG_ERR, MSG_E_CRAWL_URIPARSE " <%s>\n", uristr);
+		return -1;
+	}
+	state = policy_uri_(crawl, uri, uristr, (void *) data);
+	if(state == COS_ACCEPTED)
+	{
+		log_printf(LOG_DEBUG, "Adding URI <%s> to crawler queue\n", uristr);
+		r = data->queue->api->add(data->queue, uri, uristr);
+	}
+	else if(state == COS_ERR)
+	{
+		r = -1;
+	}
+	else
+	{
+		r = 0;
+	}
 	uri_destroy(uri);
-
 	return r;
 }
 
@@ -125,10 +139,6 @@ queue_add_uri(CRAWL *crawl, URI *uri)
 	{
 		log_printf(LOG_DEBUG, "Adding URI <%s> to crawler queue\n", uristr);
 		r = data->queue->api->add(data->queue, uri, uristr);
-
-		// Send a signal to all the plugins watching on this event
-		crawl_plugin_signal(crawl, QUEUE_URI_ADDED, uristr);
-
 	}
 	else if(state == COS_ERR)
 	{
@@ -198,5 +208,3 @@ queue_handler_(CRAWL *crawl, URI **next, CRAWLSTATE *state, void *userdata)
 	}
 	return data->queue->api->next(data->queue, next, state);
 }
-
-

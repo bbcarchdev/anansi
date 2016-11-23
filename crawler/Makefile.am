@@ -17,7 +17,7 @@
 ##  limitations under the License.
 ##
 
-SUBDIRS = queues processors plug-ins .
+SUBDIRS = queues processors .
 
 dist_doc_DATA = crawl.conf
 
