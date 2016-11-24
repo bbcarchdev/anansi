@@ -58,7 +58,10 @@
 
 #include <libsql.h>
 
+/* Schema migration */
 static int db_migrate(SQL *restrict, const char *identifier, int newversion, void *restrict userdata);
+
+/* Queue implementation methods */
 static unsigned long db_addref(QUEUE *me);
 static unsigned long db_release(QUEUE *me);
 static int db_next(QUEUE *me, URI **next, CRAWLSTATE *state);
@@ -73,14 +76,20 @@ static int db_set_caches(QUEUE *db, int count);
 static int db_set_crawler(QUEUE *db, int id);
 static int db_set_cache(QUEUE *db, int id);
 
+/* Utilities */
 static int db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey, const char *uri, const char *rootkey, int force);
 static int db_insert_root(QUEUE *me, const char *rootkey, const char *uri);
+
+/* Database transaction implementation callbacks */
 static int db_insert_resource_txn(SQL *db, void *userdata);
 static int db_insert_root_txn(SQL *db, void *userdata);
 static int db_next_txn(SQL *db, void *userdata);
+
+/* Database logging callbacks */
 static int db_log_query(SQL *restrict db, const char *restrict statement);
 static int db_log_error(SQL *restrict db, const char *restrict sqlstate, const char *restrict message);
 
+/* Queue implementation method structure */
 static struct queue_api_struct db_api = {
 	NULL,
 	db_addref,
@@ -98,6 +107,7 @@ static struct queue_api_struct db_api = {
 	db_set_cache
 };
 
+/* Private data specific to this queue implementation */
 struct queue_struct
 {
 	struct queue_api_struct *api;
@@ -115,7 +125,8 @@ struct queue_struct
 	URI *testuri;
 };
 
-struct resource_insert
+/* Internal state passed to and from db_insert_resource_txn() */
+struct db_insert_resource_struct
 {
 	QUEUE *me;
 	const char *cachekey;
@@ -125,14 +136,16 @@ struct resource_insert
 	int force;
 };
 
-struct root_insert
+/* Internal state passed to and from db_insert_root_txn() */
+struct db_insert_root_struct
 {
 	QUEUE *me;
 	const char *rootkey;
 	const char *uri;
 };
 
-struct db_next_data_struct
+/* Internal state passed to and from db_next_txn() */
+struct db_next_struct
 {
 	QUEUE *me;
 	char *uristr;
@@ -562,7 +575,7 @@ db_release(QUEUE *me)
 static int
 db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 {
-	struct db_next_data_struct data;
+	struct db_next_struct data;
 	
 	*state = COS_NEW;
 	*next = NULL;
@@ -580,6 +593,12 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 	}
 	memset(&data, 0, sizeof(data));
 	data.me = me;
+	/* Perform the actual fetch within a transaction to prevent a race
+	 * between other threads and instances; we fetch the first item from the
+	 * top of the queue and then update the earliest_update field on the
+	 * corresponding root according to its rate; this will invalidate any
+	 * other competing transactions and cause them to retry.
+	 */
 	if(sql_perform(me->db, db_next_txn, &data, TXN_MAX_RETRIES, SQL_TXN_DEFAULT))
 	{
 		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
@@ -604,7 +623,7 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 static int
 db_next_txn(SQL *db, void *userdata)
 {
-	struct db_next_data_struct *data;
+	struct db_next_struct *data;
 	QUEUE *me;
 	SQL_STATEMENT *rs;
 	size_t needed;
@@ -616,7 +635,7 @@ db_next_txn(SQL *db, void *userdata)
 	time_t now;
 	struct tm tm;
 
-	data = (struct db_next_data_struct *) userdata;
+	data = (struct db_next_struct *) userdata;
 	me = data->me;
 	data->uristr = NULL;
 
@@ -652,6 +671,7 @@ db_next_txn(SQL *db, void *userdata)
 	}
 	memset(statebuf, 0, sizeof(statebuf));
 	sql_stmt_value(rs, 1, statebuf, sizeof(statebuf));
+	/* Parse the crawl state of the resource into data->state */
 	if(!strcmp(statebuf, "NEW"))
 	{
 		data->state = COS_NEW;
@@ -680,6 +700,7 @@ db_next_txn(SQL *db, void *userdata)
 	{
 		data->state = COS_SKIPPED;
 	}
+	/* Obtain the resource URI string */
 	needed = sql_stmt_value(rs, 0, NULL, 0);
 	if(needed > me->buflen)
 	{
@@ -698,18 +719,27 @@ db_next_txn(SQL *db, void *userdata)
 		return SQL_TXN_ABORT;
 	}
 	data->uristr = me->buf;
+	/* Obtain the root's hash key and fetch rate */
 	sql_stmt_value(rs, 2, root_hash, sizeof(root_hash));
 	root_rate = (int) sql_stmt_long(rs, 3);	
 	sql_stmt_destroy(rs);
 	/* To prevent race-conditions (#41), update crawl_root.earliest_update
-	 * immediately
+	 * immediately.
+	 *
+	 * Within the database, crawl_root.rate is specified in milliseconds;
+	 * currently we only care about granularity to within a second. This could
+	 * be rounded rather than divided, but nothing actually sets any value
+	 * other than 1000 in
+	 * any case.
 	 */
-
 	root_rate /= 1000;
 	if(root_rate < 1)
 	{
 		root_rate = 1;
 	}
+	/* Add the root_rate (in seconds) to the current time and set it as
+	 * the earliest_update time on the crawl_root
+	 */
 	now = time(NULL) + root_rate;
 	gmtime_r(&now, &tm);
 	strftime(timestr, 32, "%Y-%m-%d %H:%M:%S", &tm);
@@ -1071,7 +1101,7 @@ db_set_cache(QUEUE *me, int id)
 static int
 db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey, const char *uri, const char *rootkey, int force)
 {
-	struct resource_insert data;
+	struct db_insert_resource_struct data;
 	
 	data.me = me;
 	data.cachekey = cachekey;
@@ -1092,7 +1122,7 @@ db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey, const cha
 static int
 db_insert_root(QUEUE *me, const char *rootkey, const char *uri)
 {
-	struct root_insert data;
+	struct db_insert_root_struct data;
 	
 	if(!rootkey || strlen(rootkey) != 32)
 	{
@@ -1112,27 +1142,20 @@ db_insert_root(QUEUE *me, const char *rootkey, const char *uri)
 	return 0;
 }
 
-/* A transaction callback returns:
- *
- *  1 => commit
- *  0 => rollback successfully
- * -1 => rollback and retry
- * -2 => rollback and fail
- */
 static int
 db_insert_resource_txn(SQL *db, void *userdata)
 {
-	struct resource_insert *data;
+	struct db_insert_resource_struct *data;
 	SQL_STATEMENT *rs;
 	int crawl_bucket, cache_bucket;
 	
-	data = (struct resource_insert *) userdata;
+	data = (struct db_insert_resource_struct *) userdata;
 	
 	rs = sql_queryf(db, "SELECT * FROM \"crawl_resource\" WHERE \"hash\" = %Q", data->cachekey);
 	if(!rs)
 	{
 		/* rollback with error */
-		return -2;
+		return SQL_TXN_ABORT;
 	}
 	if(!sql_stmt_eof(rs))
 	{
@@ -1144,17 +1167,14 @@ db_insert_resource_txn(SQL *db, void *userdata)
 				/* INSERT failed */
 				if(sql_deadlocked(db))
 				{
-					/* rollback and retry */
-					return -1;
+					return SQL_TXN_RETRY;
 				}
-				/* non-deadlock error */
-				return -2;
+				return SQL_TXN_ABORT;
 			}
-			/* commit */
-			return 1;
+			return SQL_TXN_COMMIT;
 		}
 		/* rollback with success */
-		return 0;
+		return SQL_TXN_ROLLBACK;
 	}
 	if(data->me->ncrawlers)
 	{
@@ -1178,44 +1198,41 @@ db_insert_resource_txn(SQL *db, void *userdata)
 		/* INSERT failed */
 		if(sql_deadlocked(db))
 		{
-			/* rollback and retry */
-			return -1;
+			return SQL_TXN_RETRY;
 		}
-		/* non-deadlock error */
-		return -2;
+		return SQL_TXN_ABORT;
 	}
 	sql_stmt_destroy(rs);
-	/* commit */
-	return 1;
+	return SQL_TXN_COMMIT;
 }
 
 /* A transaction callback returns 0 for commit, -1 for rollback and retry, 1 for rollback successfully */
 static int
 db_insert_root_txn(SQL *db, void *userdata)
 {
-	struct root_insert *data;
+	struct db_insert_root_struct *data;
 	SQL_STATEMENT *rs;
 	
-	data = (struct root_insert *) userdata;
+	data = (struct db_insert_root_struct *) userdata;
 	
 	rs = sql_queryf(db, "SELECT * FROM \"crawl_root\" WHERE \"hash\" = %Q", data->rootkey);
 	if(!rs)
 	{
-		return -2;
+		return SQL_TXN_ABORT;
 	}
 	if(!sql_stmt_eof(rs))
 	{
 		sql_stmt_destroy(rs);
-		return 0;
+		return SQL_TXN_ROLLBACK;
 	}
 	sql_stmt_destroy(rs);
 	if(sql_executef(db, "INSERT INTO \"crawl_root\" (\"hash\", \"uri\", \"added\", \"earliest_update\", \"rate\") VALUES (%Q, %Q, NOW(), NOW(), 1000)", data->rootkey, data->uri))
 	{
 		if(sql_deadlocked(db))
 		{
-			return -1;
+			return SQL_TXN_RETRY;
 		}
-		return -2;
+		return SQL_TXN_ABORT;
 	}
-	return 1;
+	return SQL_TXN_COMMIT;
 }
