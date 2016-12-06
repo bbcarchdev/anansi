@@ -1036,6 +1036,7 @@ db_unchanged_uristr(QUEUE *me, const char *uristr, int error)
 	gmtime_r(&now, &tm);
 	strftime(updatedstr, 32, "%Y-%m-%d %H:%M:%S", &tm);
 	now += 2;
+	gmtime_r(&now, &tm);
 	strftime(nextfetchstr, 32, "%Y-%m-%d %H:%M:%S", &tm);
 	if(sql_executef(me->db, "UPDATE \"crawl_root\" SET \"last_updated\" = %Q, \"earliest_update\" = %Q WHERE \"hash\" = %Q", updatedstr, nextfetchstr, rootkey))
 	{
