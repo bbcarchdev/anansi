@@ -89,6 +89,9 @@ static int db_next_txn(SQL *db, void *userdata);
 static int db_log_query(SQL *restrict db, const char *restrict statement);
 static int db_log_error(SQL *restrict db, const char *restrict sqlstate, const char *restrict message);
 
+/* Private */
+static int db_add_(QUEUE *me, URI *uri, const char *uristr, int force);
+
 /* Queue implementation method structure */
 static struct queue_api_struct db_api = {
 	NULL,
@@ -606,10 +609,11 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 	}
 	if(!data.uristr)
 	{
-/*		log_printf(LOG_DEBUG, "db_next: queue query returned no results\n"); */
+		/* log_printf(LOG_DEBUG, "db_next: queue query returned no results\n"); */
 		return 0;
 	}
 	*state = data.state;
+  log_printf(LOG_DEBUG, "db_next: Crawling next uristr %s\n", data.uristr);
 	*next = uri_create_str(data.uristr, NULL);	
 	if(!*next)
 	{
@@ -743,11 +747,14 @@ db_next_txn(SQL *db, void *userdata)
 	now = time(NULL) + root_rate;
 	gmtime_r(&now, &tm);
 	strftime(timestr, 32, "%Y-%m-%d %H:%M:%S", &tm);
+  log_printf(LOG_INFO, "db_next_txn: set earliest_update=%s where hash=%s \n", timestr, root_hash);
 	if(sql_executef(db, "UPDATE \"crawl_root\" SET \"earliest_update\" = %Q WHERE \"hash\" = %Q AND \"earliest_update\" < %Q",
 					timestr, root_hash, timestr) < 0)
 	{
+    log_printf(LOG_ERR, "db_next_txn: txn fail\n");
 		return SQL_TXN_RETRY;
 	}
+  log_printf(LOG_INFO, "db_next_txn: txn commit\n");
 	return SQL_TXN_COMMIT;
 }
 
@@ -826,50 +833,66 @@ db_uristr_key_root(QUEUE *me, const char *uristr, char **uri, char *urikey, uint
 	return 0;
 }
 
+/* db_add( QUEUE, URI, char* uristr ) PUBLIC
+ * Generate a key for the uristr
+ * Add the key and uri data to the anansi queue
+ * Params:
+ *   queue - pointer to a QUEUE struct
+ *   uri   - pointer to a URI struct
+ *   uristr - pointer to a uri string
+ */
 static int
 db_add(QUEUE *me, URI *uri, const char *uristr)
 {
-	char *canonical, *root;
-	char cachekey[48], rootkey[48];
-	uint32_t shortkey;
-	
-	(void) uri;
-
-	if(db_uristr_key_root(me, uristr, &canonical, cachekey, &shortkey, &root, rootkey))
-	{
-		return -1;
-	}
-	
-	db_insert_resource(me, cachekey, shortkey, canonical, rootkey, 0);
-	db_insert_root(me, rootkey, root);
-	
-	crawl_free(me->crawl, root);
-	crawl_free(me->crawl, canonical);
+  db_add_(me, uri, uristr, 0);
 	return 0;	
 }
 
+/* db_force_add( QUEUE, URI, char* uristr ) PUBLIC
+ * Generate a key for the uristr
+ * Add the key and uri data to the anansi queue
+ * Sets the force flag to force add the uri.
+ * Params:
+ *   queue - pointer to a QUEUE struct
+ *   uri   - pointer to a URI struct
+ *   uristr - pointer to a uri string
+ */
 static int
 db_force_add(QUEUE *me, URI *uri, const char *uristr)
+{
+  db_add_(me, uri, uristr, 1);
+}
+
+/* db_add_( QUEUE, URI, char* uristr, int force ) PRIVATE
+ * Generate a key for the uristr
+ * Add the key and uri data to the anansi queue
+ * Params:
+ *   queue - pointer to a QUEUE struct
+ *   uri   - pointer to a URI struct
+ *   uristr - pointer to a uri string
+ *   force - int flag, 0 or 1. 1 = Force add
+ */
+static int
+db_add_(QUEUE *me, URI *uri, const char *uristr, int force)
 {
 	char *canonical, *root;
 	char cachekey[48], rootkey[48];
 	uint32_t shortkey;
-	
+
 	(void) uri;
 
 	if(db_uristr_key_root(me, uristr, &canonical, cachekey, &shortkey, &root, rootkey))
 	{
 		return -1;
 	}
-	
-	db_insert_resource(me, cachekey, shortkey, canonical, rootkey, 1);
+
+	db_insert_resource(me, cachekey, shortkey, canonical, rootkey, force);
 	db_insert_root(me, rootkey, root);
-	
+
 	crawl_free(me->crawl, root);
 	crawl_free(me->crawl, canonical);
 	return 0;	
 }
-
 
 static int
 db_updated_uri(QUEUE *me, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state)
