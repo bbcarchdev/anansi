@@ -150,13 +150,13 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri, CRAWLSTATE state)
 			data.obj->state = COS_FAILED;
 		}
 	}
-	else
+	else if(!data.status)
 	{
 		/* In the event that there was no payload written, data.status will be
 		 * unset, so ensure that it is
 		 */
 		curl_easy_getinfo(data.ch, CURLINFO_RESPONSE_CODE, &(data.status));
-	}	
+	}
 	if(data.cachetime && data.status == 304)
 	{
 		/* Not modified; rollback with successful return */
@@ -205,7 +205,13 @@ crawl_fetch_uri(CRAWL *crawl, URI *uri, CRAWLSTATE state)
 	}
 	else
 	{
-		data.obj->state = COS_ACCEPTED;
+		/* At this point, data.obj->state may already have been set to
+		 * COS_SKIPPED_COMMIT, so we shouldn't override that if so
+		 */
+		if(data.obj->state != COS_SKIPPED_COMMIT)
+		{
+			data.obj->state = COS_ACCEPTED;
+		}
 		cache_close_payload_commit_(crawl, data.obj->key, data.payload, data.obj);
 	}	
 	curl_slist_free_all(headers);
@@ -335,13 +341,24 @@ crawl_update_info_(struct crawl_fetch_data_struct *data)
 		json_object_set_new(data->obj->info, "size", json_integer(data->size));
 		data->obj->size = data->size;
 	}
+	/* XXX this block ought to be refactored out into a separate function */
 	if(!data->checkpoint_invoked && data->crawl->checkpoint)
 	{
 		data->checkpoint_invoked = 1;
 		status = data->status;		
 		state = data->crawl->checkpoint(data->crawl, data->obj, &status, data->crawl->userdata);
-		if(state != COS_ACCEPTED)
+		if(state == COS_SKIPPED_COMMIT)
 		{
+			/* Update the HTTP status and state, but don't roll back the
+			 * object, instead allow processing to proceed (such as
+			 * following redirects in response headers).
+			 */
+			data->status = data->obj->status = status;
+			data->obj->state = state;
+		}
+		else if(state != COS_ACCEPTED)
+		{
+			/* Any other non-ACCEPTED state results in a rollback */
 			data->status = data->obj->status = status;
 			data->obj->state = state;
 			data->rollback = 1;

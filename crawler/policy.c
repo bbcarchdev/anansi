@@ -253,7 +253,7 @@ policy_checkpoint_(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata)
 	
 	if(*status >= 300 && *status < 400)
 	{
-		return COS_SKIPPED;
+		return COS_SKIPPED_COMMIT;
 	}
 	type = crawl_obj_type(obj);
 	if(!type)

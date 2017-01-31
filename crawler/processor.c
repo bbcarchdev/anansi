@@ -114,7 +114,8 @@ processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 
 	(void) prevtime;
 
-	state = COS_FAILED;
+	r = 0;
+	state = COS_ACCEPTED;
 	data = (CONTEXT *) userdata;
 	pdata = data->processor;
 	uri = crawl_obj_uristr(obj);
@@ -134,22 +135,28 @@ processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 			log_printf(LOG_DEBUG, "processor_handler: following %d redirect to <%s>\n", status, location);
 			queue_add_uristr(crawl, location);
 		}
-	}
-	log_printf(LOG_DEBUG, "processor_handler: object has been updated\n");
-	r = pdata->api->process(pdata, obj, uri, content_type);
-	if(r < 0)
-	{
-		state = COS_FAILED;
-	}
-	else if(r > 0)
-	{
-		state = (CRAWLSTATE) r;		
+		status = COS_SKIPPED;
 	}
 	else
 	{
-		state = COS_REJECTED;
+		log_printf(LOG_DEBUG, "processor_handler: object has been updated\n");
 	}
-
+	if(state == COS_ACCEPTED)
+	{
+		r = pdata->api->process(pdata, obj, uri, content_type);
+		if(r < 0)
+		{
+			state = COS_FAILED;
+		}
+		else if(r > 0)
+		{
+			state = (CRAWLSTATE) r;		
+		}
+		else
+		{
+			state = COS_REJECTED;
+		}
+	}		
 	if(state == COS_ACCEPTED)
 	{
 		log_printf(LOG_INFO, MSG_I_CRAWL_ACCEPTED " <%s>\n", uri);

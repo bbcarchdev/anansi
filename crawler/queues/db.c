@@ -944,6 +944,7 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 		statestr = "FORCE";
 		break;
 	case COS_SKIPPED:
+	case COS_SKIPPED_COMMIT:
 		statestr = "SKIPPED";
 		break;
 	}

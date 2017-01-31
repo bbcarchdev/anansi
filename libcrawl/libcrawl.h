@@ -44,10 +44,12 @@ typedef enum
 	COS_COMPLETE,
 	/* The next fetch should ignore the cache */
 	COS_FORCE,
-	/* The resource was rejected in line with expectations (e.g., the payload
-	 * of a redirect was ignored)
+	/* The resource was rejected in line with expectations (e.g., a 304) */
+	COS_SKIPPED,
+	/* The resource was skipped, but the object should not be
+	 * rolled back (e.g., 301 redirect)
 	 */
-	COS_SKIPPED
+	COS_SKIPPED_COMMIT
 } CRAWLSTATE;
 
 /* A crawl context.
