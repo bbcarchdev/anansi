@@ -250,13 +250,8 @@ policy_checkpoint_(CRAWL *crawl, CRAWLOBJ *obj, int *status, void *userdata)
 	
 	(void) crawl;
 	(void) userdata;
-
-	/* RESDATA-1059 Anansi sometimes fails to follow 303s.
-	 * After much investigation and, frankly, hackery, fixing this
-	 * conditional seems to let `anansi` crawl `richardlight.org.uk`
-	 * by correctly following his 303s.
-	 */
-	if((*status >= 300 && *status < 400) && *status != 303)
+	
+	if(*status >= 300 && *status < 400)
 	{
 		return COS_SKIPPED;
 	}

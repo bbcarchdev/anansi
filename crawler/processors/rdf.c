@@ -152,15 +152,7 @@ rdf_preprocess(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *conten
 	(void) obj;
 	
 	status = crawl_obj_status(obj);
-
-	/* RESDATA-1059 Anansi sometimes fails to follow 303s.
-	 * Changing the end of this scope to 303 instead of 304
-	 * means we'll follow 303s rather than skipping them.
-	 * Why this doesn't work, I don't know, but a process of
-	 * elimination and hackery determined that this was one
-	 * of the blocker points for crawling a site using 303s.
-	 */
-	if(status > 300 && status < 303)
+	if(status > 300 && status < 304)
 	{
 		/* Don't process the payload of redirects */
 		log_printf(LOG_INFO, MSG_I_RDF_SKIPPED_REDIRECT " <%s> (RDF: HTTP status %d)\n", uri, status);
