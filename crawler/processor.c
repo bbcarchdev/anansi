@@ -135,7 +135,7 @@ processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 			log_printf(LOG_DEBUG, "processor_handler: following %d redirect to <%s>\n", status, location);
 			queue_add_uristr(crawl, location);
 		}
-		status = COS_SKIPPED;
+		state = COS_SKIPPED;
 	}
 	else
 	{
