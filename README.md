@@ -15,3 +15,14 @@ project.
 * [libsql](https://github.com/bbcarchdev/libsql)
 * [libcluster](https://github.com/bbcarchdev/libcluster)
 * [libawsclient](https://github.com/bbcarchdev/libawsclient)
+
+## Clustering
+
+To run multiple threads or instances of anansi you will need to
+install etcd and add a [cluster] section to the crawl.conf file.
+
+eg.
+[cluster]
+environment=development
+name=anansi
+registry=http://etcd:2379/
