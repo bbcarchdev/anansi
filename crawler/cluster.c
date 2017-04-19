@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2015 BBC
+ * Copyright 2015-2017 BBC
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ int
 crawl_cluster_init(void)
 {
 	int n;
+	const char *t;
 
 	pthread_rwlock_init(&lock, NULL);
 	clustername = config_geta("cluster:name", CRAWLER_APP_NAME);
@@ -55,6 +56,14 @@ crawl_cluster_init(void)
 		cluster_static_set_index(cluster, 0);
 		cluster_static_set_total(cluster, 1);		
 		return 0;
+	}
+	if((t = config_getptr_unlocked("crawler:partition", NULL)))
+	{
+		if(!strcasecmp(t, "null") || !strcasecmp(t, "none"))
+		{
+			t = NULL;
+		}
+		cluster_set_partition(cluster, t);
 	}
 	if((n = config_get_int("crawler:threads", 1)))
 	{
