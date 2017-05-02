@@ -33,10 +33,10 @@ This software was developed as part of the [Research & Education Space project](
 * [libxml2](http://xmlsoft.org/)
 * The [Redland](http://librdf.org) RDF library (a more up-to-date version than your operating system provides may be required for some components to function correctly)
 * The following other BBC projects:—
-* * [liburi](https://github.com/bbcarchdev/liburi)
-* * [libsql](https://github.com/bbcarchdev/libsql)
-* * [libcluster](https://github.com/bbcarchdev/libcluster)
-* * [libawsclient](https://github.com/bbcarchdev/libawsclient)
+** [liburi](https://github.com/bbcarchdev/liburi)
+** [libsql](https://github.com/bbcarchdev/libsql)
+** [libcluster](https://github.com/bbcarchdev/libcluster)
+** [libawsclient](https://github.com/bbcarchdev/libawsclient)
 
 Optionally, you may also wish to install:—
 
