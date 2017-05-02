@@ -15,4 +15,4 @@ before_install:
 before_script:
 - autoreconf -f -i
 script:
-- ./configure && make && make check
+- ./configure --enable-debug --with-test-apache-port=5980 && make && make check

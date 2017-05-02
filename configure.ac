@@ -81,6 +81,72 @@ AC_SUBST([anansihtdocdir])
 
 BT_DEFINE_PREFIX
 
+enable_apache_tests=yes
+
+if test $enable_apache_tests = yes ; then
+	AC_MSG_CHECKING([which TCP/IP port unit tests should launch an Apache instance on])
+	AC_ARG_WITH([test-apache-port],
+		[AS_HELP_STRING([--with-test-apache-port=PORT],[specify TCP/IP port that an Apache instance should be launched on for tests])],
+		[test_apache_port=$withval],[test_apache_port=no])
+	if test $test_apache_port = no ; then
+		AC_MSG_RESULT([none (these tests will not be run)])
+		enable_apache_tests=no
+	else
+		AC_MSG_RESULT([$test_apache_port])
+	fi
+fi
+
+if test $enable_apache_tests = yes ; then
+	found=no
+	AC_PATH_PROGS([APACHE],[apache24 apache22 apache2 httpd],[false],[/sbin:/usr/sbin:/usr/local/sbin:$PATH])
+	if test x$APACHE = xfalse ; then
+		found=no
+	else
+		found=yes
+		test_apache_daemon="$APACHE"
+	fi
+	AC_MSG_CHECKING([for the Apache HTTPD binary])
+	if test $found = no ; then
+		AC_MSG_RESULT([not found (these tests will not be run)])
+		enable_apache_tests=no
+	else
+		AC_MSG_RESULT([$test_apache_daemon])
+	fi
+fi
+
+if test $enable_apache_tests = yes ; then
+	AC_MSG_CHECKING([for Apache modules path])
+	found=no
+	for dir in /usr/lib/apache2/modules /usr/libexec/apache2 ; do
+		for ext in so dylib dll ; do
+			if test -d $dir && test -r $dir/mod_negotiation.$ext ; then
+				test_apache_modules=$dir
+				test_apache_modext=$ext
+				found=yes
+				break
+			fi
+		done
+		test $found = yes && break
+	done
+	if test $found = no ; then
+		AC_MSG_RESULT([not found (these tests will not be run)])
+		enable_apache_tests=no
+	else
+		AC_MSG_RESULT([$test_apache_modules])
+		AC_MSG_CHECKING([for Apache module file extension])
+		AC_MSG_RESULT([$test_apache_modext])
+	fi
+fi
+
+AC_MSG_CHECKING([whether to enable Apache-based unit tests])
+AC_MSG_RESULT([$enable_apache_tests])
+
+AC_SUBST([enable_apache_tests])
+AC_SUBST([test_apache_daemon])
+AC_SUBST([test_apache_port])
+AC_SUBST([test_apache_modules])
+AC_SUBST([test_apache_modext])
+
 AC_CONFIG_FILES([
 Makefile
 libsupport/Makefile
@@ -94,8 +160,14 @@ init.d/Makefile
 m4/Makefile
 docs/Makefile
 docbook-html5/Makefile
+t/Makefile
+t/conf/Makefile
+t/conf/apache2.conf
+t/wwwroot/Makefile
 ])
 
 AC_CONFIG_FILES([init.d/crawler:init.d/crawler.sh.in],[chmod +x init.d/crawler])
+
+AC_CONFIG_FILES([t/run-apache-test.sh],[chmod +x t/run-apache-test.sh])
 
 AC_OUTPUT

@@ -1,0 +1,79 @@
+## Server configuration for a test instance of Apache 2.2 or 2.4 that can be
+## used to perform unit tests
+
+ServerRoot "@abs_top_builddir@/t"
+DocumentRoot "@abs_top_srcdir@/t/wwwroot"
+LockFile @abs_top_builddir@/t/apache2-accept.lock
+PidFile @abs_top_builddir@/t/apache2.pid
+Timeout 5
+KeepAlive On
+MaxKeepAliveRequests 100
+KeepAliveTimeout 5
+# User
+# Group
+AccessFileName .htaccess
+Listen 127.0.0.1:@test_apache_port@
+NameVirtualHost 127.0.0.1:@test_apache_port@
+DefaultType None
+HostnameLookups Off
+ErrorLog @abs_top_builddir@/t/apache2-error.log
+LogLevel warn
+LogFormat "%v:%p %h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"" vhost_combined
+LogFormat "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"" combined
+LogFormat "%h %l %u %t \"%r\" %>s %O" common
+LogFormat "%{Referer}i -> %U" referer
+LogFormat "%{User-agent}i" agent
+
+LoadModule negotiation_module @test_apache_modules@/mod_negotiation.@test_apache_modext@
+LoadModule dir_module @test_apache_modules@/mod_dir.@test_apache_modext@
+LoadModule authz_host_module @test_apache_modules@/mod_authz_host.@test_apache_modext@
+LoadModule mime_module @test_apache_modules@/mod_mime.@test_apache_modext@
+
+AddDefaultCharset utf-8
+
+<IfModule mpm_prefork_module>
+    StartServers          5
+    MinSpareServers       5
+    MaxSpareServers      10
+    MaxClients          150
+    MaxRequestsPerChild   0
+</IfModule>
+
+<IfModule mpm_worker_module>
+    StartServers          2
+    MinSpareThreads      25
+    MaxSpareThreads      75 
+    ThreadLimit          64
+    ThreadsPerChild      25
+    MaxClients          150
+    MaxRequestsPerChild   0
+</IfModule>
+
+<IfModule mpm_event_module>
+    StartServers          2
+    MinSpareThreads      25
+    MaxSpareThreads      75 
+    ThreadLimit          64
+    ThreadsPerChild      25
+    MaxClients          150
+    MaxRequestsPerChild   0
+</IfModule>
+
+<Files ~ "^\.ht">
+    Order allow,deny
+    Deny from all
+    Satisfy all
+</Files>
+
+<IfModule negotiation_module>
+	LanguagePriority en-GB en-US en cy-GB cy
+	ForceLanguagePriority Prefer Fallback
+</IfModule>
+
+<VirtualHost 127.0.0.1:@test_apache_port@>
+	ServerName test-anansi-data
+	DocumentRoot "@abs_top_srcdir@/t/wwwroot"
+	ErrorLog @abs_top_builddir@/t/apache2-error.log
+	CustomLog @abs_top_builddir@/t/apache2-access.log combined
+	DirectoryIndex index.html index.ttl
+</VirtualHost>

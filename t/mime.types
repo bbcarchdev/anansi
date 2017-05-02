@@ -1,0 +1,6 @@
+text/html                              html htm
+text/turtle                            ttl
+application/rdf+xml                    rdf
+text/xml                               xml
+text/javascript                        js
+application/json                       json

@@ -1,0 +1,39 @@
+#! /bin/sh
+
+if ! test x"@enable_apache_tests@" = x"yes" ; then
+	echo "$0: Apache-based tests have been disabled by configure" >&2
+	exit 99
+fi
+
+daemon='@test_apache_daemon@'
+pidfile='@abs_top_builddir@/t/apache2.pid'
+conf='@abs_top_builddir@/t/conf/apache2.conf'
+
+if test -r "$pidfile" ; then
+	pid=`cat "$pidfile"`
+	if `kill -TERM $pid 2>/dev/null` ; then
+		sleep 1
+		kill -KILL $pid 2>/dev/null
+	fi
+	rm -f "$pidfile"
+fi
+
+"$daemon" -f "$conf" || exit 99
+
+echo "$0: executing @SHELL@ $@" >&2
+@SHELL@ "$@"
+result=$?
+echo "$0: returned status was $result" >&2
+
+set -x
+if test -r "$pidfile" ; then
+	pid=`cat "$pidfile"`
+	if `kill -TERM $pid 2>/dev/null` ; then
+		sleep 1
+		kill -KILL $pid 2>/dev/null
+	fi
+	rm -f "$pidfile"
+fi
+set +x
+
+exit $result

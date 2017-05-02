@@ -1,0 +1,3 @@
+/apache2.pid
+/apache2-error.log
+/run-apache-test.sh
