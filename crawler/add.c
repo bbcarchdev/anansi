@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014-2015 BBC.
+ * Copyright 2014-2017 BBC.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 # include <unistd.h>
 
 # include "libcrawl.h"
-# include "libcrawld.h"
+# include "libspider.h"
 # include "libsupport.h"
 # include "liburi.h"
 
@@ -44,7 +44,8 @@ static void usage(void);
 int
 main(int argc, char **argv)
 {
-	CONTEXT *context;
+	SPIDER *spider;
+	SPIDERCALLBACKS callbacks;
 	CRAWL *crawler;
 	QUEUE *queue;
 	URI *uri;
@@ -52,6 +53,7 @@ main(int argc, char **argv)
 	char *uribuf, *t;
 	size_t uribuflen;
 
+	err = 0;
 	if(process_args(argc, argv))
 	{
 		return 1;
@@ -68,28 +70,53 @@ main(int argc, char **argv)
 	}
 	log_set_use_config(1);
 	log_reset();
-	if(queue_init())
+	memset(&callbacks, 0, sizeof(callbacks));
+	callbacks.version = SPIDER_CALLBACKS_VERSION;
+	callbacks.logger = log_vprintf;
+	callbacks.config_geta = config_geta;
+	callbacks.config_get_int = config_get_int;
+	callbacks.config_get_bool = config_get_bool;
+	spider = spider_create(&callbacks);
+	if(!spider)
 	{
 		return 1;
 	}
-	context = context_create(0);
-	if(!context)
+	/* Connect the spider to the queue that we're going to use */
+	if((t = config_geta("queue:name", NULL)))
 	{
-		return 1;
+		if(!strcmp(t, "db"))
+		{
+			crawl_free(NULL, t);
+			t = config_geta("queue:uri", "mysql://localhost/crawl");			
+		}
 	}
-	crawler = context->api->crawler(context);
+	if(t)
+	{
+		if(spider->api->set_queue_uristr(spider, t))
+		{
+			log_printf(LOG_CRIT, MSG_C_DB_CONNECT " <%s>\n", t);
+			err = 1;
+		}
+		crawl_free(NULL, t);
+	}
+	if(err)
+	{
+		spider->api->release(spider);
+		return err;
+	}
+	/* XXX this should be an option on the spider */
+	crawler = spider->api->crawler(spider);
 	crawl_set_verbose(crawler, config_get_int("crawler:verbose", 0));
-	if(queue_init_context(context))
-	{
-		return 1;
-	}
-	queue = context->api->queue(context);
+	
+	/* Obtain the spider's queue instance so that we can add items to it */
+	queue = spider->api->queue(spider);
 	err = 0;
 	skip = 0;
 	line = 0;
 	added = 0;
 	if(loop)
 	{
+		/* If looping, read 1023 bytes at a time, splitting on newlines */
 		uribuflen = 1023;
 		uribuf = (char *) crawl_alloc(crawler, uribuflen + 1);
 		if(!uribuf)
@@ -150,6 +177,7 @@ main(int argc, char **argv)
 	}
 	else
 	{
+		/* Not looping - just add the single URI */
 		uri = uri_create_str(uristr, NULL);
 		if(!uri)
 		{
@@ -176,8 +204,7 @@ main(int argc, char **argv)
 		}
 		uri_destroy(uri);
 	}
-	context->api->release(context);
-	queue_cleanup();
+	spider->api->release(spider);
 	return err;
 }
 
@@ -215,7 +242,7 @@ process_args(int argc, char **argv)
 	{
 		short_program_name = argv[0];
 	}
-	while((c = getopt(argc, argv, "hc:fl")) != -1)
+	while((c = getopt(argc, argv, "hc:flv")) != -1)
 	{
 		switch(c)
 		{
@@ -230,6 +257,9 @@ process_args(int argc, char **argv)
 			break;
 		case 'l':
 			loop = 1;
+			break;
+		case 'v':
+			config_set("crawler:verbose", "1");
 			break;
 		default:
 			usage();
@@ -259,7 +289,8 @@ usage(void)
 		   "  -h                   Print this usage message and exit\n"
 		   "  -c PATH              Load PATH as the configuration file\n"
 		   "  -f                   Add URI in 'FORCED' state (next fetch will ignore cache)\n"
-		   "  -l                   Read a list of URIs from standard input\n",
+		   "  -l                   Read a list of URIs from standard input\n"
+		   "  -v                   Produce verbose output\n",
 		   short_program_name);
 }
 

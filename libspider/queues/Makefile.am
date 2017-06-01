@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2014-2015 BBC
+## Copyright 2014-2017 BBC
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -18,9 +18,8 @@
 ##
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ \
-	-I$(top_builddir)/crawler -I$(top_srcdir)/crawler \
+	-I$(top_builddir)/libspider -I$(top_srcdir)/libspider \
 	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl \
-	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport \
 	-I$(top_builddir)/libetcd -I$(top_srcdir)/libetcd \
 	$(LIBRDF_CPPFLAGS) \
 	$(LIBSQL_CPPFLAGS)

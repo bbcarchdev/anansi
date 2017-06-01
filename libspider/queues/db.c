@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014-2016 BBC
+ * Copyright 2014-2017 BBC
  */
 
 /*
@@ -52,11 +52,16 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
+#include <errno.h>
 
-#include "libsupport.h"
-#include "libcrawld.h"
+#include "libspider.h"
 
 #include <libsql.h>
+
+/* XXX fudge */
+
+extern int log_printf(int, const char *, ...);
 
 /* Schema migration */
 static int db_migrate(SQL *restrict, const char *identifier, int newversion, void *restrict userdata);
@@ -115,7 +120,7 @@ struct queue_struct
 {
 	struct queue_api_struct *api;
 	unsigned long refcount;
-	CONTEXT *ctx;
+	SPIDER *spider;
 	CRAWL *crawl;
 	SQL *db;
 	int crawler_id;
@@ -157,14 +162,13 @@ struct db_next_struct
 
 
 QUEUE *
-db_create(CONTEXT *ctx)
+spider_queue_db_create_(SPIDER *spider, URI *uri)
 {
 	QUEUE *p;
 	CRAWL *crawl;
-	char *t;
-	const char *dburi;
+	char *t, *dburi;
 
-	crawl = ctx->api->crawler(ctx);
+	crawl = spider->api->crawler(spider);
 	p = (QUEUE *) crawl_alloc(crawl, sizeof(QUEUE));
 	if(!p)
 	{
@@ -172,52 +176,56 @@ db_create(CONTEXT *ctx)
 	}
 	p->api = &db_api;
 	p->refcount = 1;
-	p->ctx = ctx;
+	p->spider = spider;
 	p->crawl = crawl;
-	p->crawler_id = ctx->api->crawler_id(ctx);
-	p->cache_id = ctx->api->cache_id(ctx);
-	p->ncrawlers = ctx->api->threads(ctx);
-	p->ncaches = ctx->api->caches(ctx);
-	dburi = ctx->api->config_get(ctx, "queue:uri", "mysql://localhost/crawl");
+	p->crawler_id = spider->api->crawler_id(spider);
+	p->cache_id = spider->api->crawler_id(spider);
+	p->ncrawlers = spider->api->threads(spider);
+	p->ncaches = spider->api->threads(spider);
+	dburi = uri_stralloc(uri);
+	spider->api->log(spider, LOG_DEBUG, "DB: connecting to queue URI <%s>\n", dburi);
 	p->db = sql_connect(dburi);
 	if(!p->db)
 	{
-		log_printf(LOG_CRIT, MSG_C_DB_CONNECT " <%s>\n", dburi);
+		spider->api->log(spider, LOG_CRIT, MSG_C_DB_CONNECT " <%s>\n", dburi);
 		crawl_free(crawl, p);
+		crawl_free(crawl, dburi);
 		return NULL;
 	}
-	if(config_get_bool("queue:debug-queries", 0))
+	crawl_free(crawl, dburi);
+	dburi = NULL;
+	if(spider->api->config_get_bool(spider, "queue:debug-queries", 0))
 	{
 		sql_set_querylog(p->db, db_log_query);
 		sql_set_errorlog(p->db, db_log_error);
 	}
-	else if(config_get_bool("queue:debug-errors", 0))
+	else if(spider->api->config_get_bool(spider, "queue:debug-errors", 0))
 	{
 		sql_set_errorlog(p->db, db_log_error);
 	}
 	if(sql_migrate(p->db, "com.github.nevali.crawl.db", db_migrate, NULL))
 	{
-		log_printf(LOG_CRIT, MSG_C_DB_MIGRATE "\n");
+		spider->api->log(spider, LOG_CRIT, MSG_C_DB_MIGRATE "\n");
 		sql_disconnect(p->db);
 		crawl_free(crawl, p);
 		return NULL;
 	}
-	if(config_get_bool("crawler:schema-update", 0))
+	if(spider->api->config_get_bool(spider, "crawler:schema-update", 0))
 	{
-		log_printf(LOG_NOTICE, MSG_N_DB_MIGRATEONLY "\n");
+		spider->api->log(spider, LOG_NOTICE, MSG_N_DB_MIGRATEONLY "\n");
 		p->testuri = NULL;
 		p->oneshot = 1;
 	}
 	else
 	{
-		t = config_geta("crawler:test-uri", NULL);
+		t = spider->api->config_geta(spider, "crawler:test-uri", NULL);
 		if(t && t[0])
 		{
-			log_printf(LOG_NOTICE, MSG_N_DB_TESTURI " <%s>\n", t);
+			spider->api->log(spider, LOG_NOTICE, MSG_N_DB_TESTURI " <%s>\n", t);
 			p->testuri = uri_create_str(t, NULL);
 			if(!p->testuri)
 			{
-				log_printf(LOG_CRIT, MSG_C_DB_URIPARSE " <%s>\n", t);
+				spider->api->log(spider, LOG_CRIT, MSG_C_DB_URIPARSE " <%s>\n", t);
 				sql_disconnect(p->db);
 				crawl_free(crawl, p);
 				crawl_free(crawl, t);
@@ -271,7 +279,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 	if(newversion == 0)
 	{
 		/* Return target version */
-		return 7;
+		return 9;
 	}
 	log_printf(LOG_NOTICE, MSG_N_DB_MIGRATING " to version %d\n", newversion);
 	if(newversion == 1)
@@ -296,6 +304,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 				") ENGINE=InnoDB DEFAULT CHARSET=utf8 DEFAULT COLLATE=utf8_unicode_ci";
 			break;
 		case SQL_VARIANT_POSTGRES:
+		case SQL_VARIANT_SQLITE:
 			ddl = "CREATE TABLE \"crawl_root\" ("
 				"\"hash\" VARCHAR(32) NOT NULL, "
 				"\"uri\" VARCHAR(255) NOT NULL, "
@@ -311,7 +320,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 		{
 			return -1;
 		}
-		if(variant == SQL_VARIANT_POSTGRES)
+		if(variant == SQL_VARIANT_POSTGRES || variant == SQL_VARIANT_SQLITE)
 		{
 			if(sql_execute(sql, "CREATE INDEX \"crawl_root_hash\" ON \"crawl_root\" ( \"hash\" )") )
 			{
@@ -362,6 +371,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 				") ENGINE=InnoDB DEFAULT CHARSET=utf8 DEFAULT COLLATE=utf8_unicode_ci";
 			break;
 		case SQL_VARIANT_POSTGRES:
+		case SQL_VARIANT_SQLITE:
 			ddl = "CREATE TABLE \"crawl_resource\" ("
 				"\"hash\" VARCHAR(32) NOT NULL,"
 				"\"shorthash\" BIGINT NOT NULL,"
@@ -386,7 +396,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 		{
 			return -1;
 		}
-		if(variant == SQL_VARIANT_POSTGRES)
+		if(variant == SQL_VARIANT_POSTGRES || variant == SQL_VARIANT_SQLITE)
 		{
 			if(sql_execute(sql, "CREATE INDEX \"crawl_resource_hash\" ON \"crawl_resource\" ( \"hash\" )"))
 			{
@@ -428,6 +438,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 			}
 			break;
 		case SQL_VARIANT_POSTGRES:
+		case SQL_VARIANT_SQLITE:
 			if(sql_execute(sql, "ALTER TABLE \"crawl_resource\" ADD COLUMN \"tinyhash\" INTEGER NOT NULL"))
 			{
 				return -1;
@@ -453,6 +464,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 			}
 			break;
 		case SQL_VARIANT_POSTGRES:
+		case SQL_VARIANT_SQLITE:
 			if(sql_execute(sql, "DROP TYPE IF EXISTS \"crawl_resource_state\""))
 			{
 				return -1;
@@ -482,7 +494,10 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 				"MODIFY COLUMN \"state\" ENUM('NEW', 'FAILED', 'REJECTED', 'ACCEPTED', 'COMPLETE', 'FORCE') NOT NULL DEFAULT 'NEW'";
 			break;
 		case SQL_VARIANT_POSTGRES:
-			/* This is pretty hacky */
+		case SQL_VARIANT_SQLITE:
+			/* This is pretty hacky, but in Postgres types can't be modified
+			 * sensibly within a transaction
+			 */
 			if(sql_commit(sql))
 			{
 				return -1;
@@ -524,7 +539,8 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 				"MODIFY COLUMN \"state\" ENUM('NEW', 'FAILED', 'REJECTED', 'ACCEPTED', 'COMPLETE', 'FORCE', 'SKIPPED') NOT NULL DEFAULT 'NEW'";
 			break;
 		case SQL_VARIANT_POSTGRES:
-			/* This is pretty hacky */
+		case SQL_VARIANT_SQLITE:
+			/* This is pretty hacky (see previous note) */
 			if(sql_commit(sql))
 			{
 				return -1;
@@ -543,6 +559,22 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 		{
 			return -1;
 		}
+		return 0;
+	}
+	if(newversion == 8)
+	{
+		if(sql_execute(sql, "ALTER TABLE \"crawl_root\" ADD COLUMN \"partition\" VARCHAR(32) DEFAULT NULL"))
+		{
+			return -1;
+		}   
+		return 0;
+	}
+	if(newversion == 9)
+	{
+		if(sql_execute(sql, "CREATE INDEX \"crawl_root_partition\" ON \"crawl_root\" (\"partition\")"))
+		{
+			return -1;
+		}   
 		return 0;
 	}
 	return -1;
@@ -613,7 +645,7 @@ db_next(QUEUE *me, URI **next, CRAWLSTATE *state)
 		return 0;
 	}
 	*state = data.state;
-  log_printf(LOG_DEBUG, "db_next: Crawling next uristr %s\n", data.uristr);
+	/* log_printf(LOG_DEBUG, "db_next: Crawling next uristr %s\n", data.uristr); */
 	*next = uri_create_str(data.uristr, NULL);	
 	if(!*next)
 	{
@@ -660,7 +692,7 @@ db_next_txn(SQL *db, void *userdata)
 					me->ncrawlers, me->crawler_id);
 	if(!rs)
 	{
-		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
+		me->spider->api->log(me->spider, LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
 		return SQL_TXN_ABORT;
 	}
 	if(sql_stmt_eof(rs))
@@ -747,14 +779,14 @@ db_next_txn(SQL *db, void *userdata)
 	now = time(NULL) + root_rate;
 	gmtime_r(&now, &tm);
 	strftime(timestr, 32, "%Y-%m-%d %H:%M:%S", &tm);
-  log_printf(LOG_INFO, "db_next_txn: set earliest_update=%s where hash=%s \n", timestr, root_hash);
+/*	log_printf(LOG_INFO, "db_next_txn: set earliest_update=%s where hash=%s \n", timestr, root_hash); */
 	if(sql_executef(db, "UPDATE \"crawl_root\" SET \"earliest_update\" = %Q WHERE \"hash\" = %Q AND \"earliest_update\" < %Q",
 					timestr, root_hash, timestr) < 0)
 	{
-    log_printf(LOG_ERR, "db_next_txn: txn fail\n");
+		/* log_printf(LOG_ERR, "db_next_txn: txn fail\n"); */
 		return SQL_TXN_RETRY;
 	}
-  log_printf(LOG_INFO, "db_next_txn: txn commit\n");
+	/* log_printf(LOG_INFO, "db_next_txn: txn commit\n"); */
 	return SQL_TXN_COMMIT;
 }
 
@@ -779,7 +811,7 @@ db_uristr_key_root(QUEUE *me, const char *uristr, char **uri, char *urikey, uint
 	u_resource = uri_create_str(str, NULL);
 	if(!u_resource)
 	{
-		log_printf(LOG_ERR, MSG_E_DB_URIPARSE " <%s>\n", str);
+		me->spider->api->log(me->spider, LOG_ERR, MSG_E_DB_URIPARSE " <%s>\n", str);
 		crawl_free(me->crawl, str);
 		return -1;
 	}
@@ -808,7 +840,7 @@ db_uristr_key_root(QUEUE *me, const char *uristr, char **uri, char *urikey, uint
 	u_root = uri_create_str("/", u_resource);
 	if(!u_root)
 	{
-		log_printf(LOG_ERR, MSG_E_DB_URIROOT " <%s>\n", str);
+		me->spider->api->log(me->spider, LOG_ERR, MSG_E_DB_URIROOT " <%s>\n", str);
 		uri_destroy(u_resource);
 		crawl_free(me->crawl, str);
 		return -1;
@@ -844,8 +876,7 @@ db_uristr_key_root(QUEUE *me, const char *uristr, char **uri, char *urikey, uint
 static int
 db_add(QUEUE *me, URI *uri, const char *uristr)
 {
-  db_add_(me, uri, uristr, 0);
-	return 0;	
+	return db_add_(me, uri, uristr, 0);
 }
 
 /* db_force_add( QUEUE, URI, char* uristr ) PUBLIC
@@ -860,7 +891,7 @@ db_add(QUEUE *me, URI *uri, const char *uristr)
 static int
 db_force_add(QUEUE *me, URI *uri, const char *uristr)
 {
-  db_add_(me, uri, uristr, 1);
+	return db_add_(me, uri, uristr, 1);
 }
 
 /* db_add_( QUEUE, URI, char* uristr, int force ) PRIVATE
@@ -1137,7 +1168,7 @@ db_insert_resource(QUEUE *me, const char *cachekey, uint32_t shortkey, const cha
 
 	if(sql_perform(me->db, db_insert_resource_txn, &data, TXN_MAX_RETRIES, SQL_TXN_CONSISTENT))
 	{
-		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
+		me->spider->api->log(me->spider, LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
 		exit(1);
 		return -1;
 	}
@@ -1151,7 +1182,7 @@ db_insert_root(QUEUE *me, const char *rootkey, const char *uri)
 	
 	if(!rootkey || strlen(rootkey) != 32)
 	{
-		log_printf(LOG_CRIT, MSG_C_DB_INVALIDROOT " '%s'\n", rootkey);
+		me->spider->api->log(me->spider, LOG_CRIT, MSG_C_DB_INVALIDROOT " '%s'\n", rootkey);
 		abort();
 	}
 	data.me = me;
@@ -1160,7 +1191,7 @@ db_insert_root(QUEUE *me, const char *rootkey, const char *uri)
 		
 	if(sql_perform(me->db, db_insert_root_txn, &data, TXN_MAX_RETRIES, SQL_TXN_CONSISTENT))
 	{
-		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
+		me->spider->api->log(me->spider, LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
 		exit(1);
 		return -1;
 	}

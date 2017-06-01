@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2014-2017 BBC
+## Copyright 2015-2017 BBC
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -17,22 +17,18 @@
 ##  limitations under the License.
 ##
 
-SUBDIRS = caches . utils
+AM_CPPFLAGS = @AM_CPPFLAGS@ \
+	-I$(top_builddir)/libspider -I$(top_srcdir)/libspider \
+	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl \
+	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport \
+	-I$(top_builddir)/libetcd -I$(top_srcdir)/libetcd \
+	$(LIBRDF_CPPFLAGS)
 
-EXTRA_DIST = README.md
+noinst_LTLIBRARIES = libprocessors.la
 
-lib_LTLIBRARIES = libcrawl.la
+libprocessors_la_SOURCES = p_processors.h \
+	rdf.c lod.c
 
-include_HEADERS = libcrawl.h
+libprocessors_la_LDFLAGS = -avoid-version
 
-libcrawl_la_SOURCES = p_libcrawl.h \
-	context.c cache.c fetch.c obj.c crawler.c alloc.c
-
-libcrawl_la_LDFLAGS = -avoid-version
-
-libcrawl_la_LIBADD = \
-	caches/libcaches.la \
-	$(LIBJANSSON_LOCAL_LIBS) $(LIBJANSSON_LIBS) \
-	$(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS) \
-	$(LIBCURL_LOCAL_LIBS) $(LIBCURL_LIBS) \
-	$(OPENSSL_LOCAL_LIBS) $(OPENSSL_LIBS)
+libprocessors_la_LIBADD = $(LIBRDF_LOCAL_LIBS) $(LIBRDF_LIBS)

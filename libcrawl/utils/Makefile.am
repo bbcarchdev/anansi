@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2015 BBC
+## Copyright (c) 2014-2017 BBC.
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -17,18 +17,16 @@
 ##  limitations under the License.
 ##
 
+LIBS = @LIBS@ \
+	$(top_builddir)/libcrawl/libcrawl.la $(top_srcdir)/libcrawl/libcrawl.la
+
 AM_CPPFLAGS = @AM_CPPFLAGS@ \
-	-I$(top_builddir)/crawler -I$(top_srcdir)/crawler \
-	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl \
-	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport \
-	-I$(top_builddir)/libetcd -I$(top_srcdir)/libetcd \
-	$(LIBRDF_CPPFLAGS)
+	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl
 
-noinst_LTLIBRARIES = libprocessors.la
+bin_PROGRAMS = crawl-fetch crawl-locate crawl-mirror libcrawl-config
 
-libprocessors_la_SOURCES = p_processors.h \
-	rdf.c lod.c
+libcrawl_config_SOURCES = crawl-config.c
 
-libprocessors_la_LDFLAGS = -avoid-version
-
-libprocessors_la_LIBADD = $(LIBRDF_LOCAL_LIBS) $(LIBRDF_LIBS)
+crawl_fetch_LDADD = $(LIBJANSSON_LOCAL_LIBS) $(LIBJANSSON_LIBS)
+crawl_locate_LDADD = $(LIBJANSSON_LOCAL_LIBS) $(LIBJANSSON_LIBS)
+crawl_mirror_LDADD = $(LIBXML2_LOCAL_LIBS) $(LIBXML2_LIBS) $(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS)

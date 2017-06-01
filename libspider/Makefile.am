@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright (c) 2014 BBC.
+## Copyright 2014-2017 BBC
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -17,16 +17,19 @@
 ##  limitations under the License.
 ##
 
-LIBS = @LIBS@ \
-	$(top_builddir)/libcrawl/libcrawl.la $(top_srcdir)/libcrawl/libcrawl.la
+SUBDIRS = queues processors policies .
 
-AM_CPPFLAGS = @AM_CPPFLAGS@ \
-	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl
+AM_CPPFLAGS = @AM_CPPFLAGS@ @CPPFLAGS@ \
+	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl \
+	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport
 
-bin_PROGRAMS = crawl-fetch crawl-locate crawl-mirror libcrawl-config
+noinst_LTLIBRARIES = libspider.la
 
-libcrawl_config_SOURCES = crawl-config.c
+libspider_la_SOURCES = p_libcrawld.h libcrawld.h \
+	context.c processor.c queue.c policy.c
 
-crawl_fetch_LDADD = $(LIBJANSSON_LOCAL_LIBS) $(LIBJANSSON_LIBS)
-crawl_locate_LDADD = $(LIBJANSSON_LOCAL_LIBS) $(LIBJANSSON_LIBS)
-crawl_mirror_LDADD = $(LIBXML2_LOCAL_LIBS) $(LIBXML2_LIBS) $(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS)
+libspider_la_LIBADD = \
+	queues/libqueues.la \
+	processors/libprocessors.la \
+	policies/libpolicies.la \
+	$(top_builddir)/libcrawl/libcrawl.la

@@ -39,7 +39,7 @@
 # include <pthread.h>
 # include <uuid/uuid.h>
 
-# include "libcrawld.h"
+# include "libspider.h"
 # include "libsupport.h"
 # include "liburi.h"
 # include "libcluster.h"
@@ -52,11 +52,10 @@
 
 extern volatile int crawld_terminate;
 
-int thread_init(void);
-int thread_cleanup(void);
 int thread_create(int crawler_offset);
-int thread_run(void);
-int thread_terminate(void);
+int thread_create_all(void);
+int thread_terminate_all(void);
+int thread_wait_all(void);
 
 int crawl_cluster_init(void);
 int crawl_cluster_threads(void);
@@ -64,5 +63,6 @@ int crawl_cluster_inst_id(void);
 int crawl_cluster_inst_threads(void);
 const char *crawl_cluster_env(void);
 int crawl_cluster_detached(void);
+CLUSTER *crawl_cluster(void);
 
 #endif /*!P_CRAWLD_H_*/

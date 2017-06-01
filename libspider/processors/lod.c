@@ -38,11 +38,11 @@ struct list_data_struct
 };
 
 PROCESSOR *
-lod_create(CRAWL *crawler)
+spider_processor_lod_create_(SPIDER *spider)
 {
 	PROCESSOR *p;
 
-	p = rdf_create(crawler);
+	p = spider_processor_rdf_create_(spider);
 	if(!p)
 	{
 		return NULL;

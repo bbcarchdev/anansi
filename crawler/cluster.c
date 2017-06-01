@@ -134,12 +134,17 @@ crawl_cluster_detached(void)
 	return cluster_join(cluster);
 }
 
+/* Return the CLUSTER object associated with the crawler */
+CLUSTER *
+crawl_cluster(void)
+{
+	return cluster;
+}
+
 /* Invoked by libcluster when the cluster balances */
 static int
 crawl_cluster_balancer_(CLUSTER *cluster, CLUSTERSTATE *state)
 {
-	(void) cluster;
-
 	if(state->index == -1 || !state->total)
 	{
 		log_printf(LOG_NOTICE, MSG_N_CRAWL_REBALANCED ": instance %s has left cluster %s/%s\n", cluster_instance(cluster), cluster_key(cluster), cluster_env(cluster));

@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014-2015 BBC
+ * Copyright 2014-2017 BBC
  */
 
 /*
@@ -53,22 +53,6 @@ main(int argc, char **argv)
 	}
 	log_set_use_config(1);
 	log_reset();
-	if(thread_init())
-	{
-		return 1;
-	}
-	if(policy_init())
-	{
-		return 1;
-	}
-	if(queue_init())
-	{
-		return 1;
-	}
-	if(processor_init())
-	{
-		return 1;
-	}
 	if(crawl_cluster_init())
 	{
 		return 1;
@@ -108,15 +92,14 @@ main(int argc, char **argv)
 	{
 		return 1;
 	}
-	if(thread_run())
+	if(thread_create_all())
 	{
 		return 1;
 	}
-
-	processor_cleanup();
-	queue_cleanup();
-	thread_cleanup();
-	return 0;
+	/* thread_wait() blocks until the crawler (or all of the crawl threads)
+	 * have terminated
+	 */
+	return thread_wait_all();
 }
 
 static int

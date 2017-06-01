@@ -17,34 +17,27 @@
 ##  limitations under the License.
 ##
 
-SUBDIRS = queues processors .
-
 dist_doc_DATA = crawl.conf
 
 AM_CPPFLAGS = @AM_CPPFLAGS@ @CPPFLAGS@ \
 	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl \
+	-I$(top_builddir)/libspider -I$(top_srcdir)/libspider \
 	-I$(top_builddir)/libsupport -I$(top_srcdir)/libsupport
-
-noinst_LTLIBRARIES = libcrawld.la
 
 sbin_PROGRAMS = crawld
 
 bin_PROGRAMS = crawler-add
 
 crawld_SOURCES = p_crawld.h crawld.c cluster.c thread.c
-crawld_LDADD = libcrawld.la $(LIBCLUSTER_LOCAL_LIBS) $(LIBCLUSTER_LIBS)
+crawld_LDADD = $(top_builddir)/libspider/libspider.la \
+	$(top_builddir)/libsupport/libsupport.la \
+	$(LIBCLUSTER_LOCAL_LIBS) $(LIBCLUSTER_LIBS)
 
 crawler_add_SOURCES = p_crawld.h add.c
-crawler_add_LDADD = libcrawld.la $(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS)
-
-libcrawld_la_SOURCES = p_libcrawld.h libcrawld.h \
-	context.c processor.c queue.c policy.c
-
-libcrawld_la_LIBADD = \
-	queues/libqueues.la \
-	processors/libprocessors.la \
-	$(top_builddir)/libcrawl/libcrawl.la \
-	$(top_builddir)/libsupport/libsupport.la
+crawler_add_LDADD = $(top_builddir)/libspider/libspider.la \
+	$(top_builddir)/libsupport/libsupport.la \
+	$(LIBCLUSTER_LOCAL_LIBS) $(LIBCLUSTER_LIBS) \
+	$(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS)
 
 install-data-hook:
 	$(INSTALL) -d $(DESTDIR)$(sysconfdir)

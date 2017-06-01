@@ -17,22 +17,12 @@
 ##  limitations under the License.
 ##
 
-SUBDIRS = caches . utils
+AM_CPPFLAGS = @AM_CPPFLAGS@ \
+	-I$(top_builddir)/libspider -I$(top_srcdir)/libspider \
+	-I$(top_builddir)/libcrawl -I$(top_srcdir)/libcrawl
 
-EXTRA_DIST = README.md
+noinst_LTLIBRARIES = libpolicies.la
 
-lib_LTLIBRARIES = libcrawl.la
+libpolicies_la_SOURCES = schemes.c content-types.c
 
-include_HEADERS = libcrawl.h
-
-libcrawl_la_SOURCES = p_libcrawl.h \
-	context.c cache.c fetch.c obj.c crawler.c alloc.c
-
-libcrawl_la_LDFLAGS = -avoid-version
-
-libcrawl_la_LIBADD = \
-	caches/libcaches.la \
-	$(LIBJANSSON_LOCAL_LIBS) $(LIBJANSSON_LIBS) \
-	$(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS) \
-	$(LIBCURL_LOCAL_LIBS) $(LIBCURL_LIBS) \
-	$(OPENSSL_LOCAL_LIBS) $(OPENSSL_LIBS)
+libpolicies_la_LDFLAGS = -avoid-version

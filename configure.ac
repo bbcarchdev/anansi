@@ -152,10 +152,12 @@ Makefile
 libsupport/Makefile
 libcrawl/Makefile
 libcrawl/caches/Makefile
-util/Makefile
+libcrawl/utils/Makefile
+libspider/Makefile
+libspider/queues/Makefile
+libspider/processors/Makefile
+libspider/policies/Makefile
 crawler/Makefile
-crawler/queues/Makefile
-crawler/processors/Makefile
 init.d/Makefile
 m4/Makefile
 docs/Makefile

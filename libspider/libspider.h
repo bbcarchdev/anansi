@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2015 BBC
+ * Copyright 2015-2017 BBC
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,45 +15,110 @@
  *  limitations under the License.
  */
 
-#ifndef LIBCRAWLD_H_
-# define LIBCRAWLD_H_                   1
+#ifndef LIBSPIDER_H_
+# define LIBSPIDER_H_                   1
 
 # include "libcrawl.h"
+# include "libcluster.h"
 
-/* libcrawld is a wrapper around libcrawl for providing crawler daemons */
+/* This header contains the interface used by crawler plug-ins */
 
-typedef struct context_struct CONTEXT;
+typedef struct spider_struct SPIDER;
 typedef struct processor_struct PROCESSOR;
 typedef struct queue_struct QUEUE;
+typedef struct spider_policy_struct SPIDERPOLICY;
+typedef struct spider_callbacks_v2_struct SPIDERCALLBACKS;
 
-#ifndef CONTEXT_STRUCT_DEFINED
-struct context_struct
+#ifndef SPIDER_STRUCT_DEFINED
+struct spider_struct
 {
-	struct context_api_struct *api;
+	struct spider_api_struct *api;
 };
 #endif
 
-struct context_api_struct
+struct spider_api_struct
 {
 	void *reserved;
-	unsigned long (*addref)(CONTEXT *me);
-	unsigned long (*release)(CONTEXT *me);
-	int (*crawler_id)(CONTEXT *me);
-	int (*cache_id)(CONTEXT *me);
-	int (*thread_id)(CONTEXT *me);
-	int (*threads)(CONTEXT *me);
-	int (*caches)(CONTEXT *me);
-	CRAWL *(*crawler)(CONTEXT *me);	
-	QUEUE *(*queue)(CONTEXT *me);
-	PROCESSOR *(*processor)(CONTEXT *me);
-	const char *(*config_get)(CONTEXT *me, const char *key, const char *defval);
-	int (*config_get_int)(CONTEXT *me, const char *key, int defval);
-	int (*set_base)(CONTEXT *me, int base);
-	int (*set_threads)(CONTEXT *me, int threads);
-	int (*terminate)(CONTEXT *me);
-	int (*terminated)(CONTEXT *me);
-	int (*oneshot)(CONTEXT *me);
-	int (*set_oneshot)(CONTEXT *me);
+	unsigned long (*addref)(SPIDER *me);
+	unsigned long (*release)(SPIDER *me);
+	/* Set and obtain app-specific data */
+	int (*set_userdata)(SPIDER *me, void *data);
+	void *(*userdata)(SPIDER *me);
+	/* Set the local 0-based thread index for this instance */
+	int (*set_local_index)(SPIDER *me, int index);
+	/* Set the base thread index for this process */
+	int (*set_base)(SPIDER *me, int base);
+	/* Inform the instance of the total number of threads in the cluster */
+	int (*set_threads)(SPIDER *me, int threads);
+	/* Obtain the numeric crawler ID */
+	int (*crawler_id)(SPIDER *me);
+	/* Obtain the local 0-based thread index */
+	int (*local_index)(SPIDER *me);
+	/* Obtain the total number of threads */
+	int (*threads)(SPIDER *me);
+	/* Obtain the encapsulated crawler instance */
+	CRAWL *(*crawler)(SPIDER *me);
+	/* Set the queue implementation (including by URI or URI-string) */
+	int (*set_queue)(SPIDER *me, QUEUE *queue);
+	int (*set_queue_uristr)(SPIDER *me, const char *uri);
+	int (*set_queue_uri)(SPIDER *me, URI *uri);
+	/* Obtain the queue object */
+	QUEUE *(*queue)(SPIDER *me);
+	/* Set the processor implementation by name */
+	int (*set_processor)(SPIDER *me, PROCESSOR *processor);
+	int (*set_processor_name)(SPIDER *me, const char *name);
+	PROCESSOR *(*processor)(SPIDER *me);
+	/* Obtain configuration values (allocated string, integer, boolean) */
+	char *(*config_geta)(SPIDER *me, const char *key, const char *defval);
+	int (*config_get_int)(SPIDER *me, const char *key, int defval);
+	int (*config_get_bool)(SPIDER *me, const char *key, int defval);
+	/* Mark this thread as terminated */
+	int (*terminate)(SPIDER *me);
+	/* Determine if this thread has been terminated */
+	int (*terminated)(SPIDER *me);
+	/* Set this thread to be in one-shot mode */
+	int (*set_oneshot)(SPIDER *me);
+	/* Determine if this thread is in one-shot mode */
+	int (*oneshot)(SPIDER *me);
+	/* Set the cluster object used by this instance (overrides
+	 * any previously-set thread indices
+	 */
+	int (*set_cluster)(SPIDER *me, CLUSTER *cluster);
+	/* Obtain the cluster object used by this instance */
+	CLUSTER *(*cluster)(SPIDER *me);
+	/* Log a formatted message */
+	int (*log)(SPIDER *me, int level, const char *format, ...);
+	int (*vlog)(SPIDER *me, int level, const char *format, va_list ap);
+	/* Perform a single dequeue-fetch-process operation */
+	int (*perform)(SPIDER *me);
+	/* Attach this instance to a newly-created crawl thread */
+	int (*attach)(SPIDER *me);
+	/* Detach this instance from a crawl thread which is terminating */
+	int (*detach)(SPIDER *me);
+	/* Determine whether this instance has been attached or not */
+	int (*attached)(SPIDER *me);
+	/* Add a policy handler to this instance */
+	int (*add_policy)(SPIDER *me, SPIDERPOLICY *policy);
+	int (*add_policy_name)(SPIDER *me, const char *policyname);
+};
+
+/* A set of callbacks supplied when creating a spider instance */
+
+# define SPIDER_CALLBACKS_VERSION       2
+
+struct spider_callbacks_v1_struct
+{
+	int version;
+	void (*logger)(int level, const char *format, va_list args);
+};
+
+struct spider_callbacks_v2_struct
+{
+	int version;
+	void (*logger)(int level, const char *format, va_list args);
+	char *(*config_geta)(const char *, const char *);
+	int (*config_get_int)(const char *, int);
+	int (*config_get_bool)(const char *, int);
 };
 
 #ifndef QUEUE_STRUCT_DEFINED
@@ -96,7 +161,39 @@ struct processor_api_struct
 	CRAWLSTATE (*process)(PROCESSOR *me, CRAWLOBJ *obj, const char *uri, const char *content_type);
 };
 
+#ifndef SPIDER_POLICY_STRUCT_DEFINED
+struct spider_policy_struct
+{
+	struct spider_policy_api_struct *api;
+};
+#endif
+
+struct spider_policy_api_struct
+{
+	void *reserved;
+	unsigned long (*addref)(SPIDERPOLICY *me);
+	unsigned long (*release)(SPIDERPOLICY *me);
+	CRAWLSTATE (*uri)(SPIDERPOLICY *me, URI *uri, const char *uristr);
+	CRAWLSTATE (*checkpoint)(SPIDERPOLICY *me, CRAWLOBJ *object, int *status);
+};
+
+/* Return values from SPIDER::perform() */
+
+# define SPIDER_PERFORM_SUSPENDED       -2 /* Current crawler is (now) suspended */
+# define SPIDER_PERFORM_ERROR           -1 /* A hard error occurred */
+# define SPIDER_PERFORM_AGAIN           0  /* No items available to dequeue */
+# define SPIDER_PERFORM_COMPLETE        1  /* Deqeued and processed */
+
 /* Log messages */
+
+# define SPIDER_MSG_NAME(type, component, key) \
+	MSG_##type##_##component##_##key
+# define SPIDER_MSG_PREFIX(type, component, key) \
+	"%%ANANSI-" #type "-" #key ": "
+
+# define SPIDER_MSG(type, component, key) \
+	SPIDER_MSG_NAME(type, component, key) \
+	SPIDER_MSG_PREFIX(type, component, key)
 
 /* crawld and utilities */
 # define MSG_E_CRAWL_LINETOOLONG        "%%ANANSI-E-2000: line too long, skipping"
@@ -135,7 +232,11 @@ struct processor_api_struct
 # define MSG_N_CRAWL_RESUMING           "%%ANANSI-N-2031: crawl thread resuming"
 # define MSG_C_CRAWL_FAILED             "%%ANANSI-C-2032: crawl operation failed"
 # define MSG_I_CRAWL_THREADBALANCED     "%%ANANSI-I-2033: crawl thread re-balanced"
+/*# define SPIDER_MSG(I, CRAWL, THREADBALANCED) "crawl thread re-balanced"*/
+
 # define MSG_N_CRAWL_TERMINATING        "%%ANANSI-N-2034: crawl thread terminating"
+# define MSG_C_CRAWL_CLUSTERSTATE       "%%ANANSI-C-2035: failed to obtain current cluster state"
+# define MSG_C_CRAWL_NOTATTACHED        "%%ANANSI-C-2036: cannot perform a crawl pass when not attached to a thread"
 
 /* RDBMS queue */
 # define MSG_C_DB_CONNECT               "%%ANANSI-C-5000: failed to connect to database"
@@ -150,26 +251,19 @@ struct processor_api_struct
 # define MSG_C_DB_INVALIDROOT           "%%ANANSI-C-5007: invalid root key"
 # define MSG_E_DB_URIROOT               "%%ANANSI-E-5004: failed to derive root from URI"
 
-CONTEXT *context_create(int crawler_offset);
+/* Object constructors */
 
-int processor_init(void);
-int processor_cleanup(void);
-int processor_init_context(CONTEXT *data);
+SPIDER *spider_create(const SPIDERCALLBACKS *callbacks);
 
-int queue_init(void);
-int queue_cleanup(void);
-int queue_init_context(CONTEXT *data);
+QUEUE *spider_queue_create_uri(SPIDER *spider, URI *uri);
 
+PROCESSOR *spider_processor_create_name(SPIDER *spider, const char *name);
+
+SPIDERPOLICY *spider_policy_create_name(SPIDER *spider, const char *name);
+
+# ifndef SPIDER_DEPRECATED_APIS
 int queue_add_uristr(CRAWL *crawler, const char *str);
 int queue_add_uri(CRAWL *crawler, URI *uri);
+# endif
 
-int queue_updated_uri(CRAWL *crawl, URI *uri, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
-int queue_updated_uristr(CRAWL *crawl, const char *uristr, time_t updated, time_t last_modified, int status, time_t ttl, CRAWLSTATE state);
-int queue_unchanged_uri(CRAWL *crawl, URI *uri, int error);
-int queue_unchanged_uristr(CRAWL *crawl, const char *uristr, int error);
-
-int policy_init(void);
-int policy_cleanup(void);
-int policy_init_context(CONTEXT *data);
-
-#endif /*!LIBCRAWLD_H_*/
+#endif /*!LIBSPIDER_H_*/

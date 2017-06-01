@@ -6,7 +6,7 @@ Standards-Version: 3.9.3
 Homepage: http://bbcarchdev.github.io/res/
 Vcs-Browser: https://github.com/bbcarchdev/anansi
 Vcs-Git: git://github.com/bbcarchdev/anansi.git
-Build-Depends: debhelper (>= 8.0.0), libsql-dev (>= 7.1.1), liburi-dev, libjansson-dev, libmysqlclient-dev, libcurl4-gnutls-dev, libxml2-dev, librdf0-dev, pkg-config, autoconf, automake, libtool, libltdl-dev, uuid-dev, libcluster-dev, libawsclient-dev
+Build-Depends: debhelper (>= 8.0.0), libsql-dev (>= 7.1.1), liburi-dev, libjansson-dev, libmysqlclient-dev, libcurl4-gnutls-dev, libxml2-dev, librdf0-dev, pkg-config, autoconf, automake, libtool, libltdl-dev, uuid-dev, libcluster-dev (>= 5.0.0), libawsclient-dev
 
 Package: libcrawl
 Architecture: any
@@ -22,5 +22,5 @@ Description: RES Anansi Linked Open Data crawler
 
 Package: libcrawl-dev
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}, libcrawl, liburi-dev, libjansson-dev
+Depends: ${misc:Depends}, ${shlibs:Depends}, libcrawl, liburi-dev, libjansson-dev, libcluster-dev
 Description: RES Anansi Linked Open Data crawler (development files)

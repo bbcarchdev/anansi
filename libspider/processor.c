@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014-2015 BBC
+ * Copyright 2014-2017 BBC
  */
 
 /*
@@ -23,7 +23,7 @@
 # include "config.h"
 #endif
 
-#include "p_libcrawld.h"
+#include "p_libspider.h"
 
 /* Implement a libcrawl processor handler which interfaces with the crawld
  * queue modules.
@@ -34,6 +34,54 @@ static int processor_unchanged_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prev
 static int processor_failed_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata, CRAWLSTATE state);
 
 static PROCESSOR *(*constructor)(CRAWL *crawler);
+
+/* Create a processor and attach it to the supplied spider instance */
+PROCESSOR *
+spider_processor_create_name(SPIDER *spider, const char *name)
+{
+	PROCESSOR *p;
+
+	if(!strcmp(name, "rdf"))
+	{
+		p = spider_processor_rdf_create_(spider);
+	}
+	else if(!strcmp(name, "lod"))
+	{
+		p = spider_processor_lod_create_(spider);
+	}
+	else
+	{
+		errno = ENOENT;
+		return NULL;
+	}
+	if(!p)
+	{
+		return NULL;
+	}
+	if(spider->api->set_processor(spider, p))
+	{
+		p->api->release(p);
+		return NULL;
+	}
+	return p;
+}
+
+/* INTERNAL: invoked automatically by SPIDER::set_processor()
+ * IMPORTANT: the spider instance must be write-locked before invoking this
+ * function.
+ */
+int
+spider_processor_attach_(SPIDER *spider, PROCESSOR *processor)
+{
+	spider->processor = processor;
+	crawl_set_updated(spider->crawl, processor_handler_);
+	crawl_set_unchanged(spider->crawl, processor_unchanged_handler_);
+	crawl_set_failed(spider->crawl, processor_failed_handler_);	
+	return 0;
+}
+
+#if 0
+/* XXX: this should be replaced by spider->api->set_processor(spider, "name"); */
 
 int
 processor_init(void)
@@ -70,23 +118,25 @@ processor_cleanup(void)
 {
 	return 0;
 }
+#endif
 
 /* Create a processor instance and attach it to the context */
+/* XXX this ought to be moved to the parent app */
 int
-processor_init_context(CONTEXT *context)
+processor_init_context(SPIDER *context)
 {
 	CRAWL *crawl;
+   	PROCESSOR *processor;
 
 	crawl = context->crawl;
-	context->processor = constructor(crawl);
-	if(!context->processor)
+	processor = constructor(crawl);	
+	if(!processor)
 	{
-		log_printf(LOG_CRIT, MSG_C_CRAWL_PROCESSORINIT "\n");
+		context->api->log(context, LOG_CRIT, MSG_C_CRAWL_PROCESSORINIT "\n");
 		return -1;
 	}
-	crawl_set_updated(crawl, processor_handler_);
-	crawl_set_unchanged(crawl, processor_unchanged_handler_);
-	crawl_set_failed(crawl, processor_failed_handler_);
+	context->api->set_processor(context, processor);
+	processor->api->release(processor);
 	return 0;
 }
 
@@ -106,8 +156,8 @@ processor_init_context(CONTEXT *context)
 static int
 processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 {
-	CONTEXT *data;
-	PROCESSOR *pdata;
+	SPIDER *me;
+	PROCESSOR *processor;
 	const char *content_type, *uri, *location;
 	int r, status, ttl;
 	CRAWLSTATE state;
@@ -116,34 +166,37 @@ processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 
 	r = 0;
 	state = COS_ACCEPTED;
-	data = (CONTEXT *) userdata;
-	pdata = data->processor;
+	me = (SPIDER *) userdata;
+	processor = me->processor;
 	uri = crawl_obj_uristr(obj);
 	location = crawl_obj_redirect(obj);
 	content_type = crawl_obj_type(obj);
 	status = crawl_obj_status(obj);
-	log_printf(LOG_DEBUG, "processor_handler: URI is '%s', Content-Type is '%s', status is %d\n", uri, content_type, status);
+	me->api->log(me, LOG_DEBUG, "processor_handler: URI is '%s', Content-Type is '%s', status is %d\n", uri, content_type, status);
 	/* If there's a redirect, ensure the redirect target will be crawled */
 	if(status > 300 && status < 304)
 	{
+		/* If there's a redirect location (and it's not the same as the source URI,
+		 * enqueue the target, skipping further processing
+		 */
 		if(!location)
 		{
-			log_printf(LOG_ERR, MSG_E_CRAWL_DEADREDIRECT " from <%s> (HTTP status %d)\n", uri, status);
+			me->api->log(me, LOG_ERR, MSG_E_CRAWL_DEADREDIRECT " from <%s> (HTTP status %d)\n", uri, status);
 		}
 		else if(strcmp(location, uri))
 		{
-			log_printf(LOG_DEBUG, "processor_handler: following %d redirect to <%s>\n", status, location);
+			me->api->log(me, LOG_DEBUG, "processor_handler: following %d redirect to <%s>\n", status, location);
 			queue_add_uristr(crawl, location);
 		}
 		state = COS_SKIPPED;
 	}
 	else
 	{
-		log_printf(LOG_DEBUG, "processor_handler: object has been updated\n");
+		me->api->log(me, LOG_DEBUG, "processor_handler: object has been updated\n");
 	}
 	if(state == COS_ACCEPTED)
 	{
-		r = pdata->api->process(pdata, obj, uri, content_type);
+		r = processor->api->process(processor, obj, uri, content_type);
 		if(r < 0)
 		{
 			state = COS_FAILED;
@@ -159,7 +212,7 @@ processor_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 	}		
 	if(state == COS_ACCEPTED)
 	{
-		log_printf(LOG_INFO, MSG_I_CRAWL_ACCEPTED " <%s>\n", uri);
+		me->api->log(me, LOG_INFO, MSG_I_CRAWL_ACCEPTED " <%s>\n", uri);
 		ttl = 86400;
 	}
 	else
@@ -174,14 +227,15 @@ static int
 processor_unchanged_handler_(CRAWL *crawl, CRAWLOBJ *obj, time_t prevtime, void *userdata)
 {
 	const char *uri;
-	
+	SPIDER *me;
+
 	(void) obj;
 	(void) prevtime;
-	(void) userdata;
 
+	me = (SPIDER *) userdata;
 	uri = crawl_obj_uristr(obj);
-	
-	log_printf(LOG_DEBUG, "processor_unchanged_handler: object has not been updated\n");
+
+	me->api->log(me, LOG_DEBUG, "processor_unchanged_handler: object has not been updated\n");
 	return queue_unchanged_uristr(crawl, uri, 0);
 }
 

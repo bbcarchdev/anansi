@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014-2015 BBC
+ * Copyright 2014-2017 BBC
  */
 
 /*
@@ -45,10 +45,12 @@ static struct processor_api_struct rdf_api = {
 };
 
 PROCESSOR *
-rdf_create(CRAWL *crawler)
+spider_processor_rdf_create_(SPIDER *spider)
 {
 	PROCESSOR *p;
-	
+	CRAWL *crawler;
+
+	crawler = spider->api->crawler(spider);
 	p = (PROCESSOR *) crawl_alloc(crawler, sizeof(PROCESSOR));
 	if(!p)
 	{
@@ -65,6 +67,7 @@ rdf_create(CRAWL *crawler)
 		crawl_free(crawler, p);
 		return NULL;
 	}
+	/* XXX This should via an API on the spider */
 	crawl_set_accept(crawler, "application/rdf+xml;q=1.0, text/rdf;q=0.6, application/n-triples;q=1.0, text/plain;q=0.1, text/turtle;q=1.0, application/x-turtle;q=1.0, application/turtle;q=1.0, text/n3;q=0.3, text/rdf+n3;q=0.3, application/rdf+n3;q=0.3, application/x-trig;q=1.0, text/x-nquads;q=1.0, */*;q=0.1");
 	return p;
 }
@@ -84,6 +87,10 @@ rdf_release(PROCESSOR *me)
 	me->refcount--;
 	if(!me->refcount)
 	{
+		if(me->storage)
+		{
+			librdf_free_storage(me->storage);
+		}
 		if(me->world)
 		{
 			librdf_free_world(me->world);
