@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2014-2015 BBC
+## Copyright 2014-2017 BBC
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -19,12 +19,12 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-DIST_SUBDIRS = m4 libcrawl libsupport \
-	util crawler t init.d docbook-html5 docs
+DIST_SUBDIRS = m4 libcrawl libsupport libspider \
+	crawler t init.d docbook-html5 docs
 
 SUBDIRS = @subdirs@ \
-	libcrawl libsupport \
-	util crawler t init.d docs
+	libcrawl libsupport libspider \
+	crawler t init.d docs
 
 EXTRA_DIST = README.md LICENSE-2.0
 
