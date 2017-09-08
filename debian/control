@@ -13,6 +13,11 @@ Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}, libsql, liburi, libjansson4, libssl1.0.0, libmysqlclient18, libcurl3, libxml2, librdf0, libawsclient
 Description: RES Anansi Linked Open Data crawler (libraries)
 
+Package: libcrawl-examples
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}, ${libcrawl} (= ${binary:Version})
+Description: Example tools built using libcrawl
+
 Package: anansi
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}, libcrawl, libcluster
@@ -27,5 +32,5 @@ Description: Anansi message queue plug-in for libmq
 
 Package: libcrawl-dev
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}, libcrawl, liburi-dev, libjansson-dev, libcluster-dev
+Depends: ${misc:Depends}, ${shlibs:Depends}, libcrawl (= ${binary:Version}), liburi-dev, libjansson-dev, libcluster-dev
 Description: RES Anansi Linked Open Data crawler (development files)
