@@ -19,14 +19,14 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin
 DESC="Anansi web crawler"
 ME=crawler
 NAME=crawld
-DAEMON="@SBINDIR@/$NAME"
+DAEMON="/usr/sbin/$NAME"
 DAEMON_ARGS=""
-PIDFILE="@LOCALSTATEDIR@/run/$NAME.pid"
+PIDFILE="/var/run/$NAME.pid"
 START=no
 
 [ -x "$DAEMON" ] || exit 0
 
-[ -r "@SYSCONFDIR@/default/$ME" ] && . "@SYSCONFDIR@/default/$ME"
+[ -r "/etc/default/$ME" ] && . "/etc/default/$ME"
 
 [ -d /lib/init ] && [ -r /lib/init/vars.sh ] && . /lib/init/vars.sh
 

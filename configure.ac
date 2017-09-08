@@ -161,7 +161,6 @@ libspider/processors/Makefile
 libspider/policies/Makefile
 mq/Makefile
 crawler/Makefile
-init.d/Makefile
 m4/Makefile
 docs/Makefile
 docbook-html5/Makefile
@@ -170,8 +169,6 @@ t/conf/Makefile
 t/conf/apache2.conf
 t/wwwroot/Makefile
 ])
-
-AC_CONFIG_FILES([init.d/crawler:init.d/crawler.sh.in],[chmod +x init.d/crawler])
 
 AC_CONFIG_FILES([t/run-apache-test.sh],[chmod +x t/run-apache-test.sh])
 
