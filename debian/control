@@ -15,7 +15,7 @@ Description: RES Anansi Linked Open Data crawler (libraries)
 
 Package: libcrawl-examples
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}, ${libcrawl} (= ${binary:Version})
+Depends: ${misc:Depends}, ${shlibs:Depends}, libcrawl (= ${binary:Version})
 Description: Example tools built using libcrawl
 
 Package: anansi
