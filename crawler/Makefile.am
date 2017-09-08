@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2014-2015 BBC
+## Copyright 2014-2017 BBC
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -26,15 +26,21 @@ AM_CPPFLAGS = @AM_CPPFLAGS@ @CPPFLAGS@ \
 
 sbin_PROGRAMS = crawld
 
-bin_PROGRAMS = crawler-add
+bin_PROGRAMS = anansi-add anansi-partition
 
 crawld_SOURCES = p_crawld.h crawld.c cluster.c thread.c
 crawld_LDADD = $(top_builddir)/libspider/libspider.la \
 	$(top_builddir)/libsupport/libsupport.la \
 	$(LIBCLUSTER_LOCAL_LIBS) $(LIBCLUSTER_LIBS)
 
-crawler_add_SOURCES = p_crawld.h add.c
-crawler_add_LDADD = $(top_builddir)/libspider/libspider.la \
+anansi_add_SOURCES = p_crawld.h add.c
+anansi_add_LDADD = $(top_builddir)/libspider/libspider.la \
+	$(top_builddir)/libsupport/libsupport.la \
+	$(LIBCLUSTER_LOCAL_LIBS) $(LIBCLUSTER_LIBS) \
+	$(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS)
+
+anansi_partition_SOURCES = p_crawld.h partition.c
+anansi_partition_LDADD = $(top_builddir)/libspider/libspider.la \
 	$(top_builddir)/libsupport/libsupport.la \
 	$(LIBCLUSTER_LOCAL_LIBS) $(LIBCLUSTER_LIBS) \
 	$(LIBURI_LOCAL_LIBS) $(LIBURI_LIBS)
