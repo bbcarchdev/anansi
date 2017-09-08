@@ -50,6 +50,7 @@ BT_REQUIRE_LIBRDF
 BT_REQUIRE_LIBUUID
 BT_REQUIRE_LIBXML2
 BT_REQUIRE_LIBJANSSON
+BT_REQUIRE_LIBMQ
 
 dnl Always check for possibly-included libraries last to prevent link failures
 dnl (due to not-yet-built libraries) breaking tests
@@ -57,6 +58,7 @@ BT_REQUIRE_LIBAWSCLIENT_INCLUDED
 BT_REQUIRE_LIBURI_INCLUDED
 BT_REQUIRE_LIBSQL_INCLUDED
 BT_REQUIRE_LIBCLUSTER_INCLUDED
+
 LIBS="$save_LIBS"
 
 extra_libs="$OPENSSL_INSTALLED_LIBS $LIBCURL_INSTALLED_LIBS $LIBURI_INSTALLED_LIBS $LIBJANSSON_INSTALLED_LIBS"
@@ -157,6 +159,7 @@ libspider/Makefile
 libspider/queues/Makefile
 libspider/processors/Makefile
 libspider/policies/Makefile
+mq/Makefile
 crawler/Makefile
 init.d/Makefile
 m4/Makefile

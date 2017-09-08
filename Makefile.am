@@ -20,11 +20,11 @@
 ACLOCAL_AMFLAGS = -I m4
 
 DIST_SUBDIRS = m4 libcrawl libsupport libspider \
-	crawler t init.d docbook-html5 docs
+	crawler mq t init.d docbook-html5 docs
 
 SUBDIRS = @subdirs@ \
 	libcrawl libsupport libspider \
-	crawler t init.d docs
+	crawler mq t init.d docs
 
 EXTRA_DIST = README.md LICENSE-2.0
 
@@ -50,3 +50,6 @@ checkout:
 		git pull && \
 		cd .. ; \
 	done
+
+reconf:
+	autoreconf -i && $(SHELL) ./config.status --recheck && $(SHELL) ./config.status

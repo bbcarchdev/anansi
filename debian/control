@@ -6,7 +6,7 @@ Standards-Version: 3.9.3
 Homepage: http://bbcarchdev.github.io/res/
 Vcs-Browser: https://github.com/bbcarchdev/anansi
 Vcs-Git: git://github.com/bbcarchdev/anansi.git
-Build-Depends: debhelper (>= 8.0.0), libsql-dev (>= 7.1.1), liburi-dev, libjansson-dev, libmysqlclient-dev, libcurl4-gnutls-dev, libxml2-dev, librdf0-dev, pkg-config, autoconf, automake, libtool, libltdl-dev, uuid-dev, libcluster-dev (>= 5.0.0), libawsclient-dev
+Build-Depends: debhelper (>= 8.0.0), libsql-dev (>= 7.1.1), liburi-dev, libjansson-dev, libmysqlclient-dev, libcurl4-gnutls-dev, libxml2-dev, librdf0-dev, pkg-config, autoconf, automake, libtool, libltdl-dev, uuid-dev, libcluster-dev (>= 5.0.0), libawsclient-dev, libmq-dev
 
 Package: libcrawl
 Architecture: any
@@ -19,6 +19,11 @@ Depends: ${misc:Depends}, ${shlibs:Depends}, libcrawl, libcluster
 Description: RES Anansi Linked Open Data crawler
  Anansi is a web crawler (or 'spider') designed to find and process RDF
  published as Linked Open Data.
+
+Package: libmq-anansi
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}, libmq, libsql, liburi, libcluster
+Description: Anansi message queue plug-in for libmq
 
 Package: libcrawl-dev
 Architecture: any
