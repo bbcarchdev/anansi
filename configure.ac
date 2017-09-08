@@ -1,6 +1,6 @@
 ## Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
 ##
-## Copyright 2014-2015 BBC
+## Copyright 2014-2017 BBC
 
 ## Copyright 2013 Mo McRoberts.
 ##
@@ -17,12 +17,12 @@
 ##  limitations under the License.
 ##
 
-AC_INIT([anansi],[master])
-
+AC_INIT([anansi],m4_esyscmd([/bin/sh m4/get-version.sh]),[RESFeedback@bbc.co.uk],,[https://github.com/bbcarchdev/anansi])
 AC_CONFIG_MACRO_DIR([m4])
-
+AC_CONFIG_AUX_DIR([scripts])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 AM_MAINTAINER_MODE
+
 AC_CONFIG_HEADER([config.h])
 
 BT_PROG_XCODE
