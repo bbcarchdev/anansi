@@ -633,7 +633,8 @@ db_next_txn(SQL *db, void *userdata)
 					" \"root\".\"hash\" = \"res\".\"root\" AND "
 					" \"root\".\"earliest_update\" < NOW() AND "
 					" \"res\".\"next_fetch\" < NOW() "
-					" ORDER BY \"res\".\"state\" = 'NEW' DESC, \"root\".\"earliest_update\" ASC, \"res\".\"next_fetch\" ASC, \"root\".\"rate\" ASC",
+					" ORDER BY \"res\".\"state\" = 'NEW' DESC, \"root\".\"earliest_update\" ASC, \"res\".\"next_fetch\" ASC, \"root\".\"rate\" ASC "
+					" LIMIT 1",
 					me->ncrawlers, me->crawler_id);
 	if(!rs)
 	{
