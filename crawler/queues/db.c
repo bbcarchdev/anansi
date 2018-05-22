@@ -1,6 +1,6 @@
 /* Author: Mo McRoberts <mo.mcroberts@bbc.co.uk>
  *
- * Copyright 2014-2016 BBC
+ * Copyright 2014-2018 BBC
  */
 
 /*
@@ -529,6 +529,51 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 		}
 		return 0;
 	}
+	if(newversion == 8)
+	{
+		switch(variant)
+		{
+		case SQL_VARIANT_MYSQL:
+			if(sql_execute(sql, "CREATE TABLE \"crawl_queue\" ("
+				"\"id\" bigint NOT NULL auto_increment,"
+				"\"hash\" varchar(32) NOT NULL,"
+				"\"tinyhash\" integer NOT NULL,"
+				"\"root\" varchar(32) NOT NULL,"
+				"PRIMARY KEY (id),"
+				"INDEX (hash),"
+				"INDEX (tinyhash),"
+				"INDEX (root)"
+				");"))
+			{
+				return -1;
+			}
+			break;
+		case SQL_VARIANT_POSTGRES:
+			if(sql_execute(sql, "CREATE TABLE \"crawl_queue\" ("
+				"\"id\" SERIAL PRIMARY KEY,"
+				"\"hash\" varchar(32) NOT NULL,"
+				"\"tinyhash\" integer NOT NULL,"
+				"\"root\" varchar(32) NOT NULL"
+				");"))
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "CREATE INDEX \"crawl_queue_hash\" ON \"crawl_queue\" (\"hash\");"))
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "CREATE INDEX \"crawl_queue_tinyhash\" ON \"crawl_queue\" (\"tinyhash\");"))
+			{
+				return -1;
+			}
+			if(sql_execute(sql, "CREATE INDEX \"crawl_queue_root\" ON \"crawl_queue\" (\"root\");"))
+			{
+				return -1;
+			}
+			break;
+		}
+		return 0;
+	}
 	return -1;
 }
 
@@ -610,7 +655,7 @@ db_next_txn(SQL *db, void *userdata)
 	size_t needed;
 	char *p;
 	char statebuf[32];
-	char root_hash[36];
+	char hash[36], root_hash[36];
 	char timestr[32];
 	int root_rate;
 	time_t now;
@@ -622,20 +667,29 @@ db_next_txn(SQL *db, void *userdata)
 
 	/* Query for the next valid resource, fetching its URI, state, and
 	 * associated root hash and fetch rate
+	 *
+	 * Since scheme version #8, we do this in two parts: first, we find the
+	 * hash of the resource (and some information about the root), then
+	 * we fetch the remainder of the details.
 	 */
-	rs = sql_queryf(db,
-					"SELECT \"res\".\"uri\", \"res\".\"state\", \"root\".\"hash\", \"root\".\"rate\" "
-					" FROM "
-					" \"crawl_resource\" \"res\", \"crawl_root\" \"root\" "
-					" WHERE "
-					" \"root\".\"rate\" > 0 AND "
-					" \"res\".\"tinyhash\" %% %d = %d AND "
-					" \"root\".\"hash\" = \"res\".\"root\" AND "
-					" \"root\".\"earliest_update\" < NOW() AND "
-					" \"res\".\"next_fetch\" < NOW() "
-					" ORDER BY \"res\".\"state\" = 'NEW' DESC, \"root\".\"earliest_update\" ASC, \"res\".\"next_fetch\" ASC, \"root\".\"rate\" ASC "
-					" LIMIT 1",
-					me->ncrawlers, me->crawler_id);
+	rs = sql_queryf(db, "SELECT "
+			" \"queue\".\"hash\", "
+			" \"root\".\"rate\", "
+			" \"root\".\"hash\" "
+			" FROM "
+			"\"crawl_queue\" \"queue\" "
+			"INNER JOIN "
+			" \"crawl_root\" \"root\" "
+			" ON "
+			"  \"root\".\"hash\" = \"queue\".\"root\" "
+			"WHERE "
+			" \"root\".\"rate\" > 0 AND "
+			" \"root\".\"earliest_update\" < NOW() AND "
+			" \"queue\".\"tinyhash\" %% %d = %d "
+			"ORDER BY "
+			" \"queue\".\"id\" ASC "
+			"LIMIT 1",
+			me->ncrawlers, me->crawler_id);
 	if(!rs)
 	{
 		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
@@ -643,13 +697,30 @@ db_next_txn(SQL *db, void *userdata)
 	}
 	if(sql_stmt_eof(rs))
 	{
+		sql_stmt_destroy(rs);
 		return SQL_TXN_ROLLBACK;
+	}
+	sql_stmt_value(rs, 0, hash, sizeof(hash));
+	root_rate = (int) sql_stmt_long(rs, 1);
+	sql_stmt_value(rs, 2, root_hash, sizeof(root_hash));
+	sql_stmt_destroy(rs);
+	
+	rs = sql_queryf(db,
+						"SELECT \"res\".\"uri\", \"res\".\"state\" "
+						" FROM "
+						" \"crawl_resource\" \"res\""
+						" WHERE "
+						" \"res\".\"hash\" = %Q",
+						hash);
+	if(!rs)
+	{
+		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
+		return SQL_TXN_ABORT;
 	}
 	if(sql_stmt_eof(rs))
 	{
-/*		log_printf(LOG_DEBUG, "db_next: queue query returned no results\n"); */
 		sql_stmt_destroy(rs);
-		return 0;
+		return SQL_TXN_ROLLBACK;
 	}
 	memset(statebuf, 0, sizeof(statebuf));
 	sql_stmt_value(rs, 1, statebuf, sizeof(statebuf));
@@ -699,8 +770,6 @@ db_next_txn(SQL *db, void *userdata)
 		return SQL_TXN_ABORT;
 	}
 	data->uristr = me->buf;
-	sql_stmt_value(rs, 2, root_hash, sizeof(root_hash));
-	root_rate = (int) sql_stmt_long(rs, 3);	
 	sql_stmt_destroy(rs);
 	/* To prevent race-conditions (#41), update crawl_root.earliest_update
 	 * immediately
@@ -867,7 +936,9 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 	struct tm tm;
 	time_t now;
 	const char *statestr;
+	int dequeue;
 	
+	dequeue = 1;
 	if(db_uristr_key_root(me, uristr, &canonical, cachekey, &shortkey, &root, rootkey))
 	{
 		return -1;
@@ -897,6 +968,11 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 	{
 	case COS_NEW:
 		statestr = "NEW";
+		dequeue = 0;
+		break;
+	case COS_FORCE:
+		statestr = "FORCE";
+		dequeue = 0;
 		break;
 	case COS_ERR:
 	case COS_FAILED:
@@ -911,12 +987,17 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 	case COS_COMPLETE:
 		statestr = "COMPLETE";
 		break;
-	case COS_FORCE:
-		statestr = "FORCE";
-		break;
 	case COS_SKIPPED:
 		statestr = "SKIPPED";
 		break;
+	}
+	if(dequeue)
+	{
+		if(sql_executef(me->db, "DELETE FROM \"crawl_queue\" WHERE \"hash\" = %Q", cachekey))
+		{
+			log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
+			exit(1);
+		}
 	}
 	if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"updated\" = %Q, \"last_modified\" = %Q, \"status\" = %d, \"crawl_instance\" = NULL, \"state\" = %Q WHERE \"hash\" = %Q",
 					updatedstr, lastmodstr, status, statestr, cachekey))
@@ -1035,7 +1116,13 @@ db_unchanged_uristr(QUEUE *me, const char *uristr, int error)
 		{
 			log_printf(LOG_CRIT, MSG_C_DB_SQL "%s\n", sql_error(me->db));
 			exit(1);
-		}		
+		}
+	}
+	/* Dequeue the resource */
+	if(sql_executef(me->db, "DELETE FROM \"crawl_queue\" WHERE \"hash\" = %Q", cachekey))
+	{
+		log_printf(LOG_CRIT, MSG_C_DB_SQL "%s\n", sql_error(me->db));
+		exit(1);
 	}
 	return 0;
 }
@@ -1125,11 +1212,11 @@ db_insert_resource_txn(SQL *db, void *userdata)
 {
 	struct resource_insert *data;
 	SQL_STATEMENT *rs;
-	int crawl_bucket, cache_bucket;
+	int crawl_bucket, cache_bucket, enqueue;
 	
 	data = (struct resource_insert *) userdata;
-	
-	rs = sql_queryf(db, "SELECT * FROM \"crawl_resource\" WHERE \"hash\" = %Q", data->cachekey);
+	enqueue = 0;
+	rs = sql_queryf(db, "SELECT \"state\" FROM \"crawl_resource\" WHERE \"hash\" = %Q", data->cachekey);
 	if(!rs)
 	{
 		/* rollback with error */
@@ -1137,6 +1224,16 @@ db_insert_resource_txn(SQL *db, void *userdata)
 	}
 	if(!sql_stmt_eof(rs))
 	{
+		/* The resource already exists in the table; depending upon its state,
+		 * we may need to also add it to the crawl_queue
+		 */
+		if(strcmp(sql_stmt_str(rs, 0), "NEW") && strcmp(sql_stmt_str(rs, 0), "FORCE"))
+		{
+			/* The state is not "NEW" or "FORCE"; this means it's not yet in
+			 * queue.
+			 */
+			enqueue = 1;
+		}
 		sql_stmt_destroy(rs);
 		if(data->force)
 		{
@@ -1151,12 +1248,32 @@ db_insert_resource_txn(SQL *db, void *userdata)
 				/* non-deadlock error */
 				return -2;
 			}
-			/* commit */
+		}
+		if(enqueue)
+		{
+			sql_executef(db, "DELETE FROM \"crawl_queue\" WHERE \"hash\" = %Q", data->cachekey);
+			if(sql_executef(db, "INSERT INTO \"crawl_queue\" (\"hash\", \"tinyhash\", \"root\") VALUES (%Q, %d, %Q)",
+				data->cachekey, data->shortkey % 256, data->rootkey))
+			{
+				/* INSERT failed */
+				if(sql_deadlocked(db))
+				{
+					/* rollback and retry */
+					return -1;
+				}
+				/* non-deadlock error */
+				return -2;
+			}
+		}
+		/* If we did anything, commit the transaction */
+		if(enqueue || data->force)
+		{
 			return 1;
 		}
-		/* rollback with success */
+		/* otherwise rollback with success */
 		return 0;
 	}
+	/* resource isn't present in the table */
 	if(data->me->ncrawlers)
 	{
 		crawl_bucket = data->shortkey % data->me->ncrawlers;
@@ -1173,8 +1290,20 @@ db_insert_resource_txn(SQL *db, void *userdata)
 	{
 		cache_bucket = 0;
 	}
-	/* resource isn't present in the table */
 	if(sql_executef(db, "INSERT INTO \"crawl_resource\" (\"hash\", \"shorthash\", \"tinyhash\", \"crawl_bucket\", \"cache_bucket\", \"root\", \"uri\", \"added\", \"next_fetch\", \"state\") VALUES (%Q, %lu, %d, %d, %d, %Q, %Q, NOW(), NOW(), %Q)", data->cachekey, data->shortkey, (data->shortkey % 256), crawl_bucket, cache_bucket, data->rootkey, data->uri, "NEW"))
+	{
+		/* INSERT failed */
+		if(sql_deadlocked(db))
+		{
+			/* rollback and retry */
+			return -1;
+		}
+		/* non-deadlock error */
+		return -2;
+	}
+	sql_executef(db, "DELETE FROM \"crawl_queue\" WHERE \"hash\" = %Q", data->cachekey);
+	if(sql_executef(db, "INSERT INTO \"crawl_queue\" (\"hash\", \"tinyhash\", \"root\") VALUES (%Q, %d, %Q)",
+		data->cachekey, data->shortkey % 256, data->rootkey))
 	{
 		/* INSERT failed */
 		if(sql_deadlocked(db))
