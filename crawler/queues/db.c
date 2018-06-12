@@ -255,7 +255,7 @@ db_migrate(SQL *restrict sql, const char *identifier, int newversion, void *rest
 	if(newversion == 0)
 	{
 		/* Return target version */
-		return 7;
+		return 8;
 	}
 	log_printf(LOG_NOTICE, MSG_N_DB_MIGRATING " to version %d\n", newversion);
 	if(newversion == 1)
