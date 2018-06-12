@@ -1326,9 +1326,9 @@ db_insert_resource_txn(SQL *db, void *userdata)
 			/* rollback and retry */
 			return -1;
 		}
+		/* non-deadlock error */
+		return -2;
 	}
-	/* non-deadlock error */
-	return -2;
 	if(sql_executef(db, "INSERT INTO \"crawl_queue\" (\"hash\", \"tinyhash\", \"root\") VALUES (%Q, %d, %Q)",
 		data->cachekey, data->shortkey % 256, data->rootkey))
 	{
