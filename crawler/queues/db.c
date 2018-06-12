@@ -1234,7 +1234,7 @@ db_insert_resource_txn(SQL *db, void *userdata)
 		/* The resource already exists in the table; depending upon its state,
 		 * we may need to also add it to the crawl_queue
 		 */
-		if(!strcmp(sql_stmt_str(rs, 0), "NEW") || strcmp(sql_stmt_str(rs, 0), "FORCE") || data->force)
+		if(!strcmp(sql_stmt_str(rs, 0), "NEW") || !strcmp(sql_stmt_str(rs, 0), "FORCE") || data->force)
 		{
 			/* Either it previously was already 'NEW' or 'FORCE', or it's about to be */
 			enqueue = 1;
