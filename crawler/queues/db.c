@@ -673,23 +673,23 @@ db_next_txn(SQL *db, void *userdata)
 	 * we fetch the remainder of the details.
 	 */
 	rs = sql_queryf(db, "SELECT "
-			" \"queue\".\"hash\", "
-			" \"root\".\"rate\", "
-			" \"root\".\"hash\" "
-			" FROM "
-			"\"crawl_queue\" \"queue\" "
-			"INNER JOIN "
-			" \"crawl_root\" \"root\" "
-			" ON "
-			"  \"root\".\"hash\" = \"queue\".\"root\" "
-			"WHERE "
-			" \"root\".\"rate\" > 0 AND "
-			" \"root\".\"earliest_update\" < NOW() AND "
-			" \"queue\".\"tinyhash\" %% %d = %d "
-			"ORDER BY "
-			" \"queue\".\"id\" ASC "
-			"LIMIT 1",
-			me->ncrawlers, me->crawler_id);
+		" \"queue\".\"hash\", "
+		" \"root\".\"rate\", "
+		" \"root\".\"hash\" "
+		" FROM "
+		"\"crawl_queue\" \"queue\" "
+		"INNER JOIN "
+		" \"crawl_root\" \"root\" "
+		" ON "
+		"  \"root\".\"hash\" = \"queue\".\"root\" "
+		"WHERE "
+		" \"root\".\"rate\" > 0 AND "
+		" \"root\".\"earliest_update\" < NOW() AND "
+		" \"queue\".\"tinyhash\" %% %d = %d "
+		"ORDER BY "
+		" \"queue\".\"id\" ASC "
+		"LIMIT 1",
+		me->ncrawlers, me->crawler_id);
 	if(!rs)
 	{
 		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
@@ -706,12 +706,12 @@ db_next_txn(SQL *db, void *userdata)
 	sql_stmt_destroy(rs);
 	
 	rs = sql_queryf(db,
-						"SELECT \"res\".\"uri\", \"res\".\"state\" "
-						" FROM "
-						" \"crawl_resource\" \"res\""
-						" WHERE "
-						" \"res\".\"hash\" = %Q",
-						hash);
+		"SELECT \"res\".\"uri\", \"res\".\"state\" "
+		" FROM "
+		" \"crawl_resource\" \"res\""
+		" WHERE "
+		" \"res\".\"hash\" = %Q",
+		hash);
 	if(!rs)
 	{
 		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
@@ -784,7 +784,7 @@ db_next_txn(SQL *db, void *userdata)
 	gmtime_r(&now, &tm);
 	strftime(timestr, 32, "%Y-%m-%d %H:%M:%S", &tm);
 	if(sql_executef(db, "UPDATE \"crawl_root\" SET \"earliest_update\" = %Q WHERE \"hash\" = %Q AND \"earliest_update\" < %Q",
-					timestr, root_hash, timestr) < 0)
+		timestr, root_hash, timestr) < 0)
 	{
 		return SQL_TXN_RETRY;
 	}
@@ -993,28 +993,34 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 	}
 	if(dequeue)
 	{
+		/* The new state of the resource isn't one which means it should be
+		 * in the queue, so remove it if it's present
+		 */
 		if(sql_executef(me->db, "DELETE FROM \"crawl_queue\" WHERE \"hash\" = %Q", cachekey))
 		{
 			log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
 			exit(1);
 		}
 	}
+	/* Update timestamp */
 	if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"updated\" = %Q, \"last_modified\" = %Q, \"status\" = %d, \"crawl_instance\" = NULL, \"state\" = %Q WHERE \"hash\" = %Q",
-					updatedstr, lastmodstr, status, statestr, cachekey))
+		updatedstr, lastmodstr, status, statestr, cachekey))
 	{
 		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
 		exit(1);
 	}
+	/* Update next-fetch timestamp */
 	if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"next_fetch\" = %Q WHERE \"hash\" = %Q AND \"next_fetch\" < %Q",
-					nextfetchstr, cachekey, nextfetchstr))
+		nextfetchstr, cachekey, nextfetchstr))
 	{
 		log_printf(LOG_CRIT, MSG_C_DB_SQL ": %s\n", sql_error(me->db));
 		exit(1);
 	}
+	/* Update the root timestamps */
 	now = time(NULL);
 	gmtime_r(&now, &tm);
 	strftime(lastmodstr, 32, "%Y-%m-%d %H:%M:%S", &tm);
-	now += 2;
+	now++;
 	strftime(nextfetchstr, 32, "%Y-%m-%d %H:%M:%S", &tm);
 	if(sql_executef(me->db, "UPDATE \"crawl_root\" SET \"last_updated\" = %Q WHERE \"hash\" = %Q", lastmodstr, rootkey))
 	{
@@ -1026,6 +1032,7 @@ db_updated_uristr(QUEUE *me, const char *uristr, time_t updated, time_t last_mod
 		log_printf(LOG_CRIT, MSG_C_DB_SQL "%s\n", sql_error(me->db));
 		exit(1);
 	}
+	/* Update error counters */
 	if(status >= 400 && status < 499)
 	{
 		if(sql_executef(me->db, "UPDATE \"crawl_resource\" SET \"error_count\" = \"error_count\" + 1 WHERE \"hash\" = %Q", cachekey))
@@ -1118,7 +1125,7 @@ db_unchanged_uristr(QUEUE *me, const char *uristr, int error)
 			exit(1);
 		}
 	}
-	/* Dequeue the resource */
+	/* If a resource is unchanged, it's always dequeued the resource */
 	if(sql_executef(me->db, "DELETE FROM \"crawl_queue\" WHERE \"hash\" = %Q", cachekey))
 	{
 		log_printf(LOG_CRIT, MSG_C_DB_SQL "%s\n", sql_error(me->db));
@@ -1251,7 +1258,17 @@ db_insert_resource_txn(SQL *db, void *userdata)
 		}
 		if(enqueue)
 		{
-			sql_executef(db, "DELETE FROM \"crawl_queue\" WHERE \"hash\" = %Q", data->cachekey);
+			if(sql_executef(db, "DELETE FROM \"crawl_queue\" WHERE \"hash\" = %Q", data->cachekey))
+			{
+				/* DELETE failed */
+				if(sql_deadlocked(db))
+				{
+					/* rollback and retry */
+					return -1;
+				}
+				/* non-deadlock error */
+				return -2;
+			}
 			if(sql_executef(db, "INSERT INTO \"crawl_queue\" (\"hash\", \"tinyhash\", \"root\") VALUES (%Q, %d, %Q)",
 				data->cachekey, data->shortkey % 256, data->rootkey))
 			{
@@ -1301,7 +1318,17 @@ db_insert_resource_txn(SQL *db, void *userdata)
 		/* non-deadlock error */
 		return -2;
 	}
-	sql_executef(db, "DELETE FROM \"crawl_queue\" WHERE \"hash\" = %Q", data->cachekey);
+	if(sql_executef(db, "DELETE FROM \"crawl_queue\" WHERE \"hash\" = %Q", data->cachekey))
+	{
+		/* INSERT failed */
+		if(sql_deadlocked(db))
+		{
+			/* rollback and retry */
+			return -1;
+		}
+	}
+	/* non-deadlock error */
+	return -2;
 	if(sql_executef(db, "INSERT INTO \"crawl_queue\" (\"hash\", \"tinyhash\", \"root\") VALUES (%Q, %d, %Q)",
 		data->cachekey, data->shortkey % 256, data->rootkey))
 	{
